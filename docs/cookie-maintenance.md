@@ -1,7 +1,6 @@
 # Cookie 維護指南
 
 > StudyArk 要 Google 登入才能完整使用,我們的 server 端需要共用一份有效的 cookies。
-> 這份文件說明怎麼取得、儲存、刷新、過期怎麼辦。
 
 ---
 
@@ -9,117 +8,78 @@
 
 - **cookies 是這個專案的命脈** — 沒 cookies = 整個服務掛掉
 - **cookies 千萬不要 commit 到 git**(就算 private repo 也別)
-- **cookies 過期就要手動重抓** — Google 登入 cookies 預設有效期約 1-3 個月,看設定
+- **cookies 過期就要手動重抓** — Google 登入 cookies 預設有效期約 1-3 個月
 
 ---
 
-## 🎯 取得 Cookies(一次性)
+## 📁 cookies 檔案位置
+
+```
+/home/aping/TQark-web/data/cookies/studyark_cookies.json
+```
+
+權限:`chmod 600`(只有 owner 可以讀寫)
+
+---
+
+## 🎯 取得 Cookies(一次性 + 過期更新)
 
 ### Step 1: 用 Playwright 手動登入
 
 ```bash
-# 在要部署的機器上(或本機)
-python3 << 'EOF'
-from playwright.sync_api import sync_playwright
-import json
+# SSH 進 server
+ssh aping@just4fun.myiphost.com
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)  # 重要:要 visible 才能登入
-    context = browser.new_context()
-    page = context.new_page()
-    
-    # 1. 開 Google 登入頁
-    page.goto("https://accounts.google.com/")
-    
-    # 2. 這時你自己手動登入(輸入帳密、2FA 等)
-    input("登入完按 Enter...")
-    
-    # 3. 開 StudyArk 看是不是登入狀態
-    page.goto("https://www.studyark.org/")
-    if "登入" in page.content():
-        print("❌ StudyArk 還沒登入,試試看重新整理")
-    else:
-        print("✅ StudyArk 登入成功")
-    
-    # 4. 存 cookies
-    cookies = context.cookies()
-    with open("/path/to/cookies.json", "w") as f:
-        json.dump(cookies, f, indent=2)
-    
-    print(f"✅ 已存 {len(cookies)} 個 cookies 到 /path/to/cookies.json")
-    browser.close()
-EOF
+# 進專案目錄
+cd /home/aping/TQark-web
+
+# 啟動 venv
+cd backend
+source .venv/bin/activate
+
+# 跑 cookie 取得 script(Phase 1 才會寫,這是示意)
+python3 -m app.scripts.refresh_cookies
 ```
 
-### Step 2: 放到正確位置
+`refresh_cookies.py` 會做:
+1. 開 Playwright(visible 模式)
+2. 開 Google 登入頁
+3. **你在視窗裡手動登入**(輸入帳密、2FA 等)
+4. 開 StudyArk 確認登入狀態
+5. 存 cookies 到 `data/cookies/studyark_cookies.json`
+6. 印出「Cookies saved!」
+
+### Step 2: 驗證 cookies 有效
 
 ```bash
-# 本機開發
-cp ~/Downloads/cookies.json backend/data/cookies/studyark_cookies.json
-
-# Docker 部署
-cp ~/Downloads/cookies.json ./data/cookies/studyark_cookies.json
-
-# 確認權限
-chmod 600 ./data/cookies/studyark_cookies.json
+# 用 FastAPI /health endpoint 驗證
+curl -s https://just4fun.myiphost.com:8443/health | python3 -m json.tool
 ```
+
+看 `cookies_valid` 是否為 `true`、`cookies_expires_at` 還有多久。
 
 ---
 
 ## 🔄 定期檢查 + 自動 Alert
 
-### 健康檢查 endpoint
+### /health 自動檢查
 
-```python
-# app/services/health.py
-import json
-from datetime import datetime, timedelta
+FastAPI 啟動時 + 每 10 分鐘跑一次 cookie age check,寫進 `/health` response。
 
-def check_cookie_age(cookies_path: str) -> dict:
-    """回傳 cookies 狀態"""
-    try:
-        with open(cookies_path) as f:
-            cookies = json.load(f)
-    except FileNotFoundError:
-        return {"status": "missing", "message": "cookies 檔案不存在"}
-    except json.JSONDecodeError:
-        return {"status": "corrupt", "message": "cookies 檔案格式錯誤"}
-    
-    # 找 SID/HSID 等 Google session cookies
-    google_session_cookies = [c for c in cookies if 'google.com' in c.get('domain', '')]
-    
-    if not google_session_cookies:
-        return {"status": "no_session", "message": "找不到 Google session cookies"}
-    
-    # 檢查 expires(如果有)
-    now = datetime.now().timestamp()
-    expiring_soon = []
-    for c in google_session_cookies:
-        expires = c.get('expires', -1)
-        if expires > 0:
-            days_left = (expires - now) / 86400
-            if days_left < 14:
-                expiring_soon.append({
-                    "name": c['name'],
-                    "days_left": round(days_left, 1)
-                })
-    
-    return {
-        "status": "ok" if not expiring_soon else "expiring_soon",
-        "total_cookies": len(cookies),
-        "google_session_cookies": len(google_session_cookies),
-        "expiring_soon": expiring_soon,
-    }
+```json
+{
+  "cookies_valid": true,
+  "cookies_expires_at": "2026-09-15T10:00:00",
+  "cookies_age_days": 25,
+  "cookies_will_expire_soon": false
+}
 ```
 
-### 接 cron + alert(之後實作)
+### 過期警告(Phase 2 加)
 
-```bash
-# 每天早上 9 點跑一次健康檢查
-0 9 * * * cd /path/to/TQark-web && \
-  python3 backend/scripts/check_health.py || \
-  echo "StudyArk cookies 異常,請手動檢查" | mail -s "⚠️ StudyArk Alert" william@example.com
-```
+如果 `cookies_expires_at` < 14 天:
+- 自動寄信給 admin(用 Google SMTP 或 SendGrid)
+- 或寫進 audit log + admin dashboard 顯示 banner
 
 ---
 
@@ -127,34 +87,53 @@ def check_cookie_age(cookies_path: str) -> dict:
 
 ### 症狀
 - 搜尋結果突然變空 / 全是登入提示
-- `/health` endpoint 回 `cookie_status: "expired"` 或 `"missing"`
-- 使用者回報「找不到試卷」
+- `/health` 回 `cookie_status: "expired"` 或 `"missing"`
+- User 回報「找不到試卷」
 
 ### 解決(15 分鐘 SOP)
 
-1. **SSH 進部署的機器**
-2. **跑 refresh script**(之後會寫,先用上面 Step 1 的 Playwright 流程)
-3. **驗證**:`curl http://localhost:8000/api/search?grade=8&year=113&semester=2&subject=國文`
-4. **確認 logs 沒異常**
+1. **SSH 進 server**
+2. **跑 refresh script**: `python3 -m app.scripts.refresh_cookies`
+3. **手動登入 Google**(在 Playwright 開的視窗)
+4. **驗證**:
+   ```bash
+   curl -s https://just4fun.myiphost.com:8443/health
+   ```
+5. **測一次搜尋**:
+   ```bash
+   curl -s "https://just4fun.myiphost.com:8443/api/search?grade=8&year=113&subject=國文" \
+     -H "Cookie: session=YOUR_JWT"
+   ```
+6. **確認 logs 沒異常**
 
 ---
 
 ## 🔐 安全注意事項
 
 ### 絕對不要做
-- ❌ 把 cookies commit 到 git(就算 public 也會被吃)
+- ❌ 把 cookies commit 到 git(就算 private 也會被吃)
 - ❌ 把 cookies 透過 email/Slack 明文傳
-- ❌ 把 cookies 上傳到任何第三方服務(除了部署機器本身)
+- ❌ 把 cookies 上傳到任何第三方服務
+- ❌ 把 cookies 路徑 hardcode 在程式碼(用 env var)
 
 ### 應該做
 - ✅ cookies 檔案權限 `chmod 600`
-- ✅ `.gitignore` 已排除(`*.cookies.json` 跟 `data/cookies/`)
-- ✅ 加密備份(用 age / gpg 之類,密碼存密碼管理器)
+- ✅ `.gitignore` 已排除(預設有 `data/cookies/` 跟 `*.cookies.json`)
+- ✅ 加密備份(用 `age` / `gpg`,密碼存密碼管理器)
 - ✅ 定期 rotate(就算沒過期也每 60 天換一次)
+
+### Backup 範例
+
+```bash
+# 用 age 加密備份
+age -p -o cookies.backup.age /home/aping/TQark-web/data/cookies/studyark_cookies.json
+# 會問你密碼,輸入後存到 cookies.backup.age
+# 這個檔可以放到外接硬碟 / cloud
+```
 
 ---
 
-## 📊 監控指標(理想狀態)
+## 📊 監控指標
 
 | 指標 | 健康 | 警告 | 嚴重 |
 |------|------|------|------|

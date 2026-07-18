@@ -1,6 +1,6 @@
 # 系統架構
 
-> 詳細說明 TQark Web 的系統組成、資料流、技術選型理由。
+> 詳細說明 TQark Web 的系統組成、資料流、技術選型理由、DB schema。
 
 ---
 
@@ -9,150 +9,157 @@
 ```
                   ┌──────────────────────────┐
                   │                          │
-   訪客瀏覽器 ──► │   Cloudflare Edge        │
-   (Web/Mobile)   │   - CDN cache            │
-                  │   - DDoS protection      │
-                  │   - Tunnel ingress       │
-                  │                          │
+   User/Admin  ──►│   Browser (User)         │
+   (Web UI)      │                          │
                   └────────────┬─────────────┘
-                               │ HTTPS (443)
+                               │ HTTPS (8443)
                                ▼
                   ┌──────────────────────────┐
-                  │  家裡主機 / VPS          │
+                  │  家裡 Router             │
+                  │  (Port Forwarding)       │
+                  └────────────┬─────────────┘
+                               │ LAN
+                               ▼
+                  ┌──────────────────────────┐
+                  │  GreenHouseUbuntu Linux  │
                   │  ┌────────────────────┐  │
-                  │  │   Nginx            │  │
-                  │  │   :443 → :8000     │  │
+                  │  │  Caddy :8443       │  │
+                  │  │  - HTTPS (Let's    │  │
+                  │  │    Encrypt auto)   │  │
+                  │  │  - Security headers│  │
                   │  └─────────┬──────────┘  │
                   │            ▼             │
                   │  ┌────────────────────┐  │
-                  │  │   FastAPI          │  │
-                  │  │   (Python 3.12)    │  │
-                  │  └────┬──────┬────┬──┘  │
-                  │       │      │    │     │
-                  │       ▼      ▼    ▼     │
-                  │   ┌─────┐ ┌────┐ ┌────┐ │
-                  │   │SQLite│ │PDF │ │Play│ │
-                  │   │meta  │ │cache│ │wri│ │
-                  │   │ .db  │ │ /dir│ │ght│ │
-                  │   └─────┘ └────┘ └─┬──┘ │
-                  │                     │    │
-                  └─────────────────────┼────┘
-                                        │ HTTPS
-                                        ▼
+                  │  │  FastAPI :8000     │  │
+                  │  │  (127.0.0.1 only)  │  │
+                  │  │                    │  │
+                  │  │  /auth/*           │  │
+                  │  │  /api/search       │  │
+                  │  │  /api/download     │  │
+                  │  │  /admin/*          │  │
+                  │  │  /health           │  │
+                  │  └──┬─────┬──────┬───┘  │
+                  │     │     │      │      │
+                  │     ▼     ▼      ▼      │
+                  │  ┌─────┐ ┌────┐ ┌────┐ │
+                  │  │SQLite│ │PDF │ │Play│ │
+                  │  │ DB  │ │cache│ │wri│ │
+                  │  │     │ │ /dir│ │ght│ │
+                  │  └─────┘ └────┘ └──┬─┘ │
+                  └────────────────────┼────┘
+                                       │ HTTPS
+                                       ▼
                               ┌──────────────────┐
                               │   StudyArk       │
                               │ studyark.org     │
                               │ (Google OAuth)   │
                               └──────────────────┘
+
+                  ┌──────────────────────────┐
+                  │  Google OAuth            │
+                  │  accounts.google.com     │
+                  └──────────────────────────┘
 ```
 
 ---
 
 ## 🔄 關鍵流程
 
-### 流程 A: 使用者搜尋試卷
+### 流程 A:User 申請 + Admin Approve
 
 ```
-使用者瀏覽器
-  │
-  │ GET /api/search?grade=8&year=113&semester=2&subject=國文&version=翰林
-  ▼
-FastAPI 接收請求
-  │
-  │ 1. 驗證參數 + rate limit 檢查
-  ▼
-MetadataCache (SQLite)
-  │
-  │ 2. 用篩選條件 hash 當 cache key 查詢
-  │
-  ├─ Cache HIT → 直接回 JSON
-  │
-  └─ Cache MISS → 進 step 3
-       │
-       │ 3. 啟動 Playwright,載入 StudyArk cookies
-       │ 4. 開啟 https://www.studyark.org/exam-search
-       │ 5. 套用篩選條件
-       │ 6. parse HTML → 試卷列表
-       │ 7. 寫進 SQLite cache(TTL 1 小時)
-       ▼
-     回 JSON 給瀏覽器
-       │
-       ▼
-     前端 render 結果列表
+1. User 開瀏覽器到 https://just4fun.myiphost.com:8443/
+2. 看到 landing page,點「Sign in with Google」
+3. 跳到 Google OAuth,選帳號,同意授權
+4. Google callback 到 /auth/google/callback?code=xxx
+5. FastAPI 用 code 換 access_token
+6. 從 Google API 拿 user info (email, name, picture, google_id)
+7. 查 users table:
+   - 不存在 → INSERT, status='pending', role='user'
+     (但 email 在 ADMIN_EMAILS env → role='admin')
+   - 存在 → UPDATE last_login_at
+8. 設 JWT cookie (httpOnly, SameSite=Strict, 24h expire)
+9. 重導到 /dashboard
+   - User status=pending → 看到「等待中」頁面
+   - User status=approved → 看到搜尋頁面
+   - User status=blocked → 看到「帳號被停用」
+
+10. User 填「為什麼想加入」訊息 → POST /api/access-requests
+11. 寫進 users.application_message
+
+12. Admin 登入 → /admin/users?status=pending
+13. 看到 User 申請 → 看訊息 → 點 Approve
+14. UPDATE users SET status='approved', approved_at=now(), approved_by=admin.id
+15. 寫 audit_log (action='user_approve', user_id=applicant.id)
+16. User 下次登入 → 看到搜尋介面
 ```
 
-### 流程 B: 使用者下載 PDF
+### 流程 B:搜尋試卷
 
 ```
-使用者瀏覽器
-  │
-  │ GET /api/download/{exam_id}
-  ▼
-FastAPI 接收請求
-  │
-  │ 1. Rate limit 檢查
-  ▼
-PDFCache (本地檔案系統)
-  │
-  │ 2. 檢查 ./cache/pdfs/{exam_id}.pdf 是否存在
-  │
-  ├─ HIT → FileResponse(200, application/pdf)
-  │
-  └─ MISS → 進 step 3
-       │
-       │ 3. 啟動 Playwright
-       │ 4. 用 exam_id 找到對應 StudyArk URL
-       │ 5. 點下載按鈕,等 PDF 下載完
-       │ 6. 存到 ./cache/pdfs/{exam_id}.pdf
-       │ 7. Content-Disposition 設定檔名(套用 William 格式)
-       ▼
-     FileResponse
+User (approved) → GET /api/search?grade=8&year=113&semester=2&subject=國文&version=翰林
+
+1. Auth middleware 驗 JWT cookie → 確認 user.status='approved'
+2. Rate limit check (slowapi, 10 req/min per user for search)
+3. 計算 cache_key = SHA256("8|113|2|國文|翰林")
+4. 查 search_cache table:
+   - hit (且沒過期) → increment hit_count → 回 JSON
+   - miss 或過期 → 進 step 5
+5. 啟動 Playwright,載入 StudyArk cookies
+6. 開啟 https://www.studyark.org/exam-search
+7. 套用篩選條件,wait for 結果列表
+8. Parse HTML → exam_metadata list
+9. 寫進 search_cache (TTL 1 小時)
+10. 寫 audit_log (action='search', target=query_params, user_id)
+11. 回 JSON 給前端
+```
+
+### 流程 C:下載 PDF
+
+```
+User → GET /api/download/{exam_id}
+
+1. Auth middleware 驗 JWT → 確認 user.status='approved'
+2. Rate limit check (5 req/min per user, 30 req/hour per user)
+3. 查 pdf_cache table:
+   - hit → FileResponse (更新 last_accessed_at) → 寫 audit_log
+   - miss → 進 step 4
+4. 查 exam_metadata 拿 studyark_url
+5. Playwright 開 StudyArk 頁面,點下載,等 PDF 檔
+6. 存到 ./data/pdfs/{exam_id}.pdf (chmod 644)
+7. INSERT pdf_cache (exam_id, file_path, size_bytes)
+8. FileResponse + Content-Disposition (套用 William 檔名格式)
+9. 寫 audit_log (action='download', target=exam_id, metadata={school, subject})
+```
+
+### 流程 D:Admin Block User
+
+```
+Admin → POST /admin/users/{id}/block
+
+1. Auth middleware 驗 JWT → 確認 user.role='admin'
+2. 確認 target user.id != self.id(不能 block 自己)
+3. UPDATE users SET status='blocked', blocked_at=now(), blocked_reason=?
+4. 寫 audit_log (action='user_block', user_id=target.id, metadata={by_admin, reason})
+5. 回 JSON { success: true }
+6. Target user 下次登入 → 看到「帳號被停用」
 ```
 
 ---
 
-## 🗄️ 資料模型
+## 🗄️ DB Schema
 
-### SQLite Schema (Metadata Cache)
+詳細 schema 見 [`docs/user-management.md`](docs/user-management.md) 第「技術細節」段。
 
-```sql
-CREATE TABLE IF NOT EXISTS search_cache (
-    cache_key TEXT PRIMARY KEY,        -- SHA256(grade|year|semester|subject|version)
-    query_params TEXT NOT NULL,        -- JSON: 原始篩選條件
-    results_json TEXT NOT NULL,        -- JSON: 試卷列表
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,     -- created_at + 1 hour
-    hit_count INTEGER DEFAULT 0
-);
+**核心 table 摘要**:
 
-CREATE TABLE IF NOT EXISTS exam_metadata (
-    exam_id TEXT PRIMARY KEY,          -- StudyArk 內部 ID
-    school_name TEXT NOT NULL,
-    grade INTEGER NOT NULL,
-    year INTEGER NOT NULL,             -- 民國年
-    semester INTEGER NOT NULL,         -- 1=上, 2=下
-    domain TEXT,                       -- 領域: 語文領域/數學領域...
-    subject TEXT NOT NULL,
-    exam_number INTEGER,               -- 第幾次段考
-    exam_type TEXT,                    -- 期中考/期末考
-    version TEXT,                      -- 翰林/康軒/南一
-    has_answer BOOLEAN DEFAULT FALSE,
-    studyark_url TEXT NOT NULL,
-    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS download_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    exam_id TEXT NOT NULL,
-    downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    source TEXT,                       -- 'cache' or 'studyark'
-    ip_hash TEXT                       -- 雜湊過的 IP(不存原始)
-);
-
-CREATE INDEX IF NOT EXISTS idx_search_expires ON search_cache(expires_at);
-CREATE INDEX IF NOT EXISTS idx_exam_lookup ON exam_metadata(grade, year, semester, subject, version);
-CREATE INDEX IF NOT EXISTS idx_download_log_time ON download_log(downloaded_at);
-```
+| Table | 用途 | 關鍵欄位 |
+|-------|------|---------|
+| `users` | User/Admin 資料 | email, name, role, status, google_id |
+| `search_cache` | 搜尋結果 cache | cache_key, results_json, expires_at |
+| `exam_metadata` | 試卷 metadata | exam_id, school, grade, year, subject, version |
+| `pdf_cache` | PDF 檔案索引 | exam_id, file_path, size_bytes |
+| `audit_log` | 所有操作記錄 | user_id, action, target, ip_hash |
 
 ---
 
@@ -165,27 +172,39 @@ CREATE INDEX IF NOT EXISTS idx_download_log_time ON download_log(downloaded_at);
 - 啟動快、記憶體小
 
 ### 為什麼純 HTML + Vanilla JS(不用 React/Vue)?
-- 整個 app 就 3 個頁面
+- 整個 app 就 3-5 個頁面(landing, login, search, admin)
 - Build step 對 1 個小 app 是純粹負擔
 - Tailwind CDN → 樣式漂亮但不用設定 webpack
-- 之後需要再升級不難(Next.js / Nuxt)
 
 ### 為什麼 SQLite?
-- 預估流量 < 100 req/day,SQLite 完全勝任
+- 預估 50+ user,< 100 req/day,SQLite 完全勝任
 - 不用額外 process / port
 - 本地檔案直接備份
 - 之後流量大可以無痛升 Postgres
 
-### 為什麼本地檔案 PDF cache(不用 S3)?
-- MVP 階段省事
-- 家裡硬碟夠大(都已經有外接 My Book)
-- 之後量大再搬到 Cloudflare R2(便宜,S3-compatible)
+### 為什麼 Caddy(不選 Nginx)?
+- **自動 HTTPS**(Let's Encrypt cert 自動 renew)
+- Caddyfile 3 行搞定 reverse proxy
+- 預設安全 headers(只要寫進 config)
+- 對 DDNS 友善
+- 比 Nginx 簡單 5 倍
 
-### 為什麼 Cloudflare Tunnel(不用直接 port forward)?
-- 免費 HTTPS(Let's Encrypt 都不用設定)
-- 隱藏家裡真實 IP(防 StudyArk ban IP)
-- 內建基本 DDoS 防護
-- 跟 William 既有 Tailscale / Cloudflare 工具鍊一致
+### 為什麼 Google OAuth(不自己管密碼)?
+- 不用存密碼 → 沒被盜風險
+- Google 幫你做 2FA
+- 一鍵登入 UX 好
+- 免費
+
+### 為什麼 JWT + httpOnly cookie(不 localStorage)?
+- httpOnly cookie → JS 讀不到 → 防 XSS 偷 token
+- SameSite=Strict → 防 CSRF
+- 24h expire → 被偷也只能用一天
+- 之後可以加 refresh token
+
+### 為什麼不 Docker?
+- 直接 Python + systemd 比較簡單
+- 跟 OpenClaw 部署方式一致
+- 少一層抽象,debug 容易
 
 ---
 
@@ -193,46 +212,60 @@ CREATE INDEX IF NOT EXISTS idx_download_log_time ON download_log(downloaded_at);
 
 | 指標 | 預估 |
 |------|------|
-| 日活躍使用者 | 10-50 人 |
-| 單日搜尋請求 | 50-200 次 |
-| 單日下載請求 | 20-100 次(平均每搜尋 0.5 下載) |
+| User 總數 | 50+ |
+| Daily active users | 5-15 |
+| 單日搜尋請求 | 30-100 |
+| 單日下載請求 | 20-80 |
 | 平均 PDF 大小 | 1-3 MB |
-| 單日流量 | 50-300 MB(下載) + 5-20 MB(其他) |
+| 單日下載流量 | 20-240 MB |
 | StudyArk 請求節省(因 cache) | 預估 60-80% |
 
 ---
 
 ## 🔐 安全性設計
 
-1. **環境隔離**
-   - cookies 檔案 `.gitignore`(絕不入 repo)
-   - `.env` 也不入 repo
-2. **API 安全**
-   - Rate limit:10 req/min per IP
-   - Cloudflare Turnstile(之後,可選)
-   - 不暴露內部 admin endpoint
-3. **輸入驗證**
-   - Pydantic schema 驗證所有 query params
-   - path traversal 防護(只用 exam_id,不直接吃 filename)
-4. **資源限制**
-   - 下載 timeout(預設 60 秒)
-   - PDF 大小上限(預設 20 MB)
-5. **日誌**
-   - 不 log 完整 IP(只 log SHA256 prefix)
-   - 不 log cookies 內容
+完整見 [`docs/security-model.md`](docs/security-model.md)。
+
+### API 安全
+- JWT middleware 驗所有 `/api/*` 跟 `/admin/*`
+- 不同 endpoint 不同 rate limit
+- SlowAPI 實作
+- 不暴露內部 admin API(都要過 JWT + role check)
+
+### 輸入驗證
+- 所有 query params 用 Pydantic schema 驗證
+- path 用 regex(只 alphanumeric + dash)
+- SQLAlchemy ORM(避免 raw SQL)
+- Jinja2 auto-escape
+
+### Resource limits
+- Download timeout 60s
+- PDF 大小上限 20 MB
+- Rate limit 防止資源耗盡
+
+### 日誌
+- Audit log 不可變(只 INSERT,不 UPDATE/DELETE)
+- IP 只存 hash(SHA256 prefix 16 chars)
+- 不 log cookies / JWT token / 密碼
 
 ---
 
 ## 📈 監控指標
 
-健康檢查 `/health`:
-- FastAPI 進程 alive
-- SQLite 可寫
-- `./cache/` 資料夾可寫
-- cookies 檔案存在 + 未過期(< 30 天)
-- StudyArk 可達(每 10 分鐘 health check 一次)
+`/health` endpoint 回傳:
+```json
+{
+  "status": "ok",
+  "db": "ok",
+  "pdf_cache_writable": true,
+  "cookies_valid": true,
+  "cookies_expires_at": "2026-09-15T10:00:00",
+  "studyark_reachable": true,
+  "last_check_at": "2026-07-18T18:00:00"
+}
+```
 
-之後會接:
-- Cloudflare Analytics(流量)
-- UptimeRobot 或類似(可用性)
-- Sentry 或類似(錯誤追蹤,選擇性)
+之後可接:
+- Caddy log 監控(失敗率、慢回應)
+- Audit log 異常 alert
+- Disk usage alert(PDF cache 塞爆)

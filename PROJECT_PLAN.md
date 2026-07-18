@@ -1,245 +1,247 @@
 # TQark Web — 專案設計書
 
-> 將現有的 StudyArk 考古題收集流程,封裝成一個對外提供服務的網頁應用。
-> 訪客透過瀏覽器篩選條件 → 看到所有符合的試卷 → 點擊下載 PDF。
+> 將 StudyArk(全國中小學題庫網 - 學習方舟)的國中段考考古題,
+> 透過 **私有 invite-only 網頁應用** 提供給受邀的使用者下載。
 
 **狀態**: 設計階段(尚未開工 coding)
 **作者**: William Chang
 **協作者**: 夥計 (OpenClaw main agent)
-**日期**: 2026-07-18
+**日期**: 2026-07-18 (3rd revision)
 
 ---
 
 ## 1. 目標
 
 ### 1.1 解決的問題
-目前 William 抓考古題是「手動 + Playwright script + 本地資料夾」流程,
-只能自己用。如果要分享給其他老師、家長、學生使用,沒有友善介面。
+William 想跟幾位有小孩的同事分享考古題下載工具,需要一個**簡單、安全、不對外公開**的網頁應用。
 
 ### 1.2 目標使用者
-- **主要**: 家裡有國中生的家長(自家社群 → 之後可拓展)
-- **次要**: 國中國文/數學等科老師、補習班、學生自習
-- **不會是**: 一般民眾、營利單位(規模/法律考量)
+- **主要**: William 自己 + 約 50+ 位同事(家裡有國中生的家長)
+- **不會是**: 一般民眾、營利單位(法律/規模考量)
 
 ### 1.3 核心價值
 | 對誰 | 解決什麼 |
 |------|---------|
-| 家長 | 「我家孩子八年級國文翰林第二段考考古題哪裡找」 → 5 秒內拿到 PDF |
-| 老師 | 「我要看台北市某國中 113 上學期自然科第一次段考」 → 直接下載 |
-| 學生 | 「考前衝刺考古題,順便看看其他學校怎麼出」 |
+| William | 「我自己想快速抓考古題,順便分享給同事」 |
+| 同事 | 「免費、Google 一鍵登入、就能拿到 PDF,不用學技術」 |
+| William(法律面) | 「可控 user 名單、可隨時 revoke、有 audit log」 |
 
 ---
 
-## 2. 功能範圍(MVP)
+## 2. 功能範圍
 
 ### 2.1 一定要有(P0)
-- [ ] 搜尋表單:年級 / 學年度 / 學期 / 領域 / 科目 / 版本
-- [ ] 結果列表:學校名 + 試卷名 + 下載按鈕(有答案卷就兩個按鈕)
-- [ ] 下載:點下去直接拿到 PDF,檔名自動套用 William 既有格式
-- [ ] 健康檢查頁 `/health`(給 monitoring 用)
-- [ ] 一個簡單 About 頁(說明來源、免責、聯絡)
+- [ ] 公開 landing page(說明用途 + Sign in with Google 按鈕)
+- [ ] Google OAuth 登入
+- [ ] User 申請 access(填原因 → pending)
+- [ ] Admin 審核 dashboard(看 pending → approve/reject)
+- [ ] Approved user 才能看到搜尋介面
+- [ ] 搜尋:年級 / 學年度 / 學期 / 領域 / 科目 / 版本
+- [ ] 結果列表 + 下載按鈕(試卷 + 答案卷分開)
+- [ ] PDF 直接從 StudyArk 抓(透過 Playwright)
+- [ ] 本地 PDF cache(同一份試卷只抓一次)
+- [ ] SQLite metadata cache(降低 StudyArk 請求量)
+- [ ] `/health` endpoint(監控)
+- [ ] Admin 介面:user 管理 + audit log + 流量統計
+- [ ] Rate limit(防濫用、StudyArk ban 防護)
 
 ### 2.2 應該要有(P1)
-- [ ] Rate limit(每人 10 req/min,防止被刷流量)
-- [ ] PDF cache:同一份試卷只從 StudyArk 拉一次,後續直接從本地送
-- [ ] Cookie 過期監控 + alert(cookies 失效時通知 William)
-- [ ] 簡單的搜尋結果快取(metadata level,降低 StudyArk 請求量)
+- [ ] 完整 audit log(誰做了什麼)
+- [ ] Block / unblock user
+- [ ] Admin promote/demote
+- [ ] Welcome email(可選 Phase 1)
+- [ ] Cookie 過期監控 + alert
+- [ ] Log rotation(避免塞爆磁碟)
 
-### 2.3 可以之後再加(P2)
-- [ ] 「我的最愛學校」(讓使用者存常用學校,免重新選)
-- [ ] 批次下載(勾選多份 → 一次打包 zip)
-- [ ] 「熱門下載 Top 10」列表
-- [ ] i18n 雙語切換(中/英)
-- [ ] 訂閱電子報(有新試卷通知)
-- [ ] 統計儀表板(對外公開的公益感)
-- [ ] Discord/Telegram bot 介面
+### 2.3 之後再加(P2)
+- [ ] 我的最愛學校
+- [ ] 批次下載(多選打包 zip)
+- [ ] 「熱門下載 Top 10」widget
+- [ ] 公告系統(admin 可發佈訊息給所有 user)
+- [ ] i18n 雙語切換
 
 ### 2.4 不要做
-- 帳號系統(登入/註冊/密碼)— 純公開服務省麻煩
-- 評論/評分 — 沒必要
-- 內容審核 queue — StudyArk 上有問題的題目不歸我們管
-- 上傳功能 — 只下載不上傳
+- 廣告(AdSense)— 私人服務,不需要
+- 付費功能
+- 公開註冊(只能透過 invite 或半開放申請)
+- 評論 / 評分
+- 上傳功能
 
 ---
 
-## 3. 技術選型
+## 3. 技術選型(已拍板)
 
-### 3.1 Backend: Python 3.12 + FastAPI
-**為什麼選 Python**:
-- 跟 William 既有 `studyark_downloader.py` script 語言一致
-- Playwright 在 Python 跟 Node 都行,但 Python 對資料處理、檔案管理更順
-- async/await 友善
+| 層 | 選用 | 理由 |
+|----|------|------|
+| **Backend** | Python 3.12 + FastAPI | async 友善、跟既有 scraper 整合順 |
+| **Auth** | Google OAuth 2.0 + JWT + slowapi | 免費、可靠、有 2FA |
+| **Frontend** | 純 HTML + Vanilla JS + Tailwind CDN | 不用 build step、簡單 |
+| **DB** | SQLite | < 100 user 完全勝任、單檔好備份 |
+| **Reverse proxy** | Caddy | 自動 HTTPS、config 簡單 |
+| **Process manager** | systemd | 跟 OpenClaw 一致 |
+| **PDF cache** | 本地檔案系統 `./data/pdfs/` | 之後量大再搬 R2 |
+| **Deployment** | 家裡主機 + DDNS | 已有 + 不花錢 + 可控 |
 
-**為什麼選 FastAPI 而非 Flask/Django**:
-- 原生 async(Playwright + httpx 都是 async 友善)
-- 自動 OpenAPI 文件(開發時超好用)
-- type hints + Pydantic 驗證(降低 bug)
-- 輕量,沒有 Django 那麼多預設包袱
-
-### 3.2 Frontend: 純 HTML + Vanilla JS + Tailwind CDN
-**為什麼不用 React/Vue**:
-- 這是個小 app,3 個頁面就夠,build step 完全是負擔
-- 純 HTML 一個檔就能跑,部署超簡單
-- Tailwind CDN 讓樣式好看但不用設定 webpack
-
-**頁面結構**:
-- `index.html` — 搜尋首頁(主要)
-- `about.html` — 說明/免責
-- 之後可能加 `stats.html`(公開統計)
-
-### 3.3 Cache: SQLite + 本地檔案
-**為什麼 SQLite 而非 Redis**:
-- 流量低(預估 < 100 req/day),SQLite 綽綽有餘
-- 不用額外起一個 process
-- 本地檔案直接備份
-
-**為什麼本地檔案而非 S3**:
-- MVP 階段本地 `./cache/pdfs/` 就好
-- 之後流量大再考慮 Cloudflare R2(便宜、S3-compatible)
-
-### 3.4 反向代理 + HTTPS: Nginx + Cloudflare Tunnel
-**為什麼 Cloudflare Tunnel**:
-- **免費**對外(不用花 VPS 月費)
-- **免費** HTTPS(Let's Encrypt 都不用設)
-- 隱藏家裡的真實 IP
-- William 已熟悉 Tailscale,Cloudflare Tunnel 概念一樣(zero-trust tunnel)
-
-**為什麼不用直接 port forwarding**:
-- 家裡 IP 可能被 StudyArk 黑名單
-- Cloudflare 提供基本 DDoS 防護
-- 之後想換網域超方便
-
-### 3.5 Deploy: Docker Compose
-- `docker-compose.yml` 一鍵起 backend + nginx
-- 本機開發跟 Cloudflare Tunnel 部署都用同一份設定
-- 之後想搬到 VPS,Hetzner CX22(€4/月)之類的也行
+**為什麼不選 Docker**:簡單部署 + 跟 OpenClaw 部署方式一致。
+**為什麼不選 Redis**:50+ 人流量低,SQLite + in-process 夠用。
 
 ---
 
 ## 4. 系統架構
 
 ```
-                  ┌──────────────────────┐
-   訪客瀏覽器  ──► │  Cloudflare Edge    │
-                  │  (CDN + Tunnel)      │
-                  └──────────┬───────────┘
-                             │ HTTPS
-                             ▼
-                  ┌──────────────────────┐
-                  │  家裡主機 / VPS      │
-                  │  ┌────────────────┐  │
-                  │  │ Nginx          │  │
-                  │  │ :443 → :8000   │  │
-                  │  └────────┬───────┘  │
-                  │           ▼          │
-                  │  ┌────────────────┐  │
-                  │  │ FastAPI        │  │
-                  │  │ (Python)       │  │
-                  │  └──┬─────┬────┬──┘  │
-                  │     │     │    │     │
-                  │     ▼     ▼    ▼     │
-                  │  SQLite  PDF  Play-  │
-                  │  meta-   cache wright │
-                  │  data    /dir  /     │
-                  │  .db            Study │
-                  │                Ark   │
-                  └──────────────────────┘
+[User 同事瀏覽器]
+   ↓ https://just4fun.myiphost.com:8443
+[家裡 Router]
+   ├─ Port Forwarding: 8443 → 192.168.50.31:8443
+   ↓
+[GreenHouseUbuntu Linux 主機]
+   ├─ :8443  Caddy 2.7
+   │       ├─ 自動 HTTPS (Let's Encrypt)
+   │       ├─ Reverse proxy → 127.0.0.1:8000
+   │       ├─ Security headers (CSP, HSTS, X-Frame-Options)
+   │       └─ Rate limit (Caddy 內建)
+   │
+   ├─ :8000  FastAPI (systemd service)
+   │       ├─ /auth/google/login (OAuth flow)
+   │       ├─ /auth/google/callback
+   │       ├─ /auth/me (看自己狀態)
+   │       ├─ /api/access-requests (User 申請 access)
+   │       ├─ /api/search (approved user only)
+   │       ├─ /api/download/{id}
+   │       ├─ /admin/* (admin only)
+   │       └─ /health
+   │
+   ├─ SQLite DB
+   │       ├─ users (id, email, name, role, status, google_id, ...)
+   │       ├─ search_cache (cache_key, results_json, expires_at, ...)
+   │       ├─ exam_metadata (exam_id, school, grade, year, ...)
+   │       └─ audit_log (user_id, action, target, ip_hash, ...)
+   │
+   ├─ PDF cache → ./data/pdfs/
+   ├─ StudyArk cookies → ./data/cookies/studyark_cookies.json (chmod 600)
+   └─ Logs → ./data/logs/
+
+[外部服務]
+   ├─ Google OAuth → https://accounts.google.com/
+   └─ StudyArk → https://www.studyark.org/ (透過 Playwright + cookies)
 ```
 
 ### 4.1 關鍵流程
-**搜尋**:
+
+**User 申請 + Admin approve**:
 ```
-GET /api/search?grade=8&year=113&semester=2&subject=國文&version=翰林
-  → FastAPI 查 SQLite metadata cache
-  → cache hit → 直接回 JSON 列表
-  → cache miss → Playwright 開 StudyArk、篩選、parse 列表、回 JSON + 寫 cache
+User → /api/access-requests (Google 登入後)
+  → 寫 users table (status=pending)
+  → User 看到「等待中」
+
+Admin → /admin/users?status=pending
+  → 看清單 → 點 Approve
+  → users.status = approved, approved_at = now(), approved_by = admin.id
+  → 寫 audit_log (action=user_approve)
+
+User 下次登入 → status=approved → 看到搜尋介面
 ```
 
-**下載**:
+**Search + Download**:
 ```
-GET /api/download/<exam_id>
-  → 查 cache,看 PDF 是否已下載
-  → hit → 直接 FileResponse
-  → miss → Playwright 開 StudyArk、下載 PDF、寫 cache、FileResponse
-```
+User → /api/search?grade=8&year=113&semester=2&subject=國文&version=翰林
+  → FastAPI 驗 JWT(approved user only)
+  → Rate limit check
+  → 查 SQLite metadata cache
+  → cache hit → 回 JSON
+  → cache miss → Playwright 抓 StudyArk → 寫 cache → 回 JSON
+  → 寫 audit_log (action=search)
 
-### 4.2 StudyArk 互動(共用單一 cookies)
-- server 端存一份 `/data/cookies/studyark_cookies.json`
-- 開頭需要 William 手動 Playwright 登入 Google → 存 cookies
-- 之後所有請求都用這份 cookies
-- **風險**:StudyArk 看到單一 IP 大量流量可能 ban
-- **緩解**:
-  - Rate limit(每人 10 req/min)
-  - 預先 cache 熱門試卷(降低 80% StudyArk 請求)
-  - 監控 + alert(流量異常時 email/Discord 通知)
+User → /api/download/{exam_id}
+  → 查 PDF cache
+  → hit → FileResponse
+  → miss → Playwright 抓 → 存 cache → FileResponse
+  → 寫 audit_log (action=download)
+```
 
 ---
 
-## 5. 專案結構(預定)
+## 5. DB Schema
 
-```
-TQark-web/
-├── README.md                          # 使用說明(中英雙語)
-├── LICENSE                            # MIT
-├── CHANGELOG.md                       # 版本紀錄
-├── CONTRIBUTING.md                    # 貢獻指南
-├── .gitignore
-├── .dockerignore
-├── docs/
-│   ├── architecture.md                # 詳細架構、流量模型
-│   ├── deployment.md                  # 部屬指南(Docker / bare-metal / Cloudflare Tunnel)
-│   ├── cookie-maintenance.md          # cookies 怎麼維護、過期怎麼辦
-│   └── screenshots/                   # UI 截圖(等做出來再放)
-├── backend/
-│   ├── pyproject.toml                 # Python 套件設定
-│   ├── requirements.txt
-│   ├── .env.example
-│   ├── Dockerfile
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                    # FastAPI app entry
-│   │   ├── config.py                  # 設定(env vars)
-│   │   ├── routes/
-│   │   │   ├── __init__.py
-│   │   │   ├── search.py              # /api/search
-│   │   │   ├── download.py            # /api/download/{id}
-│   │   │   └── health.py              # /health
-│   │   ├── services/
-│   │   │   ├── studyark_scraper.py    # Playwright + StudyArk
-│   │   │   ├── pdf_cache.py           # 本地 PDF cache
-│   │   │   ├── metadata_cache.py      # SQLite metadata cache
-│   │   │   └── rate_limiter.py        # slowapi
-│   │   ├── models/
-│   │   │   └── schemas.py             # Pydantic
-│   │   └── utils/
-│   │       └── naming.py              # 檔名格式化
-│   ├── scripts/
-│   │   ├── refresh_cookies.py         # 手動重抓 cookies
-│   │   ├── seed_cache.py              # 預先 cache 熱門試卷
-│   │   └── check_health.py            # 定期健康檢查(可上 cron)
-│   └── tests/
-│       ├── test_naming.py
-│       ├── test_cache.py
-│       └── fixtures/
-├── frontend/
-│   ├── index.html                     # 搜尋主頁
-│   ├── about.html                     # 說明/免責
-│   ├── assets/
-│   │   ├── app.js
-│   │   ├── styles.css
-│   │   └── logo.svg
-│   └── nginx.conf                     # 給靜態檔案 hosting 用
-├── deploy/
-│   ├── docker-compose.yml             # 一鍵起服務
-│   ├── nginx/
-│   │   ├── nginx.conf
-│   │   └── conf.d/
-│   │       └── studyark.conf
-│   └── cloudflare/
-│       └── README.md                  # Cloudflare Tunnel 設定指南
-└── .github/
-    └── workflows/
-        └── ci.yml                     # lint + test on PR
+```sql
+-- Users
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    picture_url TEXT,
+    google_id TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',  -- 'user' | 'admin'
+    status TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'approved' | 'blocked'
+    application_message TEXT,
+    approved_at TIMESTAMP,
+    approved_by INTEGER,
+    blocked_at TIMESTAMP,
+    blocked_reason TEXT,
+    last_login_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (approved_by) REFERENCES users(id)
+);
+
+-- Search cache
+CREATE TABLE search_cache (
+    cache_key TEXT PRIMARY KEY,
+    query_params TEXT NOT NULL,
+    results_json TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    hit_count INTEGER DEFAULT 0
+);
+
+-- Exam metadata
+CREATE TABLE exam_metadata (
+    exam_id TEXT PRIMARY KEY,
+    school_name TEXT NOT NULL,
+    grade INTEGER NOT NULL,
+    year INTEGER NOT NULL,
+    semester INTEGER NOT NULL,
+    domain TEXT,
+    subject TEXT NOT NULL,
+    exam_number INTEGER,
+    exam_type TEXT,
+    version TEXT,
+    has_answer BOOLEAN DEFAULT FALSE,
+    studyark_url TEXT NOT NULL,
+    first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- PDF cache index
+CREATE TABLE pdf_cache (
+    exam_id TEXT PRIMARY KEY,
+    file_path TEXT NOT NULL,
+    size_bytes INTEGER,
+    cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (exam_id) REFERENCES exam_metadata(exam_id)
+);
+
+-- Audit log
+CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    target TEXT,
+    metadata_json TEXT,
+    ip_hash TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Indices
+CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_search_expires ON search_cache(expires_at);
+CREATE INDEX idx_exam_lookup ON exam_metadata(grade, year, semester, subject, version);
+CREATE INDEX idx_audit_user ON audit_log(user_id);
+CREATE INDEX idx_audit_created ON audit_log(created_at);
+CREATE INDEX idx_audit_action ON audit_log(action);
 ```
 
 ---
@@ -248,129 +250,165 @@ TQark-web/
 
 ### 6.1 Repo
 - GitHub: `apingchang/TQark-web`
-- 顯示名稱: **TQark Web**(英) / **國中考古題下載站**(中)
+- 顯示名稱: **TQark Web**(英) / **國中考古題下載**(中)
 
 ### 6.2 下載檔名(沿用 William 既有格式)
 ```
 {學校名} {年級} {學年度} {學期} {領域} {科目} {第幾次段考} {期中考/期末考} {版本} 試卷.pdf
 {學校名} {年級} {學年度} {學期} {領域} {科目} {第幾次段考} {期中考/期末考} {版本} 試卷_答案卷.pdf
 ```
-例:`市立同德國中 八年級 113 下學期 語文領域 國文 第二次段考 期中考 翰林 試卷.pdf`
 
 ---
 
 ## 7. 安全 / 法律 / 隱私
 
-### 7.1 法律
-- **免責聲明**(about 頁必寫):
-  - 本站所有試卷來源為「StudyArk 全國中小學題庫網」
-  - 試卷版權歸原作者/學校所有
-  - **僅供學術與個人學習使用**,請勿用於營利或侵權用途
-  - 如有版權問題,聯絡下架
+### 7.1 法律風險評估(2026-07-18 更新)
+**這個設計 vs 公開服務**:
 
-### 7.2 隱私
-- **不收集個資**:不用帳號、不用 cookie 追蹤(僅 Cloudflare 必要 analytics)
-- **不存訪客 IP**(或僅短暫留存用於 rate limit)
-- **Cloudflare 隱私政策**會在 about 頁標明
+| 維度 | 公開服務 | TQark Web(私有 invite-only) |
+|------|---------|----------------------------|
+| 使用者 | 不特定多數人 | 受邀的特定同事(< 100 人) |
+| 法律性質 | 公開傳輸/散布(高風險) | 私人分享(較低風險) |
+| 實際被告機率 | 中 | 低 |
+| 風險分級 | 🔴 高 | 🟡 中 |
 
-### 7.3 服務本身的安全
-- 不對外暴露內部 admin API(健康檢查除外)
-- Rate limit 防濫用
-- Cloudflare Tunnel 隱藏家裡 IP
+**仍然存在的風險**:
+- 重製權(把 PDF 存到 server)
+- 公開傳輸權(透過網路提供下載)
+- 但**可以主張**:
+  - 服務性質是私人分享(非公開散布)
+  - User 名單封閉(非公眾)
+  - 有 admin approval gate(實質控制 access)
+  - 有 audit log(可追蹤)
+  - 有移除機制
+
+### 7.2 免責聲明(About 頁)
+
+```
+本服務為 William Chang 私人架設,
+僅供 William 本人與受邀使用者(同事)使用,作為學術與個人學習用途。
+
+所有試卷來源為 StudyArk(全國中小學題庫網 - 學習方舟),
+試卷版權歸原作者及各校所有。
+
+如有版權方要求下架,請聯絡:
+- Email: ...
+- 移除保證:24 小時內處理
+
+不對外公開、不收費、無廣告。
+```
+
+### 7.3 隱私
+- ✅ 不收集個資(只存 Google 給的 email + name + picture URL)
+- ✅ 不追蹤 user 行為做廣告
+- ✅ IP 只存 SHA256 prefix(去識別化)
+- ✅ 不分享給第三方
+
+完整威脅模型見 [`docs/security-model.md`](docs/security-model.md)。
 
 ---
 
 ## 8. 開發里程碑
 
 ### Phase 0: 設計(現在)
-- [x] 寫 PROJECT_PLAN.md
-- [ ] 建 GitHub repo(空 repo + scaffold 推上去)
-- [ ] William review 通過 → 進 Phase 1
+- [x] 寫 PROJECT_PLAN.md(此文件,3rd revision)
+- [x] 寫 README.md
+- [x] 寫 docs/architecture.md / deployment.md / cookie-maintenance.md
+- [x] 寫 docs/google-oauth-setup.md / user-management.md / security-model.md
+- [x] 建 GitHub repo + push design docs
+- [ ] **William review → 進 Phase 1**
 
-### Phase 1: MVP(預計 1-2 週)
-- [ ] Backend: FastAPI 骨架 + `/api/search` + `/api/download/{id}` + `/health`
-- [ ] Playwright scraper(從既有 script 移植)
-- [ ] Frontend: 搜尋表單 + 結果列表(超簡潔版)
-- [ ] 本機 docker-compose 跑得起來
+### Phase 1: MVP(預計 2-3 週)
+- [ ] Backend skeleton: FastAPI + SQLAlchemy + Pydantic
+- [ ] Auth: Google OAuth + JWT + middleware
+- [ ] Frontend: landing + login + search + admin
+- [ ] Playwright scraper:從既有 script 移植
+- [ ] SQLite schema + migration
+- [ ] Caddyfile + systemd unit
+- [ ] 本機跑得起來
 
-### Phase 2: 對外(預計 3-5 天)
-- [ ] Cloudflare Tunnel 設定
-- [ ] Rate limit middleware
-- [ ] PDF cache(避免重複抓)
-- [ ] Metadata cache(SQLite)
-- [ ] About 頁 + 免責聲明
+### Phase 2: 上線(預計 3-5 天)
+- [ ] Google Cloud Console 設定 OAuth client
+- [ ] DDNS + Router port forwarding(William 已設定)
+- [ ] Caddy + cert
+- [ ] FastAPI 上 systemd
+- [ ] 第一個 admin 登入測試
+- [ ] 邀請第一批 5 個同事 user testing
 
-### Phase 3: 觀察期(上線後 1-2 週)
+### Phase 3: 觀察期(1-2 週)
 - [ ] 監控流量 + cookies 狀態
 - [ ] 看 StudyArk 有沒有 ban 跡象
-- [ ] 收集使用者回饋(放 Google Form 在 about 頁)
-- [ ] 決定要不要加 P2 功能
+- [ ] 收集同事 feedback
+- [ ] Rate limit 調校
+- [ ] Audit log review
 
 ### Phase 4: 加分題(視情況)
-- [ ] 批次下載
 - [ ] 我的最愛學校
+- [ ] 批次下載
+- [ ] Welcome email
 - [ ] i18n
-- [ ] Discord bot
 
 ---
 
-## 9. 開放問題(給 William 決定)
+## 9. 環境與部署決策(2026-07-18 拍板)
 
-### Q1: Hosting 在哪?
-| 選項 | 優點 | 缺點 |
-|------|------|------|
-| **A. 家裡+Cloudflare Tunnel** | 免費、隱藏 IP、DDoS 防護 | 跟家裡網路綁一起 |
-| **B. 雲端 VPS**(Hetzner €4/月) | 獨立服務、可隨時搬家 | 要花錢、自己管 |
-| C. 家裡直接 port forward | 最簡單 | 暴露 IP、StudyArk 可能 ban |
-
-**建議**: A,跟 William 既有 OpenClaw 部署同一台(已在跑服務),Cloudflare Tunnel 工具他已熟悉。
-
-### Q2: 公開 vs 邀請制?
-| 選項 | 優點 | 缺點 |
-|------|------|------|
-| **A. 完全公開 + rate limit** | 推廣容易、社群分享友善 | 怕被刷流量 |
-| B. 邀請制(token 連結) | 流量可控 | 要管理邀請名單 |
-| C. 帳號系統 | 完全控制 | 開發+維護成本高 |
-
-**建議**: A,搭配 10 req/min rate limit + Cloudflare Turnstile(防機器人)。
-
-### Q3: 第一版 UI 範圍?
-- A. **最小可用**(搜尋表單 + 結果 + 下載)— 推薦,1-2 週完工
-- B. 包含 P1 所有功能 — 3-4 週
-- C. 包含 P2 — 1 個月+
-
-### Q4: Tech Stack 同意嗎?
-- Backend: Python + FastAPI + Playwright ✅
-- Frontend: 純 HTML + Tailwind CDN ✅
-- Cache: SQLite + 本地檔案 ✅
-- 部署: Docker Compose + Cloudflare Tunnel ✅
-- 如果有其他偏好(例如偏好 Node.js 後端、React 前端),現在講我換
-
-### Q5: Repo 命名?
-- **`TQark-web`**(推薦,簡潔明瞭)
-- `studyark-downloader`
-- `studyark-public`
-- 其他?
+| 項目 | 決定 |
+|------|------|
+| **Hosting** | 家裡主機 GreenHouseUbuntu(已有 OpenClaw) |
+| **DDNS** | `just4fun.myiphost.com` → `1.162.10.217` |
+| **對外 port** | **8443**(HTTPS,William 已設 port forwarding) |
+| **Reverse proxy** | Caddy 2.7(自動 HTTPS) |
+| **Web server** | FastAPI 直接(uvicorn 2 workers) |
+| **Process manager** | systemd(`tqark-web.service`) |
+| **Google OAuth** | Web application,redirect to `:8443/auth/google/callback` |
+| **Admin 設定** | 環境變數 `ADMIN_EMAILS=william@example.com`(可多個,逗號分隔) |
+| **User 註冊** | 半開放(任何 Google 帳號可申請,需 admin approve) |
+| **預期使用者數** | 50+ |
 
 ---
 
-## 10. 待辦(設計確認後)
+## 10. 已決策(原「開放問題」已全數拍板)
+
+| 原 Q | 拍板結果 |
+|------|---------|
+| Q1. Hosting | ✅ 家裡主機 + DDNS + Caddy |
+| Q2. 公開 vs 邀請制 | ✅ **半開放 + Admin approve** |
+| Q3. UI 範圍 | ✅ 最小可用 + admin 必要功能 |
+| Q4. Tech stack | ✅ Python + FastAPI + Playwright + SQLite + Caddy |
+| Q5. Repo 命名 | ✅ `TQark-web` |
+
+---
+
+## 11. Coding / Debug 分工(2026-07-18 拍板)
+
+- ✅ **Coding、debug、commit、push → 我(OpenClaw agent)來**
+- ✅ **設計決策、技術選型 → 我建議,William 拍板**
+- ✅ **執行 / 跑服務 / 抓 bug 結果 → William 回報**
+- ✅ **William 負責的**:登 GitHub 加 SSH key、建 repo、登 Google OAuth 設定、跑 services、user testing
+
+---
+
+## 12. 待辦(設計確認後)
 
 這個 design doc 過了之後,實際 coding 才開始:
 - [ ] Phase 1 MVP 開工
 - [ ] 從既有 `studyark_downloader.py` 拆出可重用的 scraper class
 - [ ] FastAPI 專案初始化
-- [ ] Docker Compose 本機起服務
-- [ ] 前端 HTML 模板
-- [ ] CI/CD pipeline
+- [ ] Caddyfile + systemd unit(可直接 copy 從 docs/deployment.md)
+- [ ] Google OAuth 流程(按 docs/google-oauth-setup.md 設)
+- [ ] Frontend HTML templates(landing + login + search + admin)
+- [ ] 本地起服務測試
+- [ ] Caddy + systemd 上 production
 
 ---
 
 **Review checklist**:
-- [ ] Q1-Q5 都有答案
-- [ ] Project structure 合理
-- [ ] Phase 1 範圍 OK
-- [ ] 法律/隱私說明接受
-- [ ] 沒漏掉的 requirement
+- [ ] 環境檢查(對外 IP、port forwarding、RAM 夠)✅
+- [ ] Google OAuth 設定步驟看完
+- [ ] Caddy 安裝步驟看完
+- [ ] Admin / User SOP 看完
+- [ ] Security model 看完
+- [ ] 法律風險評估可接受
+- [ ] Coding 分工確認
 
-確認過了就可以開工 🚀
+確認過了就可以開工 Phase 1 🚀
