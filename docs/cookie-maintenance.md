@@ -15,7 +15,7 @@
 ## 📁 cookies 檔案位置
 
 ```
-/home/aping/TQark-web/data/cookies/studyark_cookies.json
+/home/aping/MyProjects/TQark-web/data/cookies/studyark_cookies.json
 ```
 
 權限:`chmod 600`(只有 owner 可以讀寫)
@@ -31,7 +31,7 @@
 ssh aping@just4fun.myiphost.com
 
 # 進專案目錄
-cd /home/aping/TQark-web
+cd /home/aping/MyProjects/TQark-web
 
 # 啟動 venv
 cd backend
@@ -126,7 +126,7 @@ FastAPI 啟動時 + 每 10 分鐘跑一次 cookie age check,寫進 `/health` res
 
 ```bash
 # 用 age 加密備份
-age -p -o cookies.backup.age /home/aping/TQark-web/data/cookies/studyark_cookies.json
+age -p -o cookies.backup.age /home/aping/MyProjects/TQark-web/data/cookies/studyark_cookies.json
 # 會問你密碼,輸入後存到 cookies.backup.age
 # 這個檔可以放到外接硬碟 / cloud
 ```

@@ -204,7 +204,7 @@ https://just4fun.myiphost.com:8443/auth/google/callback
 
 ```bash
 # 進到 TQark-web 專案(等 Phase 1 coding 才會有,先記住位置)
-cd /home/aping/TQark-web/backend
+cd /home/aping/MyProjects/TQark-web/backend
 
 # 編輯 .env
 cp .env.example .env
@@ -225,10 +225,10 @@ ADMIN_EMAILS=apingchang@gmail.com
 JWT_SECRET=__TODO_GENERATE__
 
 # === 其他 ===
-COOKIES_PATH=/home/aping/TQark-web/data/cookies/studyark_cookies.json
-DB_PATH=/home/aping/TQark-web/data/db/app.db
-PDF_CACHE_DIR=/home/aping/TQark-web/data/pdfs
-LOG_DIR=/home/aping/TQark-web/data/logs
+COOKIES_PATH=/home/aping/MyProjects/TQark-web/data/cookies/studyark_cookies.json
+DB_PATH=/home/aping/MyProjects/TQark-web/data/db/app.db
+PDF_CACHE_DIR=/home/aping/MyProjects/TQark-web/data/pdfs
+LOG_DIR=/home/aping/MyProjects/TQark-web/data/logs
 PORT=8000
 ENV=production
 ```
@@ -243,7 +243,7 @@ openssl rand -hex 32
 保護 .env:
 
 ```bash
-chmod 600 /home/aping/TQark-web/backend/.env
+chmod 600 /home/aping/MyProjects/TQark-web/backend/.env
 ```
 
 ---

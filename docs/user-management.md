@@ -185,7 +185,7 @@
 2. 登入 TQark-web(用別的方式)— 如果連不到,SSH 進 server
 3. 在 SQLite 直接把自己的 user block:
    ```bash
-   sqlite3 /home/aping/TQark-web/data/db/app.db \
+   sqlite3 /home/aping/MyProjects/TQark-web/data/db/app.db \
      "UPDATE users SET status='blocked' WHERE email='your.email@gmail.com';"
    ```
 4. 等 Google 帳號拿回來,再請另一個 admin unblock

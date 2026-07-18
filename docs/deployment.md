@@ -113,23 +113,23 @@ playwright install-deps chromium
 6. **Authorized redirect URIs**: `https://just4fun.myiphost.com:8443/auth/google/callback`
 7. 拿到 **Client ID** + **Client Secret**
 
-存到 `/home/aping/TQark-web/backend/.env`:
+存到 `/home/aping/MyProjects/TQark-web/backend/.env`:
 
 ```bash
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-xxx
 ADMIN_EMAILS=your.email@gmail.com  # 第一個 admin
 JWT_SECRET=$(openssl rand -hex 32)   # 隨機 JWT 簽章密鑰
-COOKIES_PATH=/home/aping/TQark-web/data/cookies/studyark_cookies.json
-DB_PATH=/home/aping/TQark-web/data/db/app.db
-PDF_CACHE_DIR=/home/aping/TQark-web/data/pdfs
-LOG_DIR=/home/aping/TQark-web/data/logs
+COOKIES_PATH=/home/aping/MyProjects/TQark-web/data/cookies/studyark_cookies.json
+DB_PATH=/home/aping/MyProjects/TQark-web/data/db/app.db
+PDF_CACHE_DIR=/home/aping/MyProjects/TQark-web/data/pdfs
+LOG_DIR=/home/aping/MyProjects/TQark-web/data/logs
 PORT=8000
 ENV=production
 ```
 
 ```bash
-chmod 600 /home/aping/TQark-web/backend/.env
+chmod 600 /home/aping/MyProjects/TQark-web/backend/.env
 ```
 
 ---
@@ -141,7 +141,7 @@ chmod 600 /home/aping/TQark-web/backend/.env
 簡述:
 1. 跑 Playwright 開瀏覽器
 2. 手動登入 Google + StudyArk
-3. 存 cookies 到 `/home/aping/TQark-web/data/cookies/studyark_cookies.json`
+3. 存 cookies 到 `/home/aping/MyProjects/TQark-web/data/cookies/studyark_cookies.json`
 
 ---
 
@@ -158,14 +158,14 @@ After=network.target
 Type=simple
 User=aping
 Group=aping
-WorkingDirectory=/home/aping/TQark-web/backend
-Environment="PATH=/home/aping/TQark-web/backend/.venv/bin"
-EnvironmentFile=/home/aping/TQark-web/backend/.env
-ExecStart=/home/aping/TQark-web/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+WorkingDirectory=/home/aping/MyProjects/TQark-web/backend
+Environment="PATH=/home/aping/MyProjects/TQark-web/backend/.venv/bin"
+EnvironmentFile=/home/aping/MyProjects/TQark-web/backend/.env
+ExecStart=/home/aping/MyProjects/TQark-web/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=always
 RestartSec=5
-StandardOutput=append:/home/aping/TQark-web/data/logs/backend.log
-StandardError=append:/home/aping/TQark-web/data/logs/backend.log
+StandardOutput=append:/home/aping/MyProjects/TQark-web/data/logs/backend.log
+StandardError=append:/home/aping/MyProjects/TQark-web/data/logs/backend.log
 
 # 資源限制(保護 server)
 LimitNOFILE=65536
@@ -314,7 +314,7 @@ curl -sI https://just4fun.myiphost.com:8443/health
 之後改 code:
 
 ```bash
-cd /home/aping/TQark-web
+cd /home/aping/MyProjects/TQark-web
 git pull
 
 # 如果 requirements.txt 變了
@@ -327,7 +327,7 @@ sudo systemctl restart tqark-web
 sudo systemctl status tqark-web
 
 # 看 logs
-tail -f /home/aping/TQark-web/data/logs/backend.log
+tail -f /home/aping/MyProjects/TQark-web/data/logs/backend.log
 ```
 
 ---
@@ -342,7 +342,7 @@ tail -f /home/aping/TQark-web/data/logs/backend.log
 5. 看 Caddy log:`sudo journalctl -u caddy -n 50`
 
 ### Google OAuth 失敗?
-1. 看 logs: `tail -f /home/aping/TQark-web/data/logs/backend.log`
+1. 看 logs: `tail -f /home/aping/MyProjects/TQark-web/data/logs/backend.log`
 2. 確認 `.env` 有 `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
 3. 確認 Google Cloud Console redirect URI 對:
    `https://just4fun.myiphost.com:8443/auth/google/callback`

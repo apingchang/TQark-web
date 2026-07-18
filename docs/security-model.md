@@ -136,7 +136,7 @@
 1. 立即到 Google 重設密碼 + 撤銷所有 sessions
 2. SSH 進 server,把被盜 admin 的 `role='user'` 改掉:
    ```bash
-   sqlite3 /home/aping/TQark-web/data/db/app.db \
+   sqlite3 /home/aping/MyProjects/TQark-web/data/db/app.db \
      "UPDATE users SET role='user' WHERE email='compromised@email';"
    ```
 3. 檢查 audit log,把所有可疑操作 rollback(block 掉的可疑 user)
@@ -214,7 +214,7 @@
 安裝 `detect-secrets`:
 ```bash
 pip install detect-secrets
-cd /home/aping/TQark-web
+cd /home/aping/MyProjects/TQark-web
 detect-secrets scan > .secrets.baseline
 echo "detect-secrets-hook" >> .git/hooks/pre-commit
 ```
@@ -226,7 +226,7 @@ echo "detect-secrets-hook" >> .git/hooks/pre-commit
 ```bash
 # 定期跑(可加到 cron 每週跑)
 pip install safety
-safety check -r /home/aping/TQark-web/backend/requirements.txt
+safety check -r /home/aping/MyProjects/TQark-web/backend/requirements.txt
 ```
 
 ### Caddy log 監控(找攻擊 pattern)
