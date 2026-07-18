@@ -88,3 +88,6 @@ temp/
 docs/client_secret_*.json
 **/client_secret_*.json
 **/*_secret.json
+
+# Local credentials (contains Google OAuth secrets, JWT secret, etc.)
+credentials/
