@@ -102,7 +102,7 @@ William 想跟幾位有小孩的同事分享考古題下載工具,需要一個**
    │       ├─ Security headers (CSP, HSTS, X-Frame-Options)
    │       └─ Rate limit (Caddy 內建)
    │
-   ├─ :8000  FastAPI (systemd service)
+   ├─ :8000  FastAPI (systemd service, **127.0.0.1 only** ← 只 listen loopback,不出 Linux 主機)
    │       ├─ /auth/google/login (OAuth flow)
    │       ├─ /auth/google/callback
    │       ├─ /auth/me (看自己狀態)
@@ -126,6 +126,25 @@ William 想跟幾位有小孩的同事分享考古題下載工具,需要一個**
    ├─ Google OAuth → https://accounts.google.com/
    └─ StudyArk → https://www.studyark.org/ (透過 Playwright + cookies)
 ```
+
+### 4.0 Port 規劃(關鍵!容易誤讀)
+
+**對外只開一個 port**:`8443`(HTTPS,已經在 router 設好 port forwarding)
+
+| Port | 服務 | 誰能 access | 要設 port forwarding 嗎? |
+|------|------|-------------|--------------------------|
+| **8443** | Caddy | 任何人(對外) | ✅ **要**(已設) |
+| 8000 | FastAPI | **只有 Linux 本機**(127.0.0.1) | ❌ **不用** |
+| 443 | (其他服務) | 對外 | 看 router |
+
+**FastAPI 為什麼用 8000 但不需要 port forwarding**:
+- systemd 啟動 uvicorn 時加 `--host 127.0.0.1 --port 8000`
+- `127.0.0.1` = loopback = **只有 Linux 本機能連**
+- Caddy 用 `reverse_proxy 127.0.0.1:8000` 從內部 call FastAPI
+- 對外使用者 → router → :8443 → Caddy → :8000 → FastAPI
+- **攻擊者沒辦法直接打 FastAPI**(只看到 Caddy)
+
+詳細 systemd unit 設定見 [`docs/deployment.md`](docs/deployment.md) Step 6。
 
 ### 4.1 關鍵流程
 
