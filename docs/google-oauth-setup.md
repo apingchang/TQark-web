@@ -113,9 +113,44 @@ Google Cloud Console 2024 改版後,介面跟舊文件差很多。對照表讓�
 
 這頁是 Scopes(你的 App 要存取 user 的什麼資料)。
 
-**預設的 `openid` + `email` + `profile` 就夠了**,不用動。
+### 5.1 非機密範圍(Your non-sensitive scopes)
 
-直接點 **「儲存並繼續」** → 進到「用戶端」分頁(這才是重點!)
+**加上這三個**:
+- `openid` - 連結你的 Google 身份
+- `https://www.googleapis.com/auth/userinfo.email` - 拿 email
+- `https://www.googleapis.com/auth/userinfo.profile` - 拿名字、頭像
+
+**怎麼加**:
+1. 點「新增或移除範圍」按鈕
+2. 在「手動新增範圍」輸入上述三個 URI,一個一個加
+3. 或從清單裡手動勾「openid」、「userinfo.email」、「userinfo.profile」
+4. 點「更新」/「儲存」
+
+### 5.2 機密範圍(Your sensitive scopes)
+
+**不要加任何東西**,留空。
+
+「機密」指的是存取 Google Drive、Gmail、Calendar 等個資的範圍,例如 `drive.readonly`、`gmail.readonly`。
+TQark-web 完全不需要這些資料。
+
+### 5.3 受限制範圍(Your restricted scopes)
+
+**不要加任何東西**,留空。
+
+「受限制」是更敏感的範圍,需要 Google 安全審核。
+TQark-web 完全不需要。
+
+### 5.4 為什麼不設機密/受限制?
+
+| 理由 | 說明 |
+|------|------|
+| **不需要** | TQark-web 只要 email + name + 頭像就能運作 |
+| **最小權限原則** | Scope 越少,User 看到 Google 同意畫面時越安心 |
+| **免審核** | 機密/受限制 scope 要送 Google 安全審核,曠日廢時 |
+
+### 5.5 儲存
+
+點左下藍色 **「Save」(儲存)** 按鈕 → 進到「用戶端」分頁
 
 ---
 
