@@ -293,6 +293,20 @@ chmod 600 /home/aping/MyProjects/TQark-web/backend/.env
 - ✅ 只放在 `.env` 檔,權限 `chmod 600`
 - ✅ 如果不小心洩漏,到 Google Cloud Console **重設**(Credentials → 你的 OAuth client → RESET SECRET)
 
+### ⚠️ 不要點「下載 JSON」按鈕!
+
+Google Cloud Console 在「用戶端」分頁的右邊會有一個「**下載 JSON**」按鈕。**這個 JSON 包含你的 Client Secret**,下載後**絕對不要 commit 到 git**。
+
+**如果不小心下載了**:
+- ✅ 把內容讀出來(那個 JSON 內含 client_id + client_secret)
+- ✅ 把值貼到 `.env` 對應欄位
+- ❌ **不要把 .json 檔放到任何會被 git 追蹤的資料夾**
+- ❌ 更不要 `git add` 或 commit 它
+- ✅ **直接刪掉 .json 檔**(用完就刪)
+
+**為什麼 GitHub 會擋下 push**:
+GitHub 2024 之後啟用 push protection,任何 commit 含 Google/AWS/etc. 的 secret 都會被擋下。**別繞過**(「Allow secret」按鈕),重設 secret 比較安全。
+
 ### 「這個 App 未經驗證」警告
 - 因為你的 App 在 Testing mode,Google 會警告
 - User 第一次登入會看到警告頁,點「進階」→「前往 TQark-web(不安全)」即可
