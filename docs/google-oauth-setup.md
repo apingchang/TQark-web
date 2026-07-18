@@ -291,7 +291,7 @@ chmod 600 /home/aping/MyProjects/TQark-web/backend/.env
 - ❌ **絕對不要** 貼到 Slack/Email/公開 forum
 - ❌ **絕對不要** 寫在程式碼裡(hardcode)
 - ✅ 只放在 `.env` 檔,權限 `chmod 600`
-- ✅ 如果不小心洩漏,到 Google Cloud Console **重設**(Credentials → 你的 OAuth client → RESET SECRET)
+- ✅ 如果不小心洩漏,到 Google Cloud Console **重設**(舊版路徑:API 和服務 → 憑證 → 你的 OAuth client → 重設密鑰;新版 Google Auth Platform 介面較難找,或乾脆刪掉重建)
 
 ### ⚠️ 不要點「下載 JSON」按鈕!
 
