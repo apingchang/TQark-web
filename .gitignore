@@ -1,0 +1,86 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Environment
+.env
+.env.local
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Playwright
+.playwright/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Project-specific
+# Cookies (重要!千萬不要 commit)
+backend/data/cookies/
+*.cookies.json
+*.cookies.txt
+studyark_cookies*
+
+# PDF cache (後續加入)
+cache/
+data/pdfs/
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+.docker/
+
+# Secrets
+secrets/
+*.pem
+*.key
+
+# Temporary
+tmp/
+temp/
