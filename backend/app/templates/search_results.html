@@ -31,7 +31,7 @@
                 目前第 <strong>{{ page }}</strong> / <strong>{{ total_page }}</strong> 頁(StudyArk 每頁 12 筆)
             </p>
 
-            {# === 浮動「已選 N 項」按鈕 === #}
+            {# === 頂部浮動「已選 N 項」指示器 === #}
             <div id="batchBar" class="alert alert-warning sticky-top d-none" style="top: 10px; z-index: 100;">
                 <div class="d-flex justify-content-between align-items-center">
                     <span>
@@ -207,7 +207,18 @@
             <p class="text-muted">沒有結果。試試放寬條件?</p>
         {% endif %}
 
-        <a href="/dashboard" class="btn btn-secondary mt-3">← 回 Dashboard</a>
+        {# === 底部按鈕列:← 回 Dashboard 左邊,下載勾選項目右邊 === #}
+        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+            <a href="/dashboard" class="btn btn-secondary">← 回 Dashboard</a>
+            <div id="batchBarBottom" class="d-none">
+                <span class="me-3">
+                    🛒 已選 <strong id="selectedCountBottom">0</strong> 項
+                    <small class="text-muted">(單批最多 20 個)</small>
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSelectionBtnBottom">清除選取</button>
+                <button type="button" class="btn btn-primary" id="downloadBatchBtnBottom">⬇ 下載勾選項目</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -249,6 +260,20 @@
     </div>
 </div>
 
+<style>
+/* 確保所有下載按鈕同樣大小 */
+.single-dl-btn {
+    min-width: 90px;
+    white-space: nowrap;
+    text-align: center;
+}
+/* 表格操作欄最小寬度 */
+table th:last-child,
+table td:last-child {
+    min-width: 100px;
+}
+</style>
+
 <script>
 // =========================================================
 // 勾選下載的 client-side 邏輯
@@ -273,6 +298,7 @@ function makeKey(it) {
 function updateBatchBar() {
     const selected = getSelected();
     const count = Object.keys(selected).length;
+    // 頂部 bar
     const bar = document.getElementById('batchBar');
     const counter = document.getElementById('selectedCount');
     counter.textContent = count;
@@ -280,6 +306,17 @@ function updateBatchBar() {
         bar.classList.remove('d-none');
     } else {
         bar.classList.add('d-none');
+    }
+    // 底部 bar(同步)
+    const barBottom = document.getElementById('batchBarBottom');
+    const counterBottom = document.getElementById('selectedCountBottom');
+    if (counterBottom) counterBottom.textContent = count;
+    if (barBottom) {
+        if (count > 0) {
+            barBottom.classList.remove('d-none');
+        } else {
+            barBottom.classList.add('d-none');
+        }
     }
 
     // 標記已勾選的 checkbox(跨 page 保留)
@@ -335,13 +372,18 @@ document.getElementById('selectAllChk').addEventListener('change', e => {
     });
 });
 
-// 清除選取
+// 清除選取(頂部)
 document.getElementById('clearSelectionBtn').addEventListener('click', () => {
     setSelected({});
     updateBatchBar();
 });
+// 清除選取(底部)
+document.getElementById('clearSelectionBtnBottom').addEventListener('click', () => {
+    setSelected({});
+    updateBatchBar();
+});
 
-// 「下載勾選項目」按鈕 → 顯示 confirm modal
+// 「下載勾選項目」按鈕 → 顯示 confirm modal(頂部)
 document.getElementById('downloadBatchBtn').addEventListener('click', () => {
     const selected = getSelected();
     const items = Object.values(selected);
@@ -361,6 +403,11 @@ document.getElementById('downloadBatchBtn').addEventListener('click', () => {
     document.getElementById('confirmError').classList.add('d-none');
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     modal.show();
+});
+
+// 「下載勾選項目」按鈕(底部) → 同上
+document.getElementById('downloadBatchBtnBottom').addEventListener('click', () => {
+    document.getElementById('downloadBatchBtn').click();
 });
 
 // 「確認下載」→ 實際打 API
