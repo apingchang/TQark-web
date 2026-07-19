@@ -98,7 +98,7 @@
                             </td>
                         </tr>
                         {% if item.daan_no and item.daan_no != '' %}
-                        <tr>
+                        <tr class="answer-row" style="background-color: #f8f9fa;">
                             <td>
                                 <input type="checkbox"
                                        class="itemChk"
@@ -115,8 +115,9 @@
                                        data-type="{{ item.type }}"
                                        data-version="{{ item.version }}">
                             </td>
-                            <td colspan="8">
-                                <small class="text-muted">↳ 對應答案({{ item.title }})</small>
+                            <td colspan="8" style="padding-left: 2rem;">
+                                <span class="badge bg-secondary">📝 答案</span>
+                                <small class="text-muted ms-2">{{ item.title }}</small>
                             </td>
                             <td id="status-daan-{{ loop.index }}">
                                 <small class="text-muted">—</small>

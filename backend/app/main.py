@@ -10,6 +10,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi import Cookie, FastAPI  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 from app.api.auth import SESSION_COOKIE, router as auth_router  # noqa: E402
 from app.api.pages import router as pages_router  # noqa: E402
@@ -25,6 +27,11 @@ app = FastAPI(
     description="Private invite-only web app for sharing StudyArk exam PDFs",
     version="0.1.2",
 )
+
+# /static mount(serve Bootstrap CSS / JS / favicon)
+_static_dir = Path(__file__).resolve().parent / "static"
+_static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 app.include_router(auth_router)
 app.include_router(pages_router)
