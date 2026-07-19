@@ -213,7 +213,7 @@ class BatchItem(BaseModel):
     """批次下載中的單個 item"""
     classid: str
     fileid: str
-    filetype: str = "paper"
+    filetype: str = "paper"  # paper / daan (StudyArk API convention)
     title: str | None = None
     school_name: str | None = None
     grade: str | None = None

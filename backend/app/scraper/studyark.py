@@ -131,7 +131,7 @@ async def search_papers(
 class ExamItem:
     classid: str
     fileid: str
-    filetype: str = "paper"  # paper / answer
+    filetype: str = "paper"  # paper / daan (StudyArk API convention)
     title: str = ""
     school_name: str = ""
     grade: str = ""
@@ -176,7 +176,7 @@ def _infer_term(title: str) -> str:
 async def get_download_token(classid: str, fileid: str, filetype: str = "paper") -> str:
     """
     拿 download token。
-    filetype: paper(試卷) / answer(答案)
+    filetype: paper(試卷) / daan(答案)
     回傳 token string。
     """
     cookies = load_cookies()
@@ -266,7 +266,7 @@ def build_download_filename(item: ExamItem) -> str:
         parts.append(item.exam_type)
     if item.version:
         parts.append(item.version)
-    parts.append("答案" if item.filetype == "answer" else "試卷")
+    parts.append("答案" if item.filetype == "daan" else "試卷")
 
     name = "_".join(parts) + ".pdf"
     return sanitize_filename(name)

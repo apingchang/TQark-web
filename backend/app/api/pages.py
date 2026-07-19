@@ -291,7 +291,7 @@ async def ui_download(
     classid: str,
     fileid: str,
     request: Request,
-    filetype: str = Query("paper", regex="^(paper|answer)$"),
+    filetype: str = Query("paper", regex="^(paper|daan)$"),
     title: str | None = Query(None),
     school_name: str | None = Query(None),
     grade: str | None = Query(None),

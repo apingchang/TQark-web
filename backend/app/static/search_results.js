@@ -118,7 +118,7 @@ document.getElementById('downloadBatchBtn').addEventListener('click', () => {
     ol.innerHTML = '';
     items.forEach((it, i) => {
         const li = document.createElement('li');
-        li.textContent = `[${it.filetype === 'answer' ? '答案' : '試卷'}] ${it.title || it.school_name}`;
+        li.textContent = `[${it.filetype === 'daan' ? '答案' : '試卷'}] ${it.title || it.school_name}`;
         ol.appendChild(li);
     });
     document.getElementById('confirmError').classList.add('d-none');

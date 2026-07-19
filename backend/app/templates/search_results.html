@@ -114,7 +114,7 @@
                                        class="itemChk"
                                        data-classid="{{ item.classid }}"
                                        data-fileid="{{ item.daan_no }}"
-                                       data-filetype="answer"
+                                       data-filetype="daan"
                                        data-title="{{ item.title }} - 答案"
                                        data-school="{{ item.school_name }}"
                                        data-grade="{{ item.grade }}"
@@ -130,11 +130,11 @@
                                 <small class="text-muted ms-2">{{ item.title }}</small>
                             </td>
                             <td>
-                                <a href="/ui/download/{{ item.classid }}/{{ item.daan_no }}?filetype=answer&title={{ (item.title + ' 答案')|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
+                                <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=daan&title={{ (item.title + ' 答案')|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
                                    class="btn btn-sm btn-primary single-dl-btn"
                                    data-classid="{{ item.classid }}"
                                    data-fileid="{{ item.daan_no }}"
-                                   data-filetype="answer">
+                                   data-filetype="daan">
                                     <small>⬇ 答案</small>
                                 </a>
                             </td>
