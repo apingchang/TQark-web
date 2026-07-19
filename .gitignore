@@ -84,6 +84,7 @@ secrets/
 # Temporary
 tmp/
 temp/
+
 # Google OAuth Client JSON (NEVER commit, contains client_secret)
 docs/client_secret_*.json
 **/client_secret_*.json
