@@ -131,7 +131,7 @@
                             </td>
                             <td>
                                 <a href="/ui/download/{{ item.classid }}/{{ item.daan_no }}?filetype=answer&title={{ (item.title + ' 答案')|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
-                                   class="btn btn-sm btn-outline-primary single-dl-btn"
+                                   class="btn btn-sm btn-primary single-dl-btn"
                                    data-classid="{{ item.classid }}"
                                    data-fileid="{{ item.daan_no }}"
                                    data-filetype="answer">
@@ -210,13 +210,13 @@
         {# === 底部按鈕列:← 回 Dashboard 左邊,下載勾選項目右邊 === #}
         <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
             <a href="/dashboard" class="btn btn-secondary">← 回 Dashboard</a>
-            <div id="batchBarBottom" class="d-none">
+            <div id="batchBarBottom">
                 <span class="me-3">
                     🛒 已選 <strong id="selectedCountBottom">0</strong> 項
                     <small class="text-muted">(單批最多 20 個)</small>
                 </span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSelectionBtnBottom">清除選取</button>
-                <button type="button" class="btn btn-primary" id="downloadBatchBtnBottom">⬇ 下載勾選項目</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSelectionBtnBottom" disabled>清除選取</button>
+                <button type="button" class="btn btn-primary" id="downloadBatchBtnBottom" disabled>⬇ 下載勾選項目</button>
             </div>
         </div>
     </div>
@@ -301,23 +301,21 @@ function updateBatchBar() {
     // 頂部 bar
     const bar = document.getElementById('batchBar');
     const counter = document.getElementById('selectedCount');
-    counter.textContent = count;
-    if (count > 0) {
-        bar.classList.remove('d-none');
-    } else {
-        bar.classList.add('d-none');
-    }
-    // 底部 bar(同步)
-    const barBottom = document.getElementById('batchBarBottom');
-    const counterBottom = document.getElementById('selectedCountBottom');
-    if (counterBottom) counterBottom.textContent = count;
-    if (barBottom) {
+    if (counter) counter.textContent = count;
+    if (bar) {
         if (count > 0) {
-            barBottom.classList.remove('d-none');
+            bar.classList.remove('d-none');
         } else {
-            barBottom.classList.add('d-none');
+            bar.classList.add('d-none');
         }
     }
+    // 底部 bar(始終顯示,只是按钮根據 count 來 enable/disable)
+    const counterBottom = document.getElementById('selectedCountBottom');
+    if (counterBottom) counterBottom.textContent = count;
+    const dlBtnBottom = document.getElementById('downloadBatchBtnBottom');
+    const clearBtnBottom = document.getElementById('clearSelectionBtnBottom');
+    if (dlBtnBottom) dlBtnBottom.disabled = count === 0;
+    if (clearBtnBottom) clearBtnBottom.disabled = count === 0;
 
     // 標記已勾選的 checkbox(跨 page 保留)
     document.querySelectorAll('.itemChk').forEach(chk => {
@@ -407,6 +405,11 @@ document.getElementById('downloadBatchBtn').addEventListener('click', () => {
 
 // 「下載勾選項目」按鈕(底部) → 同上
 document.getElementById('downloadBatchBtnBottom').addEventListener('click', () => {
+    const selected = getSelected();
+    if (Object.keys(selected).length === 0) {
+        alert('請先勾選考古題!');
+        return;
+    }
     document.getElementById('downloadBatchBtn').click();
 });
 
