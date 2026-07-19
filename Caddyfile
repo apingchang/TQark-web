@@ -20,6 +20,8 @@ https://:8443 {
         Referrer-Policy "strict-origin-when-cross-origin"
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         Content-Security-Policy "default-src 'self'; img-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+        # 不快取 HTML template(dev 階段方便修改、避免瀏覽器 cache 舊版)
+        Cache-Control "no-cache, no-store, must-revalidate"
     }
 
     log {
