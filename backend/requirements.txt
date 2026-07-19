@@ -1,0 +1,34 @@
+# TQark-web backend dependencies
+# Python 3.12+
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+jinja2==3.1.5
+python-multipart==0.0.20
+
+# Auth + OAuth
+authlib==1.4.1
+httpx==0.28.1
+itsdangerous==2.2.0
+pyjwt==2.10.1
+
+# Database
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# Settings + validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+# Scraper
+playwright==1.49.1
+
+# Logging
+loguru==0.7.3
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0

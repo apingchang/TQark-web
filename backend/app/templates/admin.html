@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Admin 後台 — TQark-web{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h2 class="card-title">🛡️ Admin 後台</h2>
+        <p class="card-text text-muted">
+            管理員專用 — 審核存取申請、查看 audit log
+        </p>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">待審核的申請({{ pending_requests|length }} 筆)</h5>
+    </div>
+    <div class="card-body">
+        {% if pending_requests %}
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>申請原因</th>
+                            <th>申請時間</th>
+                            <th>動作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in pending_requests %}
+                        <tr>
+                            <td>{{ req.user.name or '(無名稱)' }}</td>
+                            <td><code>{{ req.user.email }}</code></td>
+                            <td><small>{{ req.reason }}</small></td>
+                            <td><small>{{ req.created_at }}</small></td>
+                            <td>
+                                <form method="post" action="/admin/requests/{{ req.id }}/approve" class="d-inline">
+                                    <button class="btn btn-sm btn-success">通過</button>
+                                </form>
+                                <form method="post" action="/admin/requests/{{ req.id }}/reject" class="d-inline">
+                                    <button class="btn btn-sm btn-danger">拒絕</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">目前沒有待審核的申請。</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">所有 User({{ users|length }} 人)</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>上次登入</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td><code>{{ u.email }}</code></td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if u.role == 'admin' else 'secondary' }}">
+                                {{ u.role }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge badge-status-{{ u.status }}">{{ u.status }}</span>
+                        </td>
+                        <td><small>{{ u.last_login_at }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">最近 Audit Log({{ audit_logs|length }} 筆)</h5>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>時間</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in audit_logs %}
+                    <tr>
+                        <td><small>{{ log.created_at }}</small></td>
+                        <td><small>{{ log.user.email if log.user else '—' }}</small></td>
+                        <td><span class="badge bg-info">{{ log.action }}</span></td>
+                        <td><small>{{ log.target or '—' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

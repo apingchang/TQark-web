@@ -91,3 +91,6 @@ docs/client_secret_*.json
 
 # Local credentials (contains Google OAuth secrets, JWT secret, etc.)
 credentials/
+
+# TLS cert + key (放在 /etc/caddy/ 才讓 caddy 讀得到)
+credentials/tls/

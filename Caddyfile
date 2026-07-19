@@ -1,0 +1,37 @@
+# TQark-web Caddyfile
+# Reverse proxy: HTTPS on :8443 → FastAPI on 127.0.0.1:8000
+#
+# 安裝:
+#   sudo cp Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl restart caddy
+
+https://:8443 {
+    # 使用我們自己產的 self-signed cert(cert 在 /etc/caddy/ 因為 /home/aping 其他 user 進不去)
+    tls /etc/caddy/tqark-cert.pem /etc/caddy/tqark-key.pem
+
+    reverse_proxy 127.0.0.1:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Content-Security-Policy "default-src 'self'; img-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+
+    log {
+        output file /var/log/caddy/tqark-web.log {
+            roll_size 10MiB
+            roll_keep 5
+        }
+        level INFO
+    }
+
+    @health path /healthz
+    handle @health {
+        respond "caddy ok\n" 200
+    }
+}

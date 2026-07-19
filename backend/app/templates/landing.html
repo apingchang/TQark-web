@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}TQark-web — 考古題下載{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-5 text-center">
+        <h1 class="card-title mb-3">📚 TQark-web</h1>
+        <p class="card-text text-muted mb-4">
+            國中段考考古題下載平台<br>
+            <small>(私人邀請制,僅限受邀使用者存取)</small>
+        </p>
+
+        {% if user %}
+            <p class="lead">歡迎回來,<strong>{{ user.name or user.email }}</strong>!</p>
+            {% if user.status == 'pending' %}
+                <div class="alert alert-warning">
+                    您的帳號正在等待審核中。<br>
+                    管理員通過後即可使用完整功能。
+                </div>
+                <a href="/dashboard" class="btn btn-primary">前往 Dashboard</a>
+            {% elif user.status == 'approved' %}
+                <a href="/dashboard" class="btn btn-primary btn-lg">前往 Dashboard</a>
+            {% elif user.status == 'rejected' %}
+                <div class="alert alert-danger">
+                    您的存取申請已被拒絕。<br>
+                    如有疑問,請聯絡管理員。
+                </div>
+            {% elif user.status == 'banned' %}
+                <div class="alert alert-dark">
+                    您的帳號已被停權。
+                </div>
+            {% endif %}
+        {% else %}
+            <a href="/auth/google/login" class="btn btn-primary btn-lg">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" class="me-2">
+                Sign in with Google
+            </a>
+            <p class="mt-4 mb-0 small text-muted">
+                使用 Google 帳號登入 · 需經管理員審核
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">如何使用</h5>
+        <ol class="card-text">
+            <li>用 Google 帳號登入</li>
+            <li>填寫申請原因</li>
+            <li>等管理員審核(William)</li>
+            <li>通過後可以搜尋 / 下載考古題 PDF</li>
+        </ol>
+    </div>
+</div>
+{% endblock %}

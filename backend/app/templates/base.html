@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TQark-web{% endblock %}</title>
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <style>
+        body { background: #f8f9fa; }
+        .navbar-brand { font-weight: 600; }
+        .container-narrow { max-width: 720px; }
+        .card { border: 1px solid #dee2e6; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+        .badge-status-pending { background: #ffc107; color: #000; }
+        .badge-status-approved { background: #198754; }
+        .badge-status-rejected { background: #dc3545; }
+        .badge-status-banned { background: #6c757d; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">📚 TQark-web</a>
+            <div class="navbar-nav ms-auto">
+                {% if user %}
+                    <span class="nav-link">
+                        {% if user.picture %}
+                            <img src="{{ user.picture }}" alt="" width="24" height="24" class="rounded-circle me-1">
+                        {% endif %}
+                        {{ user.name or user.email }}
+                        {% if user.role == 'admin' %}
+                            <span class="badge bg-danger ms-1">Admin</span>
+                        {% endif %}
+                    </span>
+                    {% if user.role == 'admin' %}
+                        <a class="nav-link" href="/admin">後台</a>
+                    {% endif %}
+                    <a class="nav-link" href="/dashboard">Dashboard</a>
+                    <form method="post" action="/auth/logout" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary ms-2">登出</button>
+                    </form>
+                {% else %}
+                    <a class="nav-link" href="/auth/google/login">Sign in with Google</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="container container-narrow">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="container container-narrow text-muted small mt-5 pt-3 border-top">
+        <p>TQark-web v{{ version }} · Private invite-only · Powered by William & 夥計</p>
+    </footer>
+</body>
+</html>

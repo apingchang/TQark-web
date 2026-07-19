@@ -1,0 +1,1 @@
+"""Pydantic schemas — Phase 1.2"""
