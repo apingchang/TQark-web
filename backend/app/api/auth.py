@@ -25,43 +25,63 @@ SESSION_COOKIE = "tqark_session"
 
 
 # ============================================================
-# OAuth flow state(簡單版,production 應該用 Redis 之類的)
+# OAuth flow state — 用 signed cookie 存(避免多 worker 不共享)
 # ============================================================
-# Phase 1 暫時用記憶體存 state,服務重啟就清掉。
-# Production 應該用 Redis / DB 存 + 設定 TTL。
-_state_store: dict[str, bool] = {}
+# 我們把 state 寫進 httpOnly cookie,callback 時驗證。
+# itsdangerous 簽章確保 state 沒被竊改。
+# 10 分鐘 TTL(超過就過期)。
+
+from itsdangerous import BadSignature, URLSafeTimedSerializer
+
+_state_signer = URLSafeTimedSerializer(settings.jwt_secret, salt="tqark-oauth-state")
+STATE_COOKIE = "tqark_oauth_state"
 
 
 @router.get("/google/login")
-async def google_login():
+async def google_login(response: Response):
     """
     1. 生 CSRF state token
-    2. 存起來(session cookie 或 server-side store)
+    2. 寫進 signed cookie(設 10 分鐘過期)
     3. 跳轉到 Google 同意畫面
     """
     state = secrets.token_urlsafe(32)
-    _state_store[state] = True
+    signed_state = _state_signer.dumps(state)
 
-    # 建 Google OAuth authorize URL
-    params = {
-        "client_id": settings.google_client_id,
-        "redirect_uri": f"{settings.public_base_url}/auth/google/callback",
-        "response_type": "code",
-        "scope": "openid email profile",
-        "state": state,
-        "access_type": "offline",
-        "prompt": "consent",
-    }
-    google_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
-    return RedirectResponse(url=google_url)
+    # 設 short-lived cookie 存 state
+    response = RedirectResponse(
+        url=f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode({  # noqa: F841
+            'client_id': settings.google_client_id,
+            'redirect_uri': f'{settings.public_base_url}/auth/google/callback',
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'state': state,
+            'access_type': 'offline',
+            'prompt': 'consent',
+        })}"
+    )
+    response.set_cookie(
+        key=STATE_COOKIE,
+        value=signed_state,
+        max_age=600,  # 10 minutes
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/auth/google",  # 只在 OAuth 流程有用
+    )
+    return response
 
 
 @router.get("/google/callback")
-async def google_callback(code: str | None = None, state: str | None = None, error: str | None = None):
+async def google_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    tqark_oauth_state: str | None = Cookie(default=None),
+):
     """
     Google redirect 回來,帶 code + state。
     我們:
-    1. 驗 state(防 CSRF)
+    1. 驗 cookie 裡的 state 跟 query 裡的 state 一致(防 CSRF)
     2. 用 code 換 access_token
     3. 拿 userinfo
     4. 產 JWT,設 cookie
@@ -69,17 +89,23 @@ async def google_callback(code: str | None = None, state: str | None = None, err
     """
     if error:
         raise HTTPException(400, f"Google OAuth error: {error}")
-    if not code or not state:
-        raise HTTPException(400, "Missing code or state")
+    if not code or not state or not tqark_oauth_state:
+        raise HTTPException(400, "Missing code/state/cookie")
 
-    # 1. 驗 state
-    if _state_store.pop(state, None) is None:
-        raise HTTPException(400, "Invalid state (可能的 CSRF 攻擊)")
-    # ↑ pop() 一次用掉,防 replay
+    # 1. 驗 state(防 CSRF)
+    try:
+        saved_state = _state_signer.loads(tqark_oauth_state, max_age=600)
+    except BadSignature:
+        raise HTTPException(400, "State cookie 無效或被竊改")
+    except Exception:
+        raise HTTPException(400, "State cookie 過期(>10 分鐘),請重新登入")
+
+    if saved_state != state:
+        raise HTTPException(400, "State mismatch — 可能的 CSRF 攻擊")
 
     # 2. 用 code 換 access_token
     client = make_oauth_client()
-    token = await client.fetch_access_token(
+    token = await client.fetch_token(
         "https://oauth2.googleapis.com/token",
         code=code,
     )
@@ -137,14 +163,17 @@ async def google_callback(code: str | None = None, state: str | None = None, err
         samesite="lax",
         path="/",
     )
+    # 清掉 oauth state cookie
+    response.delete_cookie(key=STATE_COOKIE, path="/auth/google")
     return response
 
 
 @router.post("/logout")
 async def logout(response: Response):
-    """刪 session cookie"""
+    """刪 session cookie + 跳回首頁"""
+    response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie(key=SESSION_COOKIE, path="/")
-    return {"ok": True}
+    return response
 
 
 @router.get("/me")

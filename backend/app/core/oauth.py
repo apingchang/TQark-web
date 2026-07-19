@@ -32,7 +32,9 @@ async def fetch_google_userinfo(access_token: str) -> dict:
     用 access_token 去 Google userinfo endpoint 拿使用者資料。
     回傳 dict 至少有: sub, email, email_verified, name, picture
     """
-    async with AsyncOAuth2Client() as client:
+    import httpx
+
+    async with httpx.AsyncClient() as client:
         resp = await client.get(
             GOOGLE_USERINFO_URL,
             headers={"Authorization": f"Bearer {access_token}"},
