@@ -15,6 +15,7 @@ from app.api.auth import SESSION_COOKIE, router as auth_router  # noqa: E402
 from app.api.pages import router as pages_router  # noqa: E402
 from app.api.admin import router as admin_router  # noqa: E402
 from app.api.access_requests import router as access_requests_router  # noqa: E402
+from app.api.scraper import router as scraper_router  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.core.security import decode_access_token  # noqa: E402
 from app.db.session import init_db  # noqa: E402
@@ -29,6 +30,7 @@ app.include_router(auth_router)
 app.include_router(pages_router)
 app.include_router(admin_router)
 app.include_router(access_requests_router)
+app.include_router(scraper_router)
 
 
 @app.on_event("startup")

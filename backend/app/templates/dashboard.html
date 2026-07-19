@@ -61,15 +61,78 @@
 <div class="card mt-4">
     <div class="card-body">
         <h5 class="card-title">搜尋考古題</h5>
-        <p class="card-text text-muted">
-            (Phase 1.3 會接 StudyArk scraper,目前 placeholder)
+        <p class="card-text text-muted small mb-3">
+            從 StudyArk (全國中小學題庫網) 搜尋。可留空表示不限。
         </p>
-        <form>
-            <div class="mb-3">
-                <label class="form-label">學校 / 段考名稱</label>
-                <input type="text" class="form-control" disabled placeholder="待實作...">
+        <form method="post" action="/ui/search">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label small">年級</label>
+                    <select name="grade" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option>七年級</option>
+                        <option>八年級</option>
+                        <option>九年級</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">科目</label>
+                    <select name="subject" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option>國文</option>
+                        <option>英語</option>
+                        <option>數學</option>
+                        <option>自然</option>
+                        <option>社會</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">學年</label>
+                    <select name="school_year" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option>113</option>
+                        <option>112</option>
+                        <option>111</option>
+                        <option>110</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">學期</label>
+                    <select name="school_term" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option>上學期</option>
+                        <option>下學期</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">段考</label>
+                    <select name="exam_type" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option>第一次段考</option>
+                        <option>第二次段考</option>
+                        <option>第三次段考</option>
+                        <option>期末考</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">版本</label>
+                    <select name="version" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option>翰林</option>
+                        <option>康軒</option>
+                        <option>南一</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">是否含答案</label>
+                    <select name="daan" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option value="yes">只含答案</option>
+                        <option value="no">不含答案</option>
+                    </select>
+                </div>
             </div>
-            <button type="button" class="btn btn-primary" disabled>搜尋</button>
+            <button type="submit" class="btn btn-primary mt-3">搜尋</button>
         </form>
     </div>
 </div>

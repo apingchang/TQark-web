@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}搜尋結果 — TQark-web{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h2 class="card-title">搜尋結果</h2>
+        <p class="text-muted small mb-3">
+            搜尋條件: {{ search_params }}
+        </p>
+
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% elif results %}
+            <p class="mb-3">找到 <strong>{{ results|length }}</strong> 筆結果:</p>
+            <div class="list-group">
+                {% for item in results %}
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">{{ item.title or item.name or item.classname or '(無標題)' }}</h6>
+                        <small class="text-muted">{{ item.school_year or '' }}</small>
+                    </div>
+                    <p class="mb-1">
+                        <small class="text-muted">
+                            {{ item.grade or '' }} ·
+                            {{ item.subject or '' }} ·
+                            {{ item.version or '' }} ·
+                            {{ item.school_term or '' }}
+                        </small>
+                    </p>
+                    {% if item.classid and item.id %}
+                        <a href="/ui/download/{{ item.classid }}/{{ item.id }}" class="btn btn-sm btn-primary">
+                            ⬇ 下載試卷
+                        </a>
+                        {% if item.daanid %}
+                            <a href="/ui/download/{{ item.classid }}/{{ item.daanid }}?filetype=answer" class="btn btn-sm btn-outline-secondary">
+                                ⬇ 下載答案
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted">沒有結果。</p>
+        {% endif %}
+
+        <a href="/dashboard" class="btn btn-secondary mt-3">← 回 Dashboard</a>
+    </div>
+</div>
+{% endblock %}
