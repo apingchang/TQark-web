@@ -14,6 +14,8 @@ API:
 """
 
 import json
+import zipfile
+import io
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -204,5 +206,137 @@ async def download(
     return Response(
         content=pdf_bytes,
         media_type=content_type,
+        headers=headers,
+    )
+
+class BatchItem(BaseModel):
+    """批次下載中的單個 item"""
+    classid: str
+    fileid: str
+    filetype: str = "paper"
+    title: str | None = None
+    school_name: str | None = None
+    grade: str | None = None
+    school_year: str | None = None
+    school_term: str | None = None
+    category: str | None = None
+    subject: str | None = None
+    exam_type: str | None = None
+    version: str | None = None
+
+
+class BatchDownloadRequest(BaseModel):
+    items: list[BatchItem]
+
+
+@router.post("/batch-download")
+async def batch_download(
+    req: BatchDownloadRequest,
+    request: Request,
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    批次下載多個考古題 → 回傳 .zip 包含所有 PDF。
+
+    限制:
+    - 單批最多 20 個 items(避免 timeout / 流量爆)
+    - 每個 item 必須有 classid + fileid + filetype
+    """
+    MAX_BATCH = 20
+    items = req.items
+
+    if not items:
+        raise HTTPException(400, "至少要 1 個 item")
+    if len(items) > MAX_BATCH:
+        raise HTTPException(
+            400,
+            f"單批最多 {MAX_BATCH} 個,你選了 {len(items)} 個。請減少後再試。"
+        )
+
+    # 收集 PDF bytes
+    buffer = io.BytesIO()
+    downloaded = []  # (filename, item)
+    errors = []
+
+    for item in items:
+        try:
+            pdf_bytes, _ = await studyark.download_pdf_stream(
+                item.classid, item.fileid, item.filetype
+            )
+            ei = studyark.ExamItem(
+                classid=item.classid,
+                fileid=item.fileid,
+                filetype=item.filetype,
+                title=item.title or "",
+                school_name=item.school_name or "",
+                grade=item.grade or "",
+                school_year=item.school_year or "",
+                school_term=item.school_term or "",
+                category=item.category or "",
+                subject=item.subject or "",
+                exam_type=item.exam_type or "",
+                version=item.version or "",
+            )
+            fname = studyark.build_download_filename(ei)
+            downloaded.append((fname, item, pdf_bytes))
+        except Exception as e:
+            errors.append({"classid": item.classid, "fileid": item.fileid, "error": str(e)})
+
+    # 寫 zip
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fname, item, pdf_bytes in downloaded:
+            # 若同檔名加編號避免覆蓋
+            zf.writestr(fname, pdf_bytes)
+
+    # 寫 DownloadHistory (每個 item)
+    for fname, item, pdf_bytes in downloaded:
+        dh = DownloadHistory(
+            user_id=user.id,
+            classid=item.classid,
+            fileid=item.fileid,
+            filetype=item.filetype,
+            title=item.title,
+            school_name=item.school_name,
+            grade=item.grade,
+            school_year=item.school_year,
+            school_term=item.school_term,
+            category=item.category,
+            subject=item.subject,
+            exam_type=item.exam_type,
+            version=item.version,
+            download_filename=fname,
+            ip_hash=hash_ip(request.client.host if request.client else None),
+            user_agent=request.headers.get("user-agent", "")[:512] or None,
+        )
+        db.add(dh)
+
+    await log_action(
+        db,
+        action="batch_download",
+        user_id=user.id,
+        target=f"{len(downloaded)} items",
+        detail=f"requested={len(items)}, downloaded={len(downloaded)}, errors={len(errors)}",
+        ip=str(request.client.host) if request.client else None,
+    )
+    await db.commit()
+
+    # 組 zip 檔名
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_filename = f"tqark_exams_{timestamp}.zip"
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{zip_filename}"',
+        "X-Batch-Count": str(len(downloaded)),
+        "X-Batch-Errors": str(len(errors)),
+    }
+
+    if errors:
+        headers["X-Batch-Error-Details"] = json.dumps(errors, ensure_ascii=False)[:1024]
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
         headers=headers,
     )

@@ -109,6 +109,45 @@
                     </select>
                 </div>
                 <div class="col-md-4">
+                    <label class="form-label small">縣市</label>
+                    <select name="county" id="countySelect" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                        <option value="taipei">臺北市</option>
+                        <option value="new_taipei">新北市</option>
+                        <option value="keelung">基隆市</option>
+                        <option value="yilan">宜蘭縣</option>
+                        <option value="taoyuan">桃園市</option>
+                        <option value="hsinchu_city">新竹市</option>
+                        <option value="hsinchu_county">新竹縣</option>
+                        <option value="miaoli">苗栗縣</option>
+                        <option value="taichung">臺中市</option>
+                        <option value="changhua">彰化縣</option>
+                        <option value="nantou">南投縣</option>
+                        <option value="yunlin">雲林縣</option>
+                        <option value="chiayi_city">嘉義市</option>
+                        <option value="chiayi_county">嘉義縣</option>
+                        <option value="tainan">臺南市</option>
+                        <option value="kaohsiung">高雄市</option>
+                        <option value="pingtung">屏東縣</option>
+                        <option value="taitung">臺東縣</option>
+                        <option value="hualien">花蓮縣</option>
+                        <option value="penghu">澎湖縣</option>
+                        <option value="kinmen">金門縣</option>
+                        <option value="lienchiang">連江縣</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">學校(自動完成)</label>
+                    <input type="text" name="school_name" id="schoolNameInput"
+                           class="form-control form-control-sm"
+                           placeholder="隨意輸入關鍵字" autocomplete="off"
+                           list="schoolList">
+                    <datalist id="schoolList">
+                        {# 動態 JS 填入 #}
+                    </datalist>
+                    <small class="form-text text-muted">例:中山、台北、石門</small>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label small">學年</label>
                     <select name="school_year" class="form-select form-select-sm">
                         <option value="">不限</option>

@@ -9,6 +9,7 @@
 
         {# === 已選的 filter chips(學 StudyArk 風格) === #}
         <div class="mb-3">
+            {% if county %}<span class="badge bg-dark me-2">縣市: {{ counties|selectattr('id', 'equalto', county)|map(attribute='name')|first or county }}</span>{% endif %}
             {% if grade %}<span class="badge bg-primary me-2">年級: {{ grade }}</span>{% endif %}
             {% if school_year %}<span class="badge bg-success me-2">學年: {{ school_year }}</span>{% endif %}
             {% if school_term %}<span class="badge bg-info me-2">學期: {{ school_term }}</span>{% endif %}
@@ -16,6 +17,7 @@
             {% if exam_type %}<span class="badge bg-secondary me-2">段考: {{ exam_type }}</span>{% endif %}
             {% if version %}<span class="badge bg-dark me-2">版本: {{ version }}</span>{% endif %}
             {% if daan %}<span class="badge bg-light text-dark me-2">答案: {% if daan == 'yes' %}含答案{% else %}不含答案{% endif %}</span>{% endif %}
+            {% if school_name %}<span class="badge bg-primary me-2">學校關鍵字: {{ school_name }}</span>{% endif %}
             <a href="/dashboard" class="btn btn-link btn-sm p-0 ms-2">清空全部</a>
         </div>
 
@@ -24,43 +26,106 @@
             <div class="alert alert-danger">{{ error }}</div>
         {% elif results %}
             <p class="mb-2">
-                共 <strong>{{ total }}</strong> 筆,
-                目前第 <strong>{{ page }}</strong> / <strong>{{ total_page }}</strong> 頁
-                (每頁 12 筆)
+                共 <strong>{{ total }}</strong> 筆(本頁顯示 {{ results|length }} 筆,
+                本地縣市/學校 filter 後),
+                目前第 <strong>{{ page }}</strong> / <strong>{{ total_page }}</strong> 頁(StudyArk 每頁 12 筆)
             </p>
-            <div class="list-group">
-                {% for item in results %}
-                <div class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <h6 class="mb-1">{{ item.title or '(無標題)' }}</h6>
-                            <p class="mb-1 small text-muted">
-                                {{ item.school_name or '' }} ·
-                                {{ item.grade or '' }} ·
-                                {{ item.school_year or '' }} ·
-                                {{ item.school_term or '' }} ·
-                                {{ item.category or '' }} ·
-                                {{ item.subject or '' }} ·
-                                {{ item.type or '' }} ·
-                                {{ item.version or '' }}
-                                {% if item.download_answer == '有' %}
-                                    <span class="badge bg-success">含答案</span>
-                                {% endif %}
-                            </p>
-                        </div>
-                        {% if item.classid and item.id %}
-                        <div class="btn-group btn-group-sm ms-2" role="group">
-                            <a href="/ui/download/{{ item.classid }}/{{ item.id }}?{% for k, v in item.items() %}{% if v and k not in ('classid', 'id', 'daan_no', 'pic', 'titleurl', 'county', 'views', 'download_url', 'download_answer') %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}filetype=paper"
-                               class="btn btn-primary">⬇ 下載試卷</a>
-                            {% if item.daan_no and item.daan_no != '' %}
-                                <a href="/ui/download/{{ item.classid }}/{{ item.daan_no }}?{% for k, v in item.items() %}{% if v and k not in ('classid', 'id', 'daan_no', 'pic', 'titleurl', 'county', 'views', 'download_url', 'download_answer') %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}filetype=answer"
-                                   class="btn btn-outline-secondary">⬇ 下載答案</a>
-                            {% endif %}
-                        </div>
-                        {% endif %}
+
+            {# === 浮動「已選 N 項」按鈕 === #}
+            <div id="batchBar" class="alert alert-warning sticky-top d-none" style="top: 10px; z-index: 100;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>
+                        🛒 已勾選 <strong id="selectedCount">0</strong> 項
+                        (單批最多 20 個)
+                    </span>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn">清除選取</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="downloadBatchBtn">⬇ 下載勾選項目</button>
                     </div>
                 </div>
-                {% endfor %}
+            </div>
+
+            {# === 結果表格 === #}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 30px;"><input type="checkbox" id="selectAllChk"></th>
+                            <th>學校</th>
+                            <th>年級</th>
+                            <th>學年</th>
+                            <th>學期</th>
+                            <th>科目</th>
+                            <th>版本</th>
+                            <th>段考</th>
+                            <th>答案</th>
+                            <th>狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in results %}
+                        <tr id="row-{{ loop.index }}">
+                            <td>
+                                <input type="checkbox"
+                                       class="itemChk"
+                                       data-classid="{{ item.classid }}"
+                                       data-fileid="{{ item.id }}"
+                                       data-filetype="paper"
+                                       data-title="{{ item.title }}"
+                                       data-school="{{ item.school_name }}"
+                                       data-grade="{{ item.grade }}"
+                                       data-year="{{ item.school_year }}"
+                                       data-term="{{ item.school_term }}"
+                                       data-cat="{{ item.category }}"
+                                       data-subject="{{ item.subject }}"
+                                       data-type="{{ item.type }}"
+                                       data-version="{{ item.version }}">
+                            </td>
+                            <td><small>{{ item.school_name or '' }}</small></td>
+                            <td><small>{{ item.grade or '' }}</small></td>
+                            <td><small>{{ item.school_year or '' }}</small></td>
+                            <td><small>{{ item.school_term or '' }}</small></td>
+                            <td><small>{{ item.subject or '' }}</small></td>
+                            <td><small>{{ item.version or '' }}</small></td>
+                            <td><small>{{ item.type or '' }}</small></td>
+                            <td>
+                                {% if item.download_answer == '有' %}
+                                    <span class="badge bg-success">含</span>
+                                {% endif %}
+                            </td>
+                            <td id="status-{{ loop.index }}">
+                                <small class="text-muted">—</small>
+                            </td>
+                        </tr>
+                        {% if item.daan_no and item.daan_no != '' %}
+                        <tr>
+                            <td>
+                                <input type="checkbox"
+                                       class="itemChk"
+                                       data-classid="{{ item.classid }}"
+                                       data-fileid="{{ item.daan_no }}"
+                                       data-filetype="answer"
+                                       data-title="{{ item.title }} - 答案"
+                                       data-school="{{ item.school_name }}"
+                                       data-grade="{{ item.grade }}"
+                                       data-year="{{ item.school_year }}"
+                                       data-term="{{ item.school_term }}"
+                                       data-cat="{{ item.category }}"
+                                       data-subject="{{ item.subject }}"
+                                       data-type="{{ item.type }}"
+                                       data-version="{{ item.version }}">
+                            </td>
+                            <td colspan="8">
+                                <small class="text-muted">↳ 對應答案({{ item.title }})</small>
+                            </td>
+                            <td id="status-daan-{{ loop.index }}">
+                                <small class="text-muted">—</small>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
 
             {# === 分頁(學 StudyArk) === #}
@@ -76,7 +141,6 @@
                         <li class="page-item disabled"><span class="page-link">‹ 上一頁</span></li>
                     {% endif %}
 
-                    {# 頁碼(顯示 page±5 + 第一/最後頁) #}
                     {% set window_start = page - 5 if page > 6 else 1 %}
                     {% set window_end = page + 5 if page < total_page - 5 else total_page %}
 
@@ -108,7 +172,6 @@
                         </li>
                     {% endif %}
 
-                    {# 下一頁 #}
                     {% if page < total_page %}
                         <li class="page-item">
                             <a class="page-link" href="/ui/search?{{ qs_for_page(page+1) }}">下一頁 ›</a>
@@ -127,4 +190,249 @@
         <a href="/dashboard" class="btn btn-secondary mt-3">← 回 Dashboard</a>
     </div>
 </div>
+
+{# === 確認下載 popup modal === #}
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🛒 確認下載勾選項目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">以下 <strong id="confirmCount">0</strong> 項將打包成 .zip 下載:</p>
+                <ol id="confirmList" class="small"></ol>
+                <div id="confirmError" class="text-danger small d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmDownloadBtn">確認下載</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# === 下載進度 modal === #}
+<div class="modal fade" id="progressModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">⏳ 下載中...</h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%">0%</div>
+                </div>
+                <p class="small text-muted" id="progressText">正在打包 {n} 個檔案,請稍候...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// =========================================================
+// 勾選下載的 client-side 邏輯
+// =========================================================
+const MAX_BATCH = 20;
+const STORAGE_KEY = 'tqark_selected_items';
+
+function getSelected() {
+    try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    } catch { return {}; }
+}
+
+function setSelected(items) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+function makeKey(it) {
+    return `${it.classid}_${it.fileid}_${it.filetype}`;
+}
+
+function updateBatchBar() {
+    const selected = getSelected();
+    const count = Object.keys(selected).length;
+    const bar = document.getElementById('batchBar');
+    const counter = document.getElementById('selectedCount');
+    counter.textContent = count;
+    if (count > 0) {
+        bar.classList.remove('d-none');
+    } else {
+        bar.classList.add('d-none');
+    }
+
+    // 標記已勾選的 checkbox(跨 page 保留)
+    document.querySelectorAll('.itemChk').forEach(chk => {
+        const k = makeKey(chk.dataset);
+        if (selected[k]) {
+            chk.checked = true;
+            // 標記 row 狀態
+            const row = chk.closest('tr');
+            if (row) {
+                row.style.backgroundColor = '#fff3cd';
+            }
+        } else {
+            chk.checked = false;
+            const row = chk.closest('row');
+            if (row) row.style.backgroundColor = '';
+        }
+    });
+}
+
+// 勾選變動時
+document.addEventListener('change', e => {
+    if (!e.target.classList.contains('itemChk')) return;
+    const selected = getSelected();
+    const k = makeKey(e.target.dataset);
+    if (e.target.checked) {
+        selected[k] = {
+            classid: e.target.dataset.classid,
+            fileid: e.target.dataset.fileid,
+            filetype: e.target.dataset.filetype,
+            title: e.target.dataset.title,
+            school_name: e.target.dataset.school,
+            grade: e.target.dataset.grade,
+            school_year: e.target.dataset.year,
+            school_term: e.target.dataset.term,
+            category: e.target.dataset.cat,
+            subject: e.target.dataset.subject,
+            exam_type: e.target.dataset.type,
+            version: e.target.dataset.version,
+        };
+    } else {
+        delete selected[k];
+    }
+    setSelected(selected);
+    updateBatchBar();
+});
+
+// 全選
+document.getElementById('selectAllChk').addEventListener('change', e => {
+    document.querySelectorAll('.itemChk').forEach(chk => {
+        chk.checked = e.target.checked;
+        chk.dispatchEvent(new Event('change'));
+    });
+});
+
+// 清除選取
+document.getElementById('clearSelectionBtn').addEventListener('click', () => {
+    setSelected({});
+    updateBatchBar();
+});
+
+// 「下載勾選項目」按鈕 → 顯示 confirm modal
+document.getElementById('downloadBatchBtn').addEventListener('click', () => {
+    const selected = getSelected();
+    const items = Object.values(selected);
+    if (items.length === 0) return;
+    if (items.length > MAX_BATCH) {
+        alert(`單批最多 ${MAX_BATCH} 個,你選了 ${items.length} 個。\n請取消勾選部分後再下載。`);
+        return;
+    }
+    document.getElementById('confirmCount').textContent = items.length;
+    const ol = document.getElementById('confirmList');
+    ol.innerHTML = '';
+    items.forEach((it, i) => {
+        const li = document.createElement('li');
+        li.textContent = `[${it.filetype === 'answer' ? '答案' : '試卷'}] ${it.title || it.school_name}`;
+        ol.appendChild(li);
+    });
+    document.getElementById('confirmError').classList.add('d-none');
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    modal.show();
+});
+
+// 「確認下載」→ 實際打 API
+document.getElementById('confirmDownloadBtn').addEventListener('click', async () => {
+    const selected = getSelected();
+    const items = Object.values(selected);
+    if (items.length === 0) return;
+
+    // 關 confirm, 顯示 progress
+    bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    progressBar.style.width = '30%';
+    progressBar.textContent = '30%';
+    progressText.textContent = `正在向 StudyArk 抓 ${items.length} 個檔案...`;
+    const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+    progressModal.show();
+
+    try {
+        const resp = await fetch('/api/batch-download', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({items: items}),
+        });
+
+        if (!resp.ok) {
+            const errText = await resp.text();
+            progressBar.classList.remove('progress-bar-animated');
+            progressBar.classList.add('bg-danger');
+            progressText.innerHTML = `<span class="text-danger">下載失敗:${resp.status} ${errText.slice(0, 200)}</span>`;
+            return;
+        }
+
+        progressBar.style.width = '90%';
+        progressBar.textContent = '90%';
+        progressText.textContent = '打包完成,瀏覽器正在儲存...';
+
+        // 觸發瀏覽器下載
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const disposition = resp.headers.get('Content-Disposition');
+        let zipName = 'tqark_exams.zip';
+        if (disposition) {
+            const m = disposition.match(/filename="([^"]+)"/);
+            if (m) zipName = m[1];
+        }
+        a.download = zipName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // 從選取清單中移除已下載的
+        items.forEach(it => {
+            const k = makeKey(it);
+            const sel = getSelected();
+            delete sel[k];
+            setSelected(sel);
+        });
+        updateBatchBar();
+
+        // 標記 row 為「已下載」
+        items.forEach(it => {
+            document.querySelectorAll('.itemChk').forEach(chk => {
+                if (makeKey(chk.dataset) === makeKey(it)) {
+                    chk.disabled = true;
+                    const row = chk.closest('tr');
+                    if (row) {
+                        row.style.backgroundColor = '#d1e7dd';
+                        const statusCell = row.querySelector('td:last-child');
+                        if (statusCell) statusCell.innerHTML = '<span class="text-success">✓ 已下載</span>';
+                    }
+                }
+            });
+        });
+
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        progressBar.classList.remove('progress-bar-animated');
+        progressText.textContent = `✅ 下載完成: ${zipName}`;
+        setTimeout(() => progressModal.hide(), 2000);
+
+    } catch (err) {
+        progressBar.classList.remove('progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+        progressText.innerHTML = `<span class="text-danger">錯誤:${err}</span>`;
+    }
+});
+
+// 初始化
+updateBatchBar();
+</script>
 {% endblock %}

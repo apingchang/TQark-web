@@ -130,9 +130,12 @@ async def _render_search_results(
     version: str,
     daan: str,
     page: int,
+    county: str = "",
+    school_name: str = "",
 ):
     from app.core.db_helpers import log_action
     from app.db.models import utcnow
+    from app.data.tw_counties import filter_school_by_county, get_county_name
 
     search_params = {
         "grade": grade or None,
@@ -168,13 +171,31 @@ async def _render_search_results(
     except Exception as e:
         error = f"StudyArk 連線失敗: {e}"
 
+    # 本地 filter: county + school_name
+    # (StudyArk 沒給 county,所以后端 filter)
+    if results and (county or school_name):
+        original_count = len(results)
+        filtered = []
+        for it in results:
+            sname = it.get("school_name", "") or ""
+            if county and not filter_school_by_county(sname, county):
+                continue
+            if school_name and school_name.strip() not in sname:
+                continue
+            filtered.append(it)
+        results = filtered
+        # 記錄 filter 資訊到 audit
+        filter_info = f"county={county},school={school_name},filter_kept={len(filtered)}/{original_count}"
+    else:
+        filter_info = f"county={county or 'all'},school={school_name or 'all'}"
+
     # Audit log
     await log_action(
         db,
         action="search",
         user_id=user.id,
         target=f"grade={grade},subject={subject}",
-        detail=f"page={page}",
+        detail=f"page={page};{filter_info}",
     )
     await db.commit()
 
@@ -204,10 +225,13 @@ async def _render_search_results(
             "exam_type": exam_type,
             "version": version,
             "daan": daan,
+            "county": county,
+            "school_name": school_name,
             "page": page,
             "total": total,
             "total_page": total_page,
             "qs_for_page": qs_for_page,
+            "counties": __import__("app.data.tw_counties", fromlist=["COUNTIES"]).COUNTIES,
         },
     )
 
@@ -223,6 +247,8 @@ async def ui_search_post(
     version: str = Form(""),
     daan: str = Form(""),
     page: int = Form(1),
+    county: str = Form(""),
+    school_name: str = Form(""),
     user: User = Depends(require_approved),
     db: AsyncSession = Depends(get_db),
 ):
@@ -231,6 +257,7 @@ async def ui_search_post(
         request, user, db,
         grade=grade, subject=subject, school_year=school_year, school_term=school_term,
         exam_type=exam_type, version=version, daan=daan, page=page,
+        county=county, school_name=school_name,
     )
 
 
@@ -245,6 +272,8 @@ async def ui_search_get(
     version: str = Query(""),
     daan: str = Query(""),
     page: int = Query(1, ge=1, le=500),
+    county: str = Query(""),
+    school_name: str = Query(""),
     user: User = Depends(require_approved),
     db: AsyncSession = Depends(get_db),
 ):
@@ -253,6 +282,7 @@ async def ui_search_get(
         request, user, db,
         grade=grade, subject=subject, school_year=school_year, school_term=school_term,
         exam_type=exam_type, version=version, daan=daan, page=page,
+        county=county, school_name=school_name,
     )
 
 
