@@ -117,22 +117,20 @@ async def admin_panel(
 # ============================================================
 # Scraper UI(form submit 用的 page handler)
 # ============================================================
-@router.post("/ui/search", response_class=HTMLResponse)
-async def ui_search(
+# 共用的 render helper(form/querystring 都可以走)
+async def _render_search_results(
     request: Request,
-    grade: str = Form(""),
-    subject: str = Form(""),
-    school_year: str = Form(""),
-    school_term: str = Form(""),
-    exam_type: str = Form(""),
-    version: str = Form(""),
-    daan: str = Form(""),
-    user: User = Depends(require_approved),
-    db: AsyncSession = Depends(get_db),
+    user: User,
+    db: AsyncSession,
+    grade: str,
+    subject: str,
+    school_year: str,
+    school_term: str,
+    exam_type: str,
+    version: str,
+    daan: str,
+    page: int,
 ):
-    """
-    Form submit 觸發,跑 StudyArk search,顯示結果頁。
-    """
     from app.core.db_helpers import log_action
     from app.db.models import utcnow
 
@@ -144,19 +142,25 @@ async def ui_search(
         "exam_type": exam_type or None,
         "version": version or None,
         "daan": daan or None,
+        "page": page,
     }
-    # 去掉 None
-    search_params = {k: v for k, v in search_params.items() if v}
+    # 去掉 None (page 不去)
+    search_params = {k: v for k, v in search_params.items() if v is not None and k != "page"}
+    search_params["page"] = page
 
     error = None
     results = []
+    total = 0
+    total_page = 0
+    api_page = 1
     try:
         raw = await studyark.search_papers(**search_params)
-        # StudyArk 通常回傳 { list: [...], total: N } 或直接 [...]
+        # StudyArk 回傳 { list: [...], total, page, total_page }
         if isinstance(raw, dict):
             results = raw.get("list") or raw.get("data") or raw.get("results") or []
-            if not results and "items" in raw:
-                results = raw["items"]
+            total = raw.get("total", 0)
+            total_page = raw.get("total_page", 0)
+            api_page = raw.get("page", page)
         elif isinstance(raw, list):
             results = raw
     except FileNotFoundError as e:
@@ -170,11 +174,19 @@ async def ui_search(
         action="search",
         user_id=user.id,
         target=f"grade={grade},subject={subject}",
+        detail=f"page={page}",
     )
     await db.commit()
 
     # 顯示用字串
-    params_display = ", ".join(f"{k}={v}" for k, v in search_params.items()) or "(無條件)"
+    params_display = ", ".join(f"{k}={v}" for k, v in search_params.items() if k != "page") or "(無條件)"
+
+    # 給 template 用:根據當前 page 組 querystring(給「下一頁」連結用)
+    def qs_for_page(p: int) -> str:
+        base_params = {k: v for k, v in search_params.items() if k != "page"}
+        base_params["page"] = p
+        from urllib.parse import urlencode
+        return urlencode(base_params)
 
     return templates.TemplateResponse(
         "search_results.html",
@@ -184,7 +196,63 @@ async def ui_search(
             "results": results,
             "error": error,
             "search_params": params_display,
+            # 為了 template 顯示 current filter 跟 chip
+            "grade": grade,
+            "subject": subject,
+            "school_year": school_year,
+            "school_term": school_term,
+            "exam_type": exam_type,
+            "version": version,
+            "daan": daan,
+            "page": page,
+            "total": total,
+            "total_page": total_page,
+            "qs_for_page": qs_for_page,
         },
+    )
+
+
+@router.post("/ui/search", response_class=HTMLResponse)
+async def ui_search_post(
+    request: Request,
+    grade: str = Form(""),
+    subject: str = Form(""),
+    school_year: str = Form(""),
+    school_term: str = Form(""),
+    exam_type: str = Form(""),
+    version: str = Form(""),
+    daan: str = Form(""),
+    page: int = Form(1),
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """Form submit(dashboard 的 search form)"""
+    return await _render_search_results(
+        request, user, db,
+        grade=grade, subject=subject, school_year=school_year, school_term=school_term,
+        exam_type=exam_type, version=version, daan=daan, page=page,
+    )
+
+
+@router.get("/ui/search", response_class=HTMLResponse)
+async def ui_search_get(
+    request: Request,
+    grade: str = Query(""),
+    subject: str = Query(""),
+    school_year: str = Query(""),
+    school_term: str = Query(""),
+    exam_type: str = Query(""),
+    version: str = Query(""),
+    daan: str = Query(""),
+    page: int = Query(1, ge=1, le=500),
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """Page 切換(分頁按鈕 → querystring)"""
+    return await _render_search_results(
+        request, user, db,
+        grade=grade, subject=subject, school_year=school_year, school_term=school_term,
+        exam_type=exam_type, version=version, daan=daan, page=page,
     )
 
 
