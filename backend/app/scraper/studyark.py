@@ -203,12 +203,23 @@ async def get_download_token(classid: str, fileid: str, filetype: str = "paper")
     return token
 
 
+class StudyArkRateLimit(Exception):
+    """StudyArk 限流(人為 or anti-bot),需要等待後重試。"""
+    def __init__(self, message: str, retry_after_minutes: int = 25):
+        super().__init__(message)
+        self.message = message
+        self.retry_after_minutes = retry_after_minutes
+
+
 async def download_pdf_stream(classid: str, fileid: str, filetype: str = "paper"):
     """
     下載 PDF,回傳 (bytes, content_type)。
 
     不存 server disk — 直接從 StudyArk 抓 bytes。
     若要 streaming 可以改成 StreamingResponse,目前先 bytes(考古題 PDF 通常 < 5MB)。
+
+    Raises:
+        StudyArkRateLimit: StudyArk 限流(例如「下載太頻繁,請等待 25 分鐘」)
     """
     token = await get_download_token(classid, fileid, filetype)
 
@@ -222,7 +233,24 @@ async def download_pdf_stream(classid: str, fileid: str, filetype: str = "paper"
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.get(f"{DOWNLOAD_URL}?token={token}", headers=headers)
         resp.raise_for_status()
-        return resp.content, "application/pdf"
+        body = resp.content
+
+        # 限流偵測: StudyArk 會回 「你下載太頻繁,請等待 N 分鐘後再試。」
+        if len(body) < 500:
+            try:
+                text = body.decode("utf-8", errors="ignore")
+                if "下載太頻繁" in text or "等待" in text and "分鐘" in text:
+                    # 抽出等待分鐘數
+                    import re
+                    m = re.search(r"等待\s*(\d+)\s*分鐘", text)
+                    retry_min = int(m.group(1)) if m else 25
+                    raise StudyArkRateLimit(text.strip(), retry_after_minutes=retry_min)
+            except StudyArkRateLimit:
+                raise
+            except Exception:
+                pass
+
+        return body, "application/pdf"
 
 
 # ============================================================

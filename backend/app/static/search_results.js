@@ -160,10 +160,18 @@ document.getElementById('confirmDownloadBtn').addEventListener('click', async ()
         });
 
         if (!resp.ok) {
-            const errText = await resp.text();
+            let errText = await resp.text();
+            let friendlyMsg = '';
+            if (resp.status === 429) {
+                // StudyArk 限流 → 答合友善訊息
+                friendlyMsg = 'StudyArk 限流中(下載太頻繁、啟動 anti-bot)。請等 25 分鐘後再試。';
+                progressBar.classList.add('bg-warning');
+            } else {
+                friendlyMsg = `下載失敗 (HTTP ${resp.status})`;
+                progressBar.classList.add('bg-danger');
+            }
             progressBar.classList.remove('progress-bar-animated');
-            progressBar.classList.add('bg-danger');
-            progressText.innerHTML = `<span class="text-danger">下載失敗:${resp.status} ${errText.slice(0, 200)}</span>`;
+            progressText.innerHTML = `<span class="text-warning">${friendlyMsg}<br><small class="text-muted">${errText.slice(0, 200)}</small></span>`;
             return;
         }
 

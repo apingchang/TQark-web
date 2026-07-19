@@ -13,6 +13,7 @@ API:
                        category, subject, exam_type, version, filetype
 """
 
+import asyncio
 import json
 import zipfile
 import io
@@ -154,6 +155,11 @@ async def download(
     # 從 StudyArk 抓 bytes
     try:
         pdf_bytes, content_type = await studyark.download_pdf_stream(classid, fileid, filetype)
+    except studyark.StudyArkRateLimit as e:
+        raise HTTPException(
+            status_code=429,
+            detail=f"StudyArk 限流中:{e.message} 請等 {e.retry_after_minutes} 分鐘後重試。"
+        )
     except FileNotFoundError as e:
         raise HTTPException(503, str(e))
     except Exception as e:
@@ -258,8 +264,14 @@ async def batch_download(
     buffer = io.BytesIO()
     downloaded = []  # (filename, item)
     errors = []
+    rate_limited = False  # 記錄是否有 item 撞限流
+    rate_limit_msg = ""
 
-    for item in items:
+    for idx, item in enumerate(items):
+        # 批次中每個 item 之間休 2.5 秒,避免被 StudyArk anti-bot 限流
+        # (除第一個之外,讓下載看起來不像 burst)
+        if idx > 0:
+            await asyncio.sleep(2.5)
         try:
             pdf_bytes, _ = await studyark.download_pdf_stream(
                 item.classid, item.fileid, item.filetype
@@ -280,8 +292,26 @@ async def batch_download(
             )
             fname = studyark.build_download_filename(ei)
             downloaded.append((fname, item, pdf_bytes))
+        except studyark.StudyArkRateLimit as e:
+            rate_limited = True
+            rate_limit_msg = e.message
+            errors.append({
+                "classid": item.classid,
+                "fileid": item.fileid,
+                "error": f"限流:{e.message}",
+                "retry_after_minutes": e.retry_after_minutes,
+            })
+            # 限流就停、不要後面重複撞
+            break
         except Exception as e:
             errors.append({"classid": item.classid, "fileid": item.fileid, "error": str(e)})
+
+    if rate_limited and not downloaded:
+        # 全部失敗 + 限流 → 回 429 給前端跳出友善訊息
+        raise HTTPException(
+            status_code=429,
+            detail=f"StudyArk 限流:{rate_limit_msg} 請等幾分鐘後再試。"
+        )
 
     # 寫 zip
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:

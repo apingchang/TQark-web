@@ -328,6 +328,11 @@ async def ui_download(
 
     try:
         pdf_bytes, content_type = await studyark.download_pdf_stream(classid, fileid, filetype)
+    except studyark.StudyArkRateLimit as e:
+        raise HTTPException(
+            status_code=429,
+            detail=f"StudyArk 限流中:{e.message} 請等 {e.retry_after_minutes} 分鐘後重試。"
+        )
     except FileNotFoundError as e:
         raise HTTPException(503, str(e))
     except Exception as e:
