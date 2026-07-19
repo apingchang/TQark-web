@@ -298,6 +298,7 @@ function makeKey(it) {
 function updateBatchBar() {
     const selected = getSelected();
     const count = Object.keys(selected).length;
+    console.log('[TQark] updateBatchBar: count=', count, 'selected=', JSON.stringify(selected).slice(0, 100));
     // 頂部 bar
     const bar = document.getElementById('batchBar');
     const counter = document.getElementById('selectedCount');
@@ -337,9 +338,11 @@ function updateBatchBar() {
 
 // 勾選變動時
 document.addEventListener('change', e => {
+    console.log('[TQark] change event', e.target.className, e.target.checked);
     if (!e.target.classList.contains('itemChk')) return;
     const selected = getSelected();
     const k = makeKey(e.target.dataset);
+    console.log('[TQark] change: key=', k, 'checked=', e.target.checked);
     if (e.target.checked) {
         selected[k] = {
             classid: e.target.dataset.classid,
@@ -359,6 +362,7 @@ document.addEventListener('change', e => {
         delete selected[k];
     }
     setSelected(selected);
+    console.log('[TQark] after setSelected: count=', Object.keys(getSelected()).length);
     updateBatchBar();
 });
 
