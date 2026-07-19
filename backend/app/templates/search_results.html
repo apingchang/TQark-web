@@ -45,26 +45,20 @@
                 </div>
             </div>
 
-            {# === 結果表格 === #}
+            {# === 結果表格(試卷/答案同格式 單行呈現) === #}
             <div class="table-responsive">
-                <table class="table table-hover table-sm">
+                <table class="table table-hover table-sm align-middle">
                     <thead class="table-light">
                         <tr>
                             <th style="width: 30px;"><input type="checkbox" id="selectAllChk"></th>
-                            <th>學校</th>
-                            <th>年級</th>
-                            <th>學年</th>
-                            <th>學期</th>
-                            <th>科目</th>
-                            <th>版本</th>
-                            <th>段考</th>
-                            <th>答案</th>
+                            <th>試卷 / 答案</th>
                             <th style="width: 140px;">操作</th>
-                            <th>狀態</th>
+                            <th style="width: 80px;">狀態</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in results %}
+                        {# === 試卷 row === #}
                         <tr id="row-{{ loop.index }}">
                             <td>
                                 <input type="checkbox"
@@ -82,17 +76,12 @@
                                        data-type="{{ item.type }}"
                                        data-version="{{ item.version }}">
                             </td>
-                            <td><small>{{ item.school_name or '' }}</small></td>
-                            <td><small>{{ item.grade or '' }}</small></td>
-                            <td><small>{{ item.school_year or '' }}</small></td>
-                            <td><small>{{ item.school_term or '' }}</small></td>
-                            <td><small>{{ item.subject or '' }}</small></td>
-                            <td><small>{{ item.version or '' }}</small></td>
-                            <td><small>{{ item.type or '' }}</small></td>
                             <td>
-                                {% if item.download_answer == '有' %}
-                                    <span class="badge bg-success">含</span>
-                                {% endif %}
+                                <span class="badge bg-primary">📄 試卷</span>
+                                <small class="ms-2">{{ item.title }}</small>
+                                <small class="text-muted ms-2">
+                                    [{{ item.school_name or '' }} · {{ item.grade or '' }} · {{ item.school_year or '' }}{{ item.school_term or '' }} · {{ item.category or '' }} {{ item.subject or '' }} · {{ item.type or '' }} · {{ item.version or '' }}]
+                                </small>
                             </td>
                             <td>
                                 <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=paper&title={{ item.title|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
@@ -107,13 +96,14 @@
                                 <small class="text-muted">—</small>
                             </td>
                         </tr>
-                        {% if item.daan_no and item.daan_no != '' %}
+                        {# === 答案 row(只有有答案才顯示) === #}
+                        {% if item.download_answer == '有' %}
                         <tr class="answer-row" style="background-color: #f8f9fa;">
                             <td>
                                 <input type="checkbox"
                                        class="itemChk"
                                        data-classid="{{ item.classid }}"
-                                       data-fileid="{{ item.daan_no }}"
+                                       data-fileid="{{ item.id }}"
                                        data-filetype="daan"
                                        data-title="{{ item.title }} - 答案"
                                        data-school="{{ item.school_name }}"
@@ -125,15 +115,18 @@
                                        data-type="{{ item.type }}"
                                        data-version="{{ item.version }}">
                             </td>
-                            <td colspan="9" style="padding-left: 2rem;">
+                            <td style="padding-left: 2rem;">
                                 <span class="badge bg-secondary">📝 答案</span>
-                                <small class="text-muted ms-2">{{ item.title }}</small>
+                                <small class="ms-2">{{ item.title }} - 答案</small>
+                                <small class="text-muted ms-2">
+                                    [{{ item.school_name or '' }} · {{ item.grade or '' }} · {{ item.school_year or '' }}{{ item.school_term or '' }} · {{ item.category or '' }} {{ item.subject or '' }} · {{ item.type or '' }} · {{ item.version or '' }}]
+                                </small>
                             </td>
                             <td>
                                 <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=daan&title={{ (item.title + ' 答案')|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
                                    class="btn btn-sm btn-primary single-dl-btn"
                                    data-classid="{{ item.classid }}"
-                                   data-fileid="{{ item.daan_no }}"
+                                   data-fileid="{{ item.id }}"
                                    data-filetype="daan">
                                     <small>⬇ 答案</small>
                                 </a>
