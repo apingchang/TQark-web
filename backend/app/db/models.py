@@ -139,3 +139,49 @@ class SearchCache(Base):
     hit_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+# ============================================================
+# DownloadHistory
+# ============================================================
+class DownloadHistory(Base):
+    """
+    使用者下載記錄。
+    只存 metadata,不存 PDF 本身(不存 server disk)。
+    用途:
+    - 我的下載歷史(/me/downloads)
+    - 全站熱門下載(/admin/stats)
+    - 稽核(看誰、何時、下載什麼)
+    """
+
+    __tablename__ = "download_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # User
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+
+    # StudyArk 識別
+    classid: Mapped[str] = mapped_column(String(16))
+    fileid: Mapped[str] = mapped_column(String(16))
+    filetype: Mapped[str] = mapped_column(String(16))  # paper / answer
+
+    # StudyArk metadata(完整檔名你 chk log 看得到)
+    title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    school_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    grade: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    school_year: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    school_term: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    exam_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    # user 看到的下載檔名
+    download_filename: Mapped[str] = mapped_column(String(512))
+
+    # Privacy-aware
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    downloaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

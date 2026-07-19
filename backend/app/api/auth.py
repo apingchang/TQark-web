@@ -169,8 +169,31 @@ async def google_callback(
 
 
 @router.post("/logout")
-async def logout(response: Response):
-    """刪 session cookie + 跳回首頁"""
+async def logout(response: Response, tqark_session: str | None = Cookie(default=None)):
+    """刪 session cookie + 寫 audit log"""
+    # 先從 cookie 解 JWT 看是誰
+    user_email = None
+    user_id = None
+    if tqark_session:
+        payload = decode_access_token(tqark_session)
+        if payload:
+            user_email = payload.get("email")
+            user_id = payload.get("uid")
+
+    # 寫 audit log
+    if user_email:
+        from app.db.session import get_db
+        from app.core.db_helpers import log_action
+
+        async for db in get_db():
+            await log_action(
+                db,
+                user_id=user_id,
+                action="logout",
+                target=user_email,
+            )
+            await db.commit()
+
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie(key=SESSION_COOKIE, path="/")
     return response

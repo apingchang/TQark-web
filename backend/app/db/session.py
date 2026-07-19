@@ -24,7 +24,7 @@ DATABASE_URL = f"sqlite+aiosqlite:///{settings.db_path}"
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,  # 之後可以設 True 看 SQL
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False, "timeout": 30},
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -57,5 +57,6 @@ async def init_db() -> None:
     # 延遲 import 避免循環依賴
     from app.db.models import User  # noqa: F401
 
+    # checkfirst=True + SQLite busy_timeout 避免多 worker 同時建 table 衝突
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all, checkfirst=True)

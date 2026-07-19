@@ -10,7 +10,7 @@ HTML page routes
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, desc
@@ -192,31 +192,92 @@ async def ui_search(
 async def ui_download(
     classid: str,
     fileid: str,
-    filetype: str = Query("paper"),
+    request: Request,
+    filetype: str = Query("paper", regex="^(paper|answer)$"),
+    title: str | None = Query(None),
+    school_name: str | None = Query(None),
+    grade: str | None = Query(None),
+    school_year: str | None = Query(None),
+    school_term: str | None = Query(None),
+    category: str | None = Query(None),
+    subject: str | None = Query(None),
+    exam_type: str | None = Query(None),
+    version: str | None = Query(None),
     user: User = Depends(require_approved),
     db: AsyncSession = Depends(get_db),
 ):
-    """下載 PDF(會 cache)"""
-    from app.core.db_helpers import log_action
+    """下載 PDF(stream from StudyArk,不存 server disk)"""
+    from urllib.parse import quote
+
+    from app.core.db_helpers import hash_ip, log_action
+    from app.db.models import DownloadHistory
+
+    item = studyark.ExamItem(
+        classid=classid,
+        fileid=fileid,
+        filetype=filetype,
+        title=title or "",
+        school_name=school_name or "",
+        grade=grade or "",
+        school_year=school_year or "",
+        school_term=school_term or "",
+        category=category or "",
+        subject=subject or "",
+        exam_type=exam_type or "",
+        version=version or "",
+    )
+    filename = studyark.build_download_filename(item)
 
     try:
-        fpath = await studyark.download_to_cache(classid, fileid, filetype)
+        pdf_bytes, content_type = await studyark.download_pdf_stream(classid, fileid, filetype)
     except FileNotFoundError as e:
         raise HTTPException(503, str(e))
     except Exception as e:
         raise HTTPException(502, f"下載失敗: {e}")
 
+    # 寫 DownloadHistory
+    db_record = DownloadHistory(
+        user_id=user.id,
+        classid=classid,
+        fileid=fileid,
+        filetype=filetype,
+        title=item.title or None,
+        school_name=item.school_name or None,
+        grade=item.grade or None,
+        school_year=item.school_year or None,
+        school_term=item.school_term or None,
+        category=item.category or None,
+        subject=item.subject or None,
+        exam_type=item.exam_type or None,
+        version=item.version or None,
+        download_filename=filename,
+        ip_hash=hash_ip(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent", "")[:512] or None,
+    )
+    db.add(db_record)
     await log_action(
         db,
         action="download",
         user_id=user.id,
         target=f"{classid}/{fileid}",
-        detail=f"filetype={filetype}",
+        detail=f"filetype={filetype}; filename={filename}",
+        ip=str(request.client.host) if request.client else None,
     )
     await db.commit()
 
-    return FileResponse(
-        path=str(fpath),
-        media_type="application/pdf",
-        filename=f"{classid}_{fileid}_{filetype}.pdf",
+    safe_filename = filename.encode("ascii", errors="ignore").decode("ascii") or "exam.pdf"
+    encoded_filename = quote(filename)
+    headers = {
+        "Content-Disposition": (
+            f"attachment; "
+            f'filename="{safe_filename}"; '
+            f"filename*=UTF-8''{encoded_filename}"
+        ),
+        "X-Download-Filename": encoded_filename,  # URL-encoded, ASCII only
+    }
+
+    return Response(
+        content=pdf_bytes,
+        media_type=content_type,
+        headers=headers,
     )

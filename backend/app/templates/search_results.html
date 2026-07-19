@@ -30,11 +30,13 @@
                         </small>
                     </p>
                     {% if item.classid and item.id %}
-                        <a href="/ui/download/{{ item.classid }}/{{ item.id }}" class="btn btn-sm btn-primary">
+                        <a href="/ui/download/{{ item.classid }}/{{ item.id }}?{% for k, v in item.items() %}{% if v and k not in ('classid', 'id') %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}filetype=paper"
+                           class="btn btn-sm btn-primary">
                             ⬇ 下載試卷
                         </a>
                         {% if item.daanid %}
-                            <a href="/ui/download/{{ item.classid }}/{{ item.daanid }}?filetype=answer" class="btn btn-sm btn-outline-secondary">
+                            <a href="/ui/download/{{ item.classid }}/{{ item.daanid }}?{% for k, v in item.items() %}{% if v and k not in ('classid', 'id') %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}filetype=answer"
+                               class="btn btn-sm btn-outline-secondary">
                                 ⬇ 下載答案
                             </a>
                         {% endif %}

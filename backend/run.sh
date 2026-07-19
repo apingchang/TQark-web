@@ -9,6 +9,6 @@ cd /home/aping/MyProjects/TQark-web/backend
 exec .venv/bin/python -m uvicorn app.main:app \
   --host 127.0.0.1 \
   --port 8000 \
-  --workers 2 \
+  --workers 1 \
   --log-level info \
   --no-access-log
