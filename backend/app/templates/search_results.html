@@ -59,6 +59,7 @@
                             <th>版本</th>
                             <th>段考</th>
                             <th>答案</th>
+                            <th style="width: 140px;">操作</th>
                             <th>狀態</th>
                         </tr>
                     </thead>
@@ -93,6 +94,15 @@
                                     <span class="badge bg-success">含</span>
                                 {% endif %}
                             </td>
+                            <td>
+                                <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=paper&title={{ item.title|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
+                                   class="btn btn-sm btn-primary single-dl-btn"
+                                   data-classid="{{ item.classid }}"
+                                   data-fileid="{{ item.id }}"
+                                   data-filetype="paper">
+                                    <small>⬇ 試卷</small>
+                                </a>
+                            </td>
                             <td id="status-{{ loop.index }}">
                                 <small class="text-muted">—</small>
                             </td>
@@ -115,9 +125,18 @@
                                        data-type="{{ item.type }}"
                                        data-version="{{ item.version }}">
                             </td>
-                            <td colspan="8" style="padding-left: 2rem;">
+                            <td colspan="9" style="padding-left: 2rem;">
                                 <span class="badge bg-secondary">📝 答案</span>
                                 <small class="text-muted ms-2">{{ item.title }}</small>
+                            </td>
+                            <td>
+                                <a href="/ui/download/{{ item.classid }}/{{ item.daan_no }}?filetype=answer&title={{ (item.title + ' 答案')|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
+                                   class="btn btn-sm btn-outline-primary single-dl-btn"
+                                   data-classid="{{ item.classid }}"
+                                   data-fileid="{{ item.daan_no }}"
+                                   data-filetype="answer">
+                                    <small>⬇ 答案</small>
+                                </a>
                             </td>
                             <td id="status-daan-{{ loop.index }}">
                                 <small class="text-muted">—</small>

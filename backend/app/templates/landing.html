@@ -12,24 +12,58 @@
         </p>
 
         {% if user %}
-            <p class="lead">歡迎回來,<strong>{{ user.name or user.email }}</strong>!</p>
-            {% if user.status == 'pending' %}
-                <div class="alert alert-warning">
-                    您的帳號正在等待審核中。<br>
-                    管理員通過後即可使用完整功能。
-                </div>
-                <a href="/dashboard" class="btn btn-primary">前往 Dashboard</a>
+            <p class="lead">歡迎,<strong>{{ user.name or user.email }}</strong>!</p>
+
+            {% if user.role == 'admin' %}
+                <a href="/admin" class="btn btn-danger btn-lg">🛠 管理後台</a>
+                <a href="/dashboard" class="btn btn-primary btn-lg ms-2">Dashboard</a>
+
+            {% elif user.status == 'pending' %}
+                {% if not user.application_reason %}
+                    {# === 還沒申請過 → 顯示申請表單 === #}
+                    <div class="alert alert-info text-start mt-4 mx-auto" style="max-width: 600px;">
+                        <strong>👋 歡迎第一次登入!</strong><br>
+                        這是私人邀請制平台。請填寫申請原因,管理員會在 24 小時內審核。
+                    </div>
+                    <form method="post" action="/api/access-requests" class="text-start mt-3 mx-auto" style="max-width: 600px;">
+                        <div class="mb-3">
+                            <label for="reason" class="form-label">申請原因</label>
+                            <textarea name="reason" id="reason" class="form-control" rows="4" required
+                                      placeholder="例:我是 William 的同事,小孩念國中七年級,想下載考古題..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100">送出申請</button>
+                    </form>
+                {% else %}
+                    {# === 已申請過 → 等審核 === #}
+                    <div class="alert alert-warning mt-4">
+                        ✅ 您的申請已送出,管理員正在審核中。<br>
+                        <small class="text-muted">審核結果會同步更新到這裡,重新整理即可看到。</small>
+                    </div>
+                    <div class="card mt-3 text-start mx-auto" style="max-width: 600px;">
+                        <div class="card-body">
+                            <h6 class="card-title">您提交的申請原因</h6>
+                            <p class="card-text">{{ user.application_reason }}</p>
+                        </div>
+                    </div>
+                    <a href="/auth/logout" class="btn btn-link mt-3">登出</a>
+                {% endif %}
+
             {% elif user.status == 'approved' %}
-                <a href="/dashboard" class="btn btn-primary btn-lg">前往 Dashboard</a>
+                <a href="/dashboard" class="btn btn-primary btn-lg">📚 前往 Dashboard(搜尋考古題)</a>
+                <a href="/auth/logout" class="btn btn-link d-block mt-3">登出</a>
+
             {% elif user.status == 'rejected' %}
-                <div class="alert alert-danger">
-                    您的存取申請已被拒絕。<br>
+                <div class="alert alert-danger mt-4">
+                    ❌ 您的存取申請已被拒絕。<br>
                     如有疑問,請聯絡管理員。
                 </div>
+                <a href="/auth/logout" class="btn btn-link">登出</a>
+
             {% elif user.status == 'banned' %}
-                <div class="alert alert-dark">
-                    您的帳號已被停權。
+                <div class="alert alert-dark mt-4">
+                    🚫 您的帳號已被停權。
                 </div>
+                <a href="/auth/logout" class="btn btn-link">登出</a>
             {% endif %}
         {% else %}
             <a href="/auth/google/login" class="btn btn-primary btn-lg">
@@ -40,18 +74,6 @@
                 使用 Google 帳號登入 · 需經管理員審核
             </p>
         {% endif %}
-    </div>
-</div>
-
-<div class="card mt-4">
-    <div class="card-body">
-        <h5 class="card-title">如何使用</h5>
-        <ol class="card-text">
-            <li>用 Google 帳號登入</li>
-            <li>填寫申請原因</li>
-            <li>等管理員審核(William)</li>
-            <li>通過後可以搜尋 / 下載考古題 PDF</li>
-        </ol>
     </div>
 </div>
 {% endblock %}
