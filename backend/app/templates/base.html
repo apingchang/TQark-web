@@ -13,12 +13,16 @@
         .navbar-brand {
             font-weight: 600;
             color: #0d6efd !important;  /* Bootstrap primary blue */
+        }
+        .navbar-brand .brand-text {
             text-decoration: underline;
             text-decoration-color: #0d6efd;
             text-underline-offset: 3px;
         }
         .navbar-brand:hover {
             color: #0a58ca !important;  /* darker blue on hover */
+        }
+        .navbar-brand:hover .brand-text {
             text-decoration-color: #0a58ca;
         }
         .container-narrow { max-width: 720px; }
@@ -54,7 +58,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/">📚 考古題下載</a>
+            <a class="navbar-brand" href="/">📚 <span class="brand-text">考古題下載</span></a>
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
                 {% if user %}
                     {# User info: 個人像 + 名稱 + Admin badge(hover 顯示完整 user info tooltip) #}
