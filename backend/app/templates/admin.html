@@ -94,8 +94,8 @@
                                 </form>
                             {% elif u.status == 'approved' %}
                                 <form method="post" action="/admin/users/{{ u.id }}/reset" class="d-inline"
-                                      onsubmit="return confirm('⛔ 警告: 這會把這個 approved user 的 access 撚銷!\\n\\n{{ u.email }}\\n\\n重設後:\\n- user 不能下載任何考卷\\n- user 需要重新到 dashboard 申請\\n\\n確定要繼續嗎?');">
-                                    <button type="submit" class="btn btn-sm btn-soft-danger">⛔ 撚銷 access</button>
+                                      onsubmit="return confirm('⛔ 警告: 這會把這個 approved user 的 access 撤銷!\\n\\n{{ u.email }}\\n\\n重設後:\\n- user 不能下載任何考卷\\n- user 需要重新到 dashboard 申請\\n\\n確定要繼續嗎?');">
+                                    <button type="submit" class="btn btn-sm btn-soft-danger">⛔ 撤銷 access</button>
                                 </form>
                             {% endif %}
                         </td>
