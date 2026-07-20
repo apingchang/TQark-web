@@ -26,7 +26,18 @@
             border-radius: 0.35rem;
         }
         /* user-info tooltip 不會被 navbar 遮住 */
-        .tooltip-inner { max-width: 320px; text-align: left; }
+        .tooltip-inner {
+            max-width: 320px;
+            text-align: left;
+            background-color: #fff;
+            color: #212529;
+            border: 1px solid #dee2e6;
+        }
+        /* tooltip 箭頭也改色 */
+        .tooltip .tooltip-arrow::before {
+            border-top-color: #fff !important;
+            border-bottom-color: #fff !important;
+        }
     </style>
 </head>
 <body>
