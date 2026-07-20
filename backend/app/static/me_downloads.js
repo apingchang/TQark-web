@@ -141,3 +141,149 @@ async function tryDeleteLocalFile(targetFilename) {
     alert(`✅ 已刪除: ${targetFilename}`);
     return true;
 }
+
+// =========================================================
+// 全部刪除 (2026-07-20 新增)
+// =========================================================
+const deleteAllBtn = document.getElementById('deleteAllBtn');
+const deleteAllModal = document.getElementById('deleteAllModal');
+
+if (deleteAllBtn && deleteAllModal) {
+    // 從當前 URL 解析篩選條件 + 從後端抓總數
+    const url = new URL(window.location.href);
+    const filterParams = new URLSearchParams();
+    if (url.searchParams.get('school_year')) filterParams.set('school_year', url.searchParams.get('school_year'));
+    if (url.searchParams.get('subject')) filterParams.set('subject', url.searchParams.get('subject'));
+    if (url.searchParams.get('filetype')) filterParams.set('filetype', url.searchParams.get('filetype'));
+
+    function buildDeleteAllQS() {
+        const params = new URLSearchParams();
+        if (url.searchParams.get('school_year')) params.set('school_year', url.searchParams.get('school_year'));
+        if (url.searchParams.get('subject')) params.set('subject', url.searchParams.get('subject'));
+        if (url.searchParams.get('filetype')) params.set('filetype', url.searchParams.get('filetype'));
+        return params.toString();
+    }
+
+    deleteAllBtn.addEventListener('click', async () => {
+        // 從後端拿實際符合條件的 record 數(不分頁)
+        // 用 HEAD trick 不行,我們用 GET 拿 total
+        const resp = await fetch('/me/downloads?' + buildDeleteAllQS() + '&page=1', {
+            headers: {'Accept': 'text/html'}
+        });
+        const html = await resp.text();
+        // 解析 '共 N 筆'
+        const m = html.match(/共\s*<strong>(\d+)<\/strong>\s*筆/);
+        const total = m ? parseInt(m[1]) : 0;
+
+        if (total === 0) {
+            alert('目前沒有可刪除的下載紀錄。');
+            return;
+        }
+
+        // 填 modal
+        document.getElementById('deleteAllTotalCount').textContent = total;
+
+        // 篩選條件說明
+        const filters = [];
+        if (url.searchParams.get('school_year')) filters.push(`學年:${url.searchParams.get('school_year')}`);
+        if (url.searchParams.get('subject')) filters.push(`科目:${url.searchParams.get('subject')}`);
+        if (url.searchParams.get('filetype')) {
+            filters.push(`類型:${url.searchParams.get('filetype') === 'paper' ? '試卷' : '答案'}`);
+        }
+        document.getElementById('deleteAllFilterNote').textContent =
+            filters.length > 0
+                ? `套用篩選:${filters.join('、')}`
+                : '⚠️ 沒有套用篩選 → 會刪除你的全部紀錄';
+
+        // 顯示 modal
+        const modal = new bootstrap.Modal(deleteAllModal);
+        modal.show();
+    });
+
+    document.getElementById('deleteAllConfirm').addEventListener('click', async () => {
+        const btn = document.getElementById('deleteAllConfirm');
+        btn.disabled = true;
+        btn.textContent = '刪除中...';
+
+        const deleteLocal = document.getElementById('deleteAllLocal').checked;
+
+        try {
+            // 1) 拿所有將被刪除的 record 資料(用來後面刪本機)
+            const listResp = await fetch('/me/downloads?' + buildDeleteAllQS() + '&page=1');
+            const listHtml = await listResp.text();
+            // 從 HTML 抽出 download_filename 列表
+            const filenames = [];
+            const re = /data-filename="([^"]+)"/g;
+            let mm;
+            while ((mm = re.exec(listHtml)) !== null) {
+                filenames.push(decodeURIComponent(mm[1]).replace(/&amp;/g, '&'));
+            }
+            // 因為分頁只顯示 25 筆,實際上如果 total > 25 需要處理
+            // 解法:分批抓所有 page 拿完整 list
+            const totalMatch = listHtml.match(/共\s*<strong>(\d+)<\/strong>\s*筆/);
+            const total = totalMatch ? parseInt(totalMatch[1]) : 0;
+            if (total > 25) {
+                // 抓所有 page
+                for (let p = 2; p <= Math.ceil(total / 25); p++) {
+                    const r = await fetch('/me/downloads?' + buildDeleteAllQS() + '&page=' + p);
+                    const h = await r.text();
+                    const re2 = /data-filename="([^"]+)"/g;
+                    while ((mm = re2.exec(h)) !== null) {
+                        filenames.push(decodeURIComponent(mm[1]).replace(/&amp;/g, '&'));
+                    }
+                }
+            }
+
+            // 2) 打 API 刪除所有 DB records
+            const resp = await fetch('/me/downloads/delete-all?' + buildDeleteAllQS(), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({}),
+            });
+            if (!resp.ok) {
+                const err = await resp.text();
+                alert('刪除失敗:' + err);
+                return;
+            }
+            const data = await resp.json();
+
+            // 3) 關 modal
+            bootstrap.Modal.getInstance(deleteAllModal).hide();
+
+            // 4) (可選) 刪本機檔案
+            let deletedLocal = 0;
+            let localSkipped = 0;
+            if (deleteLocal && filenames.length > 0 && window.showDirectoryPicker) {
+                try {
+                    const dirHandle = await window.showDirectoryPicker({mode: 'readwrite'});
+                    for (const fname of filenames) {
+                        try {
+                            // 直接嘗試 remove,不先列舉(更快)
+                            await dirHandle.removeEntry(fname);
+                            deletedLocal++;
+                        } catch (err) {
+                            localSkipped++;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('showDirectoryPicker 取消或失敗', err);
+                }
+            }
+
+            // 5) 顯示結果 + 重新整理
+            let msg = `✅ 已刪除 ${data.deleted_count} 筆下載紀錄`;
+            if (deleteLocal) {
+                if (deletedLocal > 0) msg += `\n📁 本機檔案:成功 ${deletedLocal} 個`;
+                if (localSkipped > 0) msg += `、沒找到 ${localSkipped} 個`;
+            }
+            alert(msg);
+            // 重新整理(回到 page 1)
+            window.location.href = '/me/downloads';
+        } catch (err) {
+            alert('錯誤:' + err);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '確認刪除';
+        }
+    });
+}

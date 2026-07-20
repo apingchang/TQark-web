@@ -243,6 +243,63 @@ async def me_downloads_delete(
     return {"ok": True, "deleted_id": record_id, "filename": fname}
 
 
+@router.post("/me/downloads/delete-all")
+async def me_downloads_delete_all(
+    request: Request,
+    school_year: str | None = Query(None),
+    subject: str | None = Query(None),
+    filetype: str | None = Query(None),
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    刪除 user 下載紀錄中所有符合條件的 records(2026-07-20 新增)。
+    - 對現在套用的篩選條件 filter 後全部刪掉
+    - 只刪自己的 records
+    - 寫一條 audit log (含實際刪幾筆)
+    - 回傳刪除數量
+    """
+    stmt = select(DownloadHistory).where(DownloadHistory.user_id == user.id)
+    if school_year:
+        stmt = stmt.where(DownloadHistory.school_year == school_year)
+    if subject:
+        stmt = stmt.where(DownloadHistory.subject == subject)
+    if filetype and filetype in ("paper", "daan"):
+        stmt = stmt.where(DownloadHistory.filetype == filetype)
+
+    rows = (await db.execute(stmt)).scalars().all()
+    deleted_count = len(rows)
+    deleted_filenames = [r.download_filename for r in rows]
+
+    for r in rows:
+        await db.delete(r)
+
+    filter_desc = []
+    if school_year:
+        filter_desc.append(f"school_year={school_year}")
+    if subject:
+        filter_desc.append(f"subject={subject}")
+    if filetype:
+        filter_desc.append(f"filetype={filetype}")
+    filter_text = ",".join(filter_desc) if filter_desc else "(all)"
+
+    await log_action(
+        db,
+        action="delete_download_all",
+        user_id=user.id,
+        target="batch",
+        detail=f"deleted {deleted_count} download records (filter={filter_text})",
+        ip=str(request.client.host) if request.client else None,
+    )
+    await db.commit()
+
+    return {
+        "ok": True,
+        "deleted_count": deleted_count,
+        "filter": filter_text,
+    }
+
+
 # ============================================================
 # Scraper UI(form submit 用的 page handler)
 # ============================================================

@@ -39,6 +39,14 @@
     <div class="col-md-4 d-flex align-items-end gap-2">
         <button type="submit" class="btn btn-sm btn-primary">套用篩選</button>
         <a href="/me/downloads" class="btn btn-sm btn-outline-secondary">清除</a>
+        {% if rows %}
+        <button type="button"
+                class="btn btn-sm btn-outline-danger float-end"
+                id="deleteAllBtn">
+            <small>🗑️ 全部刪除</small>
+            <span class="badge bg-danger ms-1" id="deleteAllCount">{{ rows|length }}{% if total > rows|length %}+{% endif %}</span>
+        </button>
+        {% endif %}
     </div>
 </form>
 
@@ -178,8 +186,38 @@
     </div>
 </div>
 
+{# === 全部刪除確認 modal === #}
+<div class="modal fade" id="deleteAllModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🗑️ 刪除全部下載紀錄</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">你將刪除<strong id="deleteAllTotalCount">0</strong> 筆下載紀錄。</p>
+                <p class="text-muted small mb-3" id="deleteAllFilterNote"></p>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="deleteAllLocal" checked>
+                    <label class="form-check-label" for="deleteAllLocal">
+                        同時刪除電腦上的 PDF 檔案(瀏覽器會跳出資料夾選擇視窗)
+                    </label>
+                </div>
+                <p class="text-danger small mb-0">
+                    ⚠️ 這個操作<strong>無法復原</strong>。如果該份考古題 StudyArk 限流中,你之後重新下載可能會撞限流。
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="deleteAllConfirm">確認刪除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/me_downloads.js"></script>
+<script src="/static/me_downloads.js?v=delete-all-1"></script>
 {% endblock %}
