@@ -123,10 +123,6 @@
                             <span class="badge bg-danger admin-badge-big ms-1">Admin</span>
                         {% endif %}
                     </span>
-                    {% if user.role == 'admin' %}
-                        {# 後台: 🛡️ 盾 icon + 較大 padding #}
-                        <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🛡️ 後台</a>
-                    {% endif %}
                     {# 在 Dashboard 頁本身時不顯示 Dashboard 連結 #}
                     {% if request.url.path != '/dashboard' %}
                         {# 考卷搜尋: 🔍 icon + 填滿藍色 #}
@@ -138,6 +134,10 @@
                     <form method="post" action="/auth/logout" class="d-inline">
                         <button type="submit" class="btn btn-sm btn-secondary px-3">🚪 登出</button>
                     </form>
+                    {% if user.role == 'admin' %}
+                        {# 後台: 🛡️ 盾 icon + 較大 padding,放在最右邊 (登出左邊一個) #}
+                        <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🛡️ 後台</a>
+                    {% endif %}
                 {% else %}
                     <a class="btn btn-sm btn-primary" href="/auth/google/login">Sign in with Google</a>
                 {% endif %}
