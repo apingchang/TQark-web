@@ -268,14 +268,31 @@ async def batch_download(
     rate_limit_msg = ""
 
     for idx, item in enumerate(items):
-        # 批次中每個 item 之間休 2.5 秒,避免被 StudyArk anti-bot 限流
-        # (除第一個之外,讓下載看起來不像 burst)
+        # 批次中每個 item 之間休 3 秒,避免被 StudyArk anti-bot 限流
+        # (從 2.5 調高到 3,因為 20 個 × 3 秒 = 60 秒還是會被偵測)
         if idx > 0:
-            await asyncio.sleep(2.5)
+            await asyncio.sleep(3)
         try:
             pdf_bytes, _ = await studyark.download_pdf_stream(
                 item.classid, item.fileid, item.filetype
             )
+            # 【重點】驗證 response 真的是 PDF (magic bytes = '%PDF-')
+            # StudyArk 在 batch 中碰到 anti-bot 會回 45 bytes 中文訊息
+            # (例如「操作過於頻繁」、「參數錯誤」、「token 過期」)
+            # 那些不含 '下載太頻繁/等待/分鐘' 關鍵字 → 原本不會 raise
+            # 解法:任何不是 PDF 的 response 都視為錯誤、不寫進 zip
+            if not pdf_bytes.startswith(b'%PDF'):
+                text = pdf_bytes.decode('utf-8', errors='ignore')[:100]
+                rate_limited = True
+                rate_limit_msg = f'batch item #{idx+1} 回傳非 PDF 內容: {text}'
+                errors.append({
+                    "classid": item.classid,
+                    "fileid": item.fileid,
+                    "error": f"StudyArk 回傳非 PDF(可能是限流):{text}",
+                    "retry_after_minutes": 25,
+                })
+                # 撞了就不要繼續 → 後面只會更慘
+                break
             ei = studyark.ExamItem(
                 classid=item.classid,
                 fileid=item.fileid,
