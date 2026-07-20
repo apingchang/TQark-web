@@ -50,35 +50,34 @@
             border-color: #2E8B88;
             color: #fff;
         }
-        /* 【2026-07-20 加】btn-info 強制白字 (Bootstrap 預設黑字,William 要白字) */
+        /* 【2026-07-20 改】navbar button 文字都黑字 (dark black #212529) */
         a.btn.btn-info,
-        button.btn.btn-info {
-            color: #fff !important;
-        }
+        button.btn.btn-info,
         a.btn.btn-info:hover,
         a.btn.btn-info:focus,
         a.btn.btn-info.active {
-            color: #fff !important;
+            color: #212529 !important;
         }
-        /* 【2026-07-20 加】考卷搜尋 btn-primary 也要亮白 (防止 active/hover 變黑) */
         a.btn.btn-primary,
-        button.btn.btn-primary {
-            color: #fff !important;
-        }
+        button.btn.btn-primary,
         a.btn.btn-primary:hover,
         a.btn.btn-primary:focus,
         a.btn.btn-primary.active {
-            color: #fff !important;
+            color: #212529 !important;
         }
-        /* 【2026-07-20 加】登出 btn-secondary 也要亮白 */
         button.btn.btn-secondary,
-        a.btn.btn-secondary {
-            color: #fff !important;
-        }
+        a.btn.btn-secondary,
         button.btn.btn-secondary:hover,
         button.btn.btn-secondary:focus,
         button.btn.btn-secondary.active {
-            color: #fff !important;
+            color: #212529 !important;
+        }
+        /* 後台 btn-tiffany 原本就 #fff,順手改為黑字 */
+        .btn-tiffany,
+        .btn-tiffany:hover,
+        .btn-tiffany:focus,
+        .btn-tiffany.active {
+            color: #212529 !important;
         }
         /* 【2026-07-20 加】淡紅按鈕 (取代 btn-danger 「撤銷 access」) */
         .btn-soft-danger {
