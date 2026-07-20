@@ -119,13 +119,14 @@
                     {% endif %}
                     {# 在 Dashboard 頁本身時不顯示 Dashboard 連結 #}
                     {% if request.url.path != '/dashboard' %}
-                        {# 考卷搜尋: 🔍 icon #}
-                        <a href="/dashboard" class="btn btn-sm btn-outline-primary {% if request.url.path == '/dashboard' %}active{% endif %}">🔍 考卷搜尋</a>
+                        {# 考卷搜尋: 🔍 icon + 填滿藍色 #}
+                        <a href="/dashboard" class="btn btn-sm btn-primary px-3 {% if request.url.path == '/dashboard' %}active{% endif %}">🔍 考卷搜尋</a>
                     {% endif %}
-                    <a href="/me/downloads" class="btn btn-sm btn-outline-info {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
-                    {# 登出: 🚪 門 icon + 較大 padding #}
+                    {# 下載紀錄: 📥 icon + 填滿 cyan #}
+                    <a href="/me/downloads" class="btn btn-sm btn-info px-3 {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
+                    {# 登出: 🚪 門 icon + 填滿較深灰色 + 較大 padding #}
                     <form method="post" action="/auth/logout" class="d-inline">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary px-3">🚪 登出</button>
+                        <button type="submit" class="btn btn-sm btn-dark px-3">🚪 登出</button>
                     </form>
                 {% else %}
                     <a class="btn btn-sm btn-primary" href="/auth/google/login">Sign in with Google</a>
