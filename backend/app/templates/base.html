@@ -43,7 +43,7 @@
                     {% set _ = tooltip_lines.append('狀態: ' ~ user.status) %}
                     {% if user.first_seen_at %}{% set _ = tooltip_lines.append('首次登入: ' ~ user.first_seen_at) %}{% endif %}
                     {% if user.last_login_at %}{% set _ = tooltip_lines.append('上次登入: ' ~ user.last_login_at) %}{% endif %}
-                    <span class="btn btn-sm btn-light d-inline-flex align-items-center disabled user-info-hover"
+                    <span class="btn btn-sm btn-light d-inline-flex align-items-center user-info-hover"
                           style="opacity: 1; cursor: help;"
                           data-bs-toggle="tooltip"
                           data-bs-placement="bottom"
