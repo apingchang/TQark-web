@@ -89,7 +89,8 @@ document.addEventListener('change', e => {
 document.getElementById('selectAllChk').addEventListener('change', e => {
     document.querySelectorAll('.itemChk').forEach(chk => {
         chk.checked = e.target.checked;
-        chk.dispatchEvent(new Event('change'));
+        // {bubbles: true}: 必要!不然 document.addEventListener('change') 收不到
+        chk.dispatchEvent(new Event('change', {bubbles: true}));
     });
 });
 
