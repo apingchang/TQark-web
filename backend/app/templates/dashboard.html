@@ -3,45 +3,8 @@
 {% block title %}Dashboard — TQark-web{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-body">
-        <h2 class="card-title">Dashboard</h2>
-        <p class="card-text">
-            您好,<strong>{{ user.name or user.email }}</strong>!
-        </p>
-
-        <dl class="row mt-4">
-            <dt class="col-sm-3">Email</dt>
-            <dd class="col-sm-9">{{ user.email }}</dd>
-
-            <dt class="col-sm-3">Name</dt>
-            <dd class="col-sm-9">{{ user.name or '(未提供)' }}</dd>
-
-            <dt class="col-sm-3">角色</dt>
-            <dd class="col-sm-9">
-                <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'secondary' }}">
-                    {{ user.role }}
-                </span>
-            </dd>
-
-            <dt class="col-sm-3">狀態</dt>
-            <dd class="col-sm-9">
-                <span class="badge badge-status-{{ user.status }}">
-                    {{ user.status }}
-                </span>
-            </dd>
-
-            <dt class="col-sm-3">首次登入</dt>
-            <dd class="col-sm-9">{{ user.first_seen_at }}</dd>
-
-            <dt class="col-sm-3">上次登入</dt>
-            <dd class="col-sm-9">{{ user.last_login_at }}</dd>
-        </dl>
-    </div>
-</div>
-
 {% if user.status == 'pending' %}
-<div class="card mt-4">
+<div class="card">
     <div class="card-body">
         <h5 class="card-title">申請 Access</h5>
         <p class="card-text text-muted">
@@ -58,11 +21,11 @@
     </div>
 </div>
 {% elif user.status == 'approved' %}
-<div class="card mt-4">
+<div class="card">
     <div class="card-body">
         <h5 class="card-title">搜尋考古題</h5>
         <p class="card-text text-muted small mb-3">
-            從 StudyArk (全國中小學題庫網) 搜尋。可留空表示不限。
+            從 <a href="https://www.studyark.org/" target="_blank" rel="noopener noreferrer">StudyArk</a> (全國中小學題庫網) 搜尋。可留空表示不限。
         </p>
         <form method="post" action="/ui/search">
             <div class="row g-2">
