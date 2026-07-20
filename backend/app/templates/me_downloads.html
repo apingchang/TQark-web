@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}我的下載歷史 — TQark-web{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">📥 我的下載歷史</h3>
+    <span class="badge bg-secondary fs-6">{{ total }} 筆紀錄</span>
+</div>
+
+{# === 篩選 === #}
+<form method="get" action="/me/downloads" class="row g-2 mb-3 p-3 bg-light rounded">
+    <div class="col-md-3">
+        <label class="form-label small mb-1">學年</label>
+        <select name="school_year" class="form-select form-select-sm">
+            <option value="">全部</option>
+            {% for y in years %}
+                <option value="{{ y }}" {% if filter_school_year == y %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small mb-1">科目</label>
+        <select name="subject" class="form-select form-select-sm">
+            <option value="">全部</option>
+            {% for s in subjects %}
+                <option value="{{ s }}" {% if filter_subject == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small mb-1">檔案類型</label>
+        <select name="filetype" class="form-select form-select-sm">
+            <option value="">全部</option>
+            <option value="paper" {% if filter_filetype == 'paper' %}selected{% endif %}>試卷</option>
+            <option value="daan" {% if filter_filetype == 'daan' %}selected{% endif %}>答案</option>
+        </select>
+    </div>
+    <div class="col-md-4 d-flex align-items-end gap-2">
+        <button type="submit" class="btn btn-sm btn-primary">套用篩選</button>
+        <a href="/me/downloads" class="btn btn-sm btn-outline-secondary">清除</a>
+    </div>
+</form>
+
+{% if not rows %}
+<div class="alert alert-info">
+    <h5 class="alert-heading mb-2">還沒有下載紀錄</h5>
+    <p class="mb-2">去 <a href="/dashboard" class="alert-link">Dashboard</a> 搜尋考古題,下載後就會自動記錄在這裡。</p>
+    <hr>
+    <p class="mb-0 small text-muted">「重新下載」按鈕需要時可以從這裡重抓同個檔案(會重新觸發 StudyArk,如果限流中會回 429)。</p>
+</div>
+{% else %}
+
+{# === 結果表格 === #}
+<div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>下載時間</th>
+                <th>類型</th>
+                <th>學校</th>
+                <th>年級</th>
+                <th>學年/學期</th>
+                <th>科目</th>
+                <th>版本</th>
+                <th>段考</th>
+                <th style="width: 140px;">檔名 / 操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <small class="text-muted">{{ r.downloaded_at.strftime('%Y-%m-%d %H:%M') if r.downloaded_at else '—' }}</small>
+                </td>
+                <td>
+                    {% if r.filetype == 'daan' %}
+                        <span class="badge bg-secondary">📝 答案</span>
+                    {% else %}
+                        <span class="badge bg-primary">📄 試卷</span>
+                    {% endif %}
+                </td>
+                <td><small>{{ r.school_name or '' }}</small></td>
+                <td><small>{{ r.grade or '' }}</small></td>
+                <td><small>{{ r.school_year or '' }}{{ r.school_term or '' }}</small></td>
+                <td><small>{{ r.subject or '' }}</small></td>
+                <td><small>{{ r.version or '' }}</small></td>
+                <td><small>{{ r.exam_type or '' }}</small></td>
+                <td>
+                    <div class="d-flex flex-column gap-1">
+                        <small class="text-muted text-truncate" style="max-width: 140px;" title="{{ r.download_filename }}">
+                            {{ r.download_filename }}
+                        </small>
+                        <a href="/ui/download/{{ r.classid }}/{{ r.fileid }}?filetype={{ r.filetype }}&title={{ r.title|urlencode }}&school_name={{ r.school_name|urlencode }}&grade={{ r.grade|urlencode }}&school_year={{ r.school_year|urlencode }}&school_term={{ r.school_term|urlencode }}&category={{ r.category|urlencode }}&subject={{ r.subject|urlencode }}&exam_type={{ r.exam_type|urlencode }}&version={{ r.version|urlencode }}"
+                           class="btn btn-sm btn-outline-primary single-dl-btn"
+                           data-classid="{{ r.classid }}"
+                           data-fileid="{{ r.fileid }}"
+                           data-filetype="{{ r.filetype }}">
+                            <small>⬇ 重新下載</small>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# === 分頁 === #}
+{% if total_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="/me/downloads?page={{ page - 1 }}&school_year={{ filter_school_year }}&subject={{ filter_subject }}&filetype={{ filter_filetype }}">‹ 上一頁</a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">‹ 上一頁</span></li>
+        {% endif %}
+
+        {% set window_start = page - 5 if page > 6 else 1 %}
+        {% set window_end = window_start + 9 %}
+        {% if window_end > total_pages %}
+            {% set window_end = total_pages %}
+            {% set window_start = (window_end - 9) if window_end > 9 else 1 %}
+        {% endif %}
+
+        {% for p in range(window_start, window_end + 1) %}
+            {% if p == page %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+                <li class="page-item">
+                    <a class="page-link" href="/me/downloads?page={{ p }}&school_year={{ filter_school_year }}&subject={{ filter_subject }}&filetype={{ filter_filetype }}">{{ p }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+            <li class="page-item">
+                <a class="page-link" href="/me/downloads?page={{ page + 1 }}&school_year={{ filter_school_year }}&subject={{ filter_subject }}&filetype={{ filter_filetype }}">下一頁 ›</a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">下一頁 ›</span></li>
+        {% endif %}
+    </ul>
+    <p class="text-center text-muted small">
+        第 {{ page }} / {{ total_pages }} 頁 · 每頁 {{ per_page }} 筆
+    </p>
+</nav>
+{% endif %}
+
+{% endif %}
+
+<p class="text-muted small mt-3">
+    💡 從這裡重抓同個考古題不需要再 search。如果 StudyArk 限流中(下載太頻繁),會跳友善錯誤訊息請你等 25 分鐘。
+</p>
+
+{% endblock %}

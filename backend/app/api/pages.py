@@ -13,12 +13,12 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.deps import get_current_user_from_token, require_admin, require_approved, require_login
-from app.db.models import AccessRequest, AuditLog, User
+from app.db.models import AccessRequest, AuditLog, DownloadHistory, User
 from app.db.session import get_db
 from app.scraper import studyark
 
@@ -110,6 +110,95 @@ async def admin_panel(
             "pending_requests": pending,
             "users": users,
             "audit_logs": logs,
+        },
+    )
+
+
+@router.get("/me/downloads", response_class=HTMLResponse)
+async def me_downloads(
+    request: Request,
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    school_year: str | None = Query(None),
+    subject: str | None = Query(None),
+    filetype: str | None = Query(None),
+):
+    """
+    使用者自己的下載紀錄(2026-07-20 新增)。
+
+    - 只看自己(user_id = current user)
+    - 可選篩選: school_year / subject / filetype
+    - 分頁: 25 / 頁
+    - 「重新下載」按鈕走原 /ui/download endpoint
+    """
+    PER_PAGE = 25
+
+    # base query
+    stmt = select(DownloadHistory).where(DownloadHistory.user_id == user.id)
+
+    # 篩選
+    if school_year:
+        stmt = stmt.where(DownloadHistory.school_year == school_year)
+    if subject:
+        stmt = stmt.where(DownloadHistory.subject == subject)
+    if filetype and filetype in ("paper", "daan"):
+        stmt = stmt.where(DownloadHistory.filetype == filetype)
+
+    # total count (加同樣的 filter)
+    count_stmt = select(func.count()).select_from(DownloadHistory).where(
+        DownloadHistory.user_id == user.id
+    )
+    if school_year:
+        count_stmt = count_stmt.where(DownloadHistory.school_year == school_year)
+    if subject:
+        count_stmt = count_stmt.where(DownloadHistory.subject == subject)
+    if filetype and filetype in ("paper", "daan"):
+        count_stmt = count_stmt.where(DownloadHistory.filetype == filetype)
+    total = (await db.execute(count_stmt)).scalar() or 0
+    total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+
+    # 分頁: 最新在最上面
+    offset = (page - 1) * PER_PAGE
+    stmt = (
+        stmt.order_by(desc(DownloadHistory.downloaded_at))
+        .limit(PER_PAGE)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+
+    # 動態填選項(該 user 有下載過的 school_year / subject)
+    years_stmt = (
+        select(DownloadHistory.school_year)
+        .where(DownloadHistory.user_id == user.id, DownloadHistory.school_year.isnot(None))
+        .distinct()
+        .order_by(DownloadHistory.school_year.desc())
+    )
+    years = [r[0] for r in (await db.execute(years_stmt)).all() if r[0]]
+
+    subjects_stmt = (
+        select(DownloadHistory.subject)
+        .where(DownloadHistory.user_id == user.id, DownloadHistory.subject.isnot(None))
+        .distinct()
+        .order_by(DownloadHistory.subject)
+    )
+    subjects = [r[0] for r in (await db.execute(subjects_stmt)).all() if r[0]]
+
+    return templates.TemplateResponse(
+        "me_downloads.html",
+        {
+            **_common_ctx(user),
+            "request": request,
+            "rows": rows,
+            "total": total,
+            "page": page,
+            "total_pages": total_pages,
+            "per_page": PER_PAGE,
+            "years": years,
+            "subjects": subjects,
+            "filter_school_year": school_year or "",
+            "filter_subject": subject or "",
+            "filter_filetype": filetype or "",
         },
     )
 
