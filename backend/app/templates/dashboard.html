@@ -3,6 +3,13 @@
 {% block title %}考卷搜尋 — TQark-web{% endblock %}
 
 {% block content %}
+{% if request.query_params.get('error') == 'rate_limited' %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>⏰ StudyArk 限流中</strong><br>
+        {{ request.query_params.get('error_msg', '下載太頻繁，請等後重試。') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+{% endif %}
 {% if user.status == 'pending' %}
 <div class="card">
     <div class="card-body">

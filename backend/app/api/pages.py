@@ -10,7 +10,7 @@ HTML page routes
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, desc, func
@@ -547,10 +547,26 @@ async def ui_download(
         try:
             pdf_bytes, content_type = await studyark.download_pdf_stream(classid, fileid, filetype)
         except studyark.StudyArkRateLimit as e:
-            raise HTTPException(
-                status_code=429,
-                detail=f"StudyArk 限流中:{e.message} 請等 {e.retry_after_minutes} 分鐘後重試。"
-            )
+            # StudyArk 限流 → redirect 回搜尋結果頁，帶上 error message query param
+            # (不要回 JSON 429，user 看不到友善訊息)
+            # 用 referer header 回上一頁，沒有的話 fallback /dashboard
+            referer = request.headers.get("referer", "")
+            # referer 通常是 /ui/search?grade=...&... 這種
+            from urllib.parse import urlparse, parse_qs, urlencode
+            parsed = urlparse(referer) if referer else None
+            if parsed and parsed.path in ("/ui/search", "/dashboard", "/me/downloads"):
+                # 保留 query 但加 error param
+                qs = parse_qs(parsed.query)
+                qs["error"] = ["rate_limited"]
+                qs["error_msg"] = [f"StudyArk 限流中:{e.message} 請等 {e.retry_after_minutes} 分鐘後重試。"]
+                redirect_url = f"{parsed.path}?{urlencode(qs, doseq=True)}"
+            else:
+                # 沒有 referer → 回 dashboard 帶 error
+                redirect_url = "/dashboard?error=rate_limited&error_msg=" + quote(
+                    f"StudyArk 限流中:{e.message} 請等 {e.retry_after_minutes} 分鐘後重試。"
+                )
+            _cache_logger.warning(f"UI download rate-limited, redirect to {redirect_url}")
+            return RedirectResponse(url=redirect_url, status_code=303)
         except FileNotFoundError as e:
             raise HTTPException(503, str(e))
         except Exception as e:
