@@ -90,6 +90,11 @@
                                       onsubmit="return confirm('確定要把這個 rejected user 重設回 pending?\\n\\n{{ u.email }}\\n\\n重設後該 user 可以重新到 dashboard 填申請理由。');">
                                     <button type="submit" class="btn btn-sm btn-warning">🔄 重設為 pending</button>
                                 </form>
+                            {% elif u.status == 'approved' %}
+                                <form method="post" action="/admin/users/{{ u.id }}/reset" class="d-inline"
+                                      onsubmit="return confirm('⛔ 警告: 這會把這個 approved user 的 access 撚銷!\\n\\n{{ u.email }}\\n\\n重設後:\\n- user 不能下載任何考卷\\n- user 需要重新到 dashboard 申請\\n\\n確定要繼續嗎?');">
+                                    <button type="submit" class="btn btn-sm btn-danger">⛔ 撚銷 access</button>
+                                </form>
                             {% endif %}
                         </td>
                     </tr>

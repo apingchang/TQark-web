@@ -138,9 +138,16 @@ async def reset_user(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    【2026-07-20 加】重置 rejected user 回 pending 狀態。
-    用途:User 被拒絕後想重新申請 → admin 按下 reset → user.status 改回 pending
-         user 可以重新到 dashboard 填寫新的申請理由。
+    【2026-07-20 加】重置 user 回 pending 狀態。
+    用途:
+      - rejected user 想重新申請 → reset
+      - approved user 要撤销 access (例如心不信任、离职) → reset 回 pending
+
+    限制:
+      - 不能 reset 自己 (400)
+      - 不能 reset banned user (只能 unban) (400)
+      - admin 保護:要改 admin 自己的 status 不准 (400)
+      - pending user reset 是 no-op (300 → /admin)
     """
     if user_id == admin.id:
         raise HTTPException(400, "Can't reset yourself")
@@ -149,16 +156,27 @@ async def reset_user(
     if not user:
         raise HTTPException(404, "User not found")
 
-    if user.status != "rejected":
-        raise HTTPException(400, f"User is {user.status}, only rejected users can be reset")
+    # 不准 reset 其他 admin (只有超級 admin 能改 admin)
+    if user.role == "admin":
+        raise HTTPException(403, "Can't reset another admin")
 
-    # Reset user 回 pending (banned 不能 reset,只能 admin 手動改)
+    if user.status == "banned":
+        raise HTTPException(400, "Can't reset banned user (unban first)")
+
+    if user.status == "pending":
+        # pending 本來就是 pending → no-op
+        return RedirectResponse(url="/admin", status_code=303)
+
+    if user.status not in ("approved", "rejected"):
+        raise HTTPException(400, f"User is {user.status}, can't reset")
+
+    # Reset user 回 pending
     prev_status = user.status
     user.status = "pending"
     user.decided_at = None
     user.decided_by_id = None
     # application_reason 留著 (admin 看到的歷史理由) 讓 user 可以新填
-    # 或者要不要清? 選擇保留 → user 填新理由後蓋掉
+    # user 填新理由後蓋掉
 
     await log_action(
         db,
