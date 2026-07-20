@@ -27,6 +27,32 @@
         </form>
     </div>
 </div>
+{% elif user.status == 'rejected' %}
+<div class="card border-danger">
+    <div class="card-body">
+        <h5 class="card-title text-danger">⛔ 申請被拒絕</h5>
+        <p class="card-text">
+            你的 access 申請被管理員拒絕了。
+            {% if user.decided_at %}<small class="text-muted">決定時間:{{ user.decided_at }}</small>{% endif %}
+        </p>
+        <p class="card-text">
+            如果你認為這是誤判,請聯絡管理員(<a href="mailto:william@example.com">william@example.com</a>)。
+        </p>
+        <form method="post" action="/auth/logout" class="d-inline">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">登出</button>
+        </form>
+    </div>
+</div>
+{% elif user.status == 'banned' %}
+<div class="card border-dark">
+    <div class="card-body">
+        <h5 class="card-title text-dark">🚫 帳號已被停用</h5>
+        <p class="card-text">你的帳號被管理員停用。請聯絡管理員(<a href="mailto:william@example.com">william@example.com</a>)。</p>
+        <form method="post" action="/auth/logout" class="d-inline">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">登出</button>
+        </form>
+    </div>
+</div>
 {% elif user.status == 'approved' %}
 <div class="card">
     <div class="card-body">
