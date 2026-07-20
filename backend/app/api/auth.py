@@ -199,6 +199,16 @@ async def logout(response: Response, tqark_session: str | None = Cookie(default=
     return response
 
 
+@router.get("/logout")
+async def logout_get(response: Response, tqark_session: str | None = Cookie(default=None)):
+    """
+    GET /auth/logout 也走同樣邏輯 (2026-07-20 加)。
+    原因:User 可能手動改 URL、重新整理、或被語法提示跳到這。
+    原本只有 POST handler → GET 會 405 JSON 錯誤。
+    """
+    return await logout(response=response, tqark_session=tqark_session)
+
+
 @router.get("/me")
 async def me(tqark_session: str | None = Cookie(default=None)):
     """
