@@ -171,8 +171,9 @@ if (deleteAllBtn && deleteAllModal) {
             headers: {'Accept': 'text/html'}
         });
         const html = await resp.text();
-        // 解析 '共 N 筆'
-        const m = html.match(/共\s*<strong>(\d+)<\/strong>\s*筆/);
+        // 解析 'N 筆紀錄' (badge) 或 fallback '共 N 筆'
+        let m = html.match(/(\d+)\s*筆紀錄/);
+        if (!m) m = html.match(/共\s*<strong>(\d+)<\/strong>\s*筆/);
         const total = m ? parseInt(m[1]) : 0;
 
         if (total === 0) {
@@ -220,7 +221,7 @@ if (deleteAllBtn && deleteAllModal) {
             }
             // 因為分頁只顯示 25 筆,實際上如果 total > 25 需要處理
             // 解法:分批抓所有 page 拿完整 list
-            const totalMatch = listHtml.match(/共\s*<strong>(\d+)<\/strong>\s*筆/);
+            const totalMatch = listHtml.match(/(\d+)\s*筆紀錄/) || listHtml.match(/共\s*<strong>(\d+)<\/strong>\s*筆/);
             const total = totalMatch ? parseInt(totalMatch[1]) : 0;
             if (total > 25) {
                 // 抓所有 page
