@@ -16,7 +16,7 @@
 
             {% if user.role == 'admin' %}
                 <a href="/admin" class="btn btn-danger btn-lg">🛠 管理後台</a>
-                <a href="/dashboard" class="btn btn-primary btn-lg ms-2">Dashboard</a>
+                <a href="/dashboard" class="btn btn-primary btn-lg ms-2">考卷搜尋</a>
 
             {% elif user.status == 'pending' %}
                 {% if not user.application_reason %}
@@ -49,7 +49,7 @@
                 {% endif %}
 
             {% elif user.status == 'approved' %}
-                <a href="/dashboard" class="btn btn-primary btn-lg">📚 前往 Dashboard(搜尋考古題)</a>
+                <a href="/dashboard" class="btn btn-primary btn-lg">📚 前往考卷搜尋</a>
                 <a href="/auth/logout" class="btn btn-link d-block mt-3">登出</a>
 
             {% elif user.status == 'rejected' %}
