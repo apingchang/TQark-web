@@ -129,3 +129,44 @@ async def ban_user(
 
     await db.commit()
     return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/users/{user_id}/reset")
+async def reset_user(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    【2026-07-20 加】重置 rejected user 回 pending 狀態。
+    用途:User 被拒絕後想重新申請 → admin 按下 reset → user.status 改回 pending
+         user 可以重新到 dashboard 填寫新的申請理由。
+    """
+    if user_id == admin.id:
+        raise HTTPException(400, "Can't reset yourself")
+
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if user.status != "rejected":
+        raise HTTPException(400, f"User is {user.status}, only rejected users can be reset")
+
+    # Reset user 回 pending (banned 不能 reset,只能 admin 手動改)
+    prev_status = user.status
+    user.status = "pending"
+    user.decided_at = None
+    user.decided_by_id = None
+    # application_reason 留著 (admin 看到的歷史理由) 讓 user 可以新填
+    # 或者要不要清? 選擇保留 → user 填新理由後蓋掉
+
+    await log_action(
+        db,
+        action="reset_user_to_pending",
+        user_id=admin.id,
+        target=f"user:{user.email}",
+        detail=f"prev_status={prev_status}",
+    )
+
+    await db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
