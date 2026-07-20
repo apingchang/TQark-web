@@ -48,7 +48,7 @@
                           data-bs-toggle="tooltip"
                           data-bs-placement="bottom"
                           data-bs-html="true"
-                          title="<div style='text-align:left;line-height:1.5'>{{ tooltip_lines|join('<br>')|replace(' ', '&nbsp;', 1) if false else tooltip_lines|join('<br>') }}</div>">
+                          title="<div style='text-align:left;line-height:1.5'>{{ tooltip_lines|join('<br>')|safe }}</div>">
                         {% if user.picture %}
                             <img src="{{ user.picture }}" alt="" width="20" height="20" class="rounded-circle me-1">
                         {% endif %}
