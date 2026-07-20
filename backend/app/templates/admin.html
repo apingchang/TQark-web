@@ -85,7 +85,9 @@
                         </td>
                         <td><small>{{ u.last_login_at }}</small></td>
                         <td>
-                            {% if u.status == 'rejected' %}
+                            {% if u.role == 'admin' %}
+                                <small class="text-muted">— (admin 保護)</small>
+                            {% elif u.status == 'rejected' %}
                                 <form method="post" action="/admin/users/{{ u.id }}/reset" class="d-inline"
                                       onsubmit="return confirm('確定要把這個 rejected user 重設回 pending?\\n\\n{{ u.email }}\\n\\n重設後該 user 可以重新到 dashboard 填申請理由。');">
                                     <button type="submit" class="btn btn-sm btn-warning">🔄 重設為 pending</button>
