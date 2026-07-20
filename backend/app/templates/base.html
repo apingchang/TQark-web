@@ -47,8 +47,7 @@
                           style="opacity: 1; cursor: help;"
                           data-bs-toggle="tooltip"
                           data-bs-placement="bottom"
-                          data-bs-html="true"
-                          title="<div style='text-align:left;line-height:1.5'>{{ tooltip_lines|join('<br>')|safe }}</div>">
+                          data-tooltip-lines='{{ tooltip_lines|tojson }}'>
                         {% if user.picture %}
                             <img src="{{ user.picture }}" alt="" width="20" height="20" class="rounded-circle me-1">
                         {% endif %}
@@ -87,8 +86,11 @@
     <script>
     // 全頁面 tooltip init (navbar user info hover 等)
     document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-            new bootstrap.Tooltip(el, {html: true, sanitize: false});
+        document.querySelectorAll('[data-bs-toggle="tooltip"][data-tooltip-lines]').forEach(el => {
+            let lines = [];
+            try { lines = JSON.parse(el.dataset.tooltipLines); } catch(e) {}
+            const html = '<div style="text-align:left;line-height:1.5">' + lines.join('<br>') + '</div>';
+            new bootstrap.Tooltip(el, {title: html, html: true, sanitize: false});
         });
     });
     </script>
