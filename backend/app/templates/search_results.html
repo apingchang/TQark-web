@@ -79,9 +79,6 @@
                             <td>
                                 <span class="badge bg-primary">📄 試卷</span>
                                 <small class="ms-2">{{ item.title }}</small>
-                                <small class="text-muted ms-2">
-                                    [{{ item.school_name or '' }} · {{ item.grade or '' }} · {{ item.school_year or '' }}{{ item.school_term or '' }} · {{ item.category or '' }} {{ item.subject or '' }} · {{ item.type or '' }} · {{ item.version or '' }}]
-                                </small>
                             </td>
                             <td>
                                 <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=paper&title={{ item.title|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
@@ -118,9 +115,6 @@
                             <td>
                                 <span class="badge bg-secondary">📝 答案</span>
                                 <small class="ms-2">{{ item.title }} - 答案</small>
-                                <small class="text-muted ms-2">
-                                    [{{ item.school_name or '' }} · {{ item.grade or '' }} · {{ item.school_year or '' }}{{ item.school_term or '' }} · {{ item.category or '' }} {{ item.subject or '' }} · {{ item.type or '' }} · {{ item.version or '' }}]
-                                </small>
                             </td>
                             <td>
                                 <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=daan&title={{ (item.title + ' 答案')|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
