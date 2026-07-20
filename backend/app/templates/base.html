@@ -130,14 +130,14 @@
                     {% endif %}
                     {# 下載紀錄: 📥 icon + 填滿 cyan #}
                     <a href="/me/downloads" class="btn btn-sm btn-info px-3 {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
-                    {# 登出: 🚪 門 icon + 填滿較深灰色 + 較大 padding #}
+                    {% if user.role == 'admin' %}
+                        {# 後台: 🖥️ 終端機 icon + Tiffany blue (在登出左邊) #}
+                        <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🖥️ 後台</a>
+                    {% endif %}
+                    {# 登出: 🚪 門 icon + 填滿較深灰色 (在最右邊) #}
                     <form method="post" action="/auth/logout" class="d-inline">
                         <button type="submit" class="btn btn-sm btn-secondary px-3">🚪 登出</button>
                     </form>
-                    {% if user.role == 'admin' %}
-                        {# 後台: 🛡️ 盾 icon + 較大 padding,放在最右邊 (登出左邊一個) #}
-                        <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🖥️ 後台</a>
-                    {% endif %}
                 {% else %}
                     <a class="btn btn-sm btn-primary" href="/auth/google/login">Sign in with Google</a>
                 {% endif %}
