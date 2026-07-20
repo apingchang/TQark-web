@@ -27,10 +27,21 @@
         }
         .container-narrow { max-width: 720px; }
         .card { border: 1px solid #dee2e6; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-        .badge-status-pending { background: #ffc107; color: #000; }
-        .badge-status-approved { background: #198754; }
-        .badge-status-rejected { background: #dc3545; }
-        .badge-status-banned { background: #6c757d; }
+        .badge-status-pending { background: #ffc107; color: #212529; font-weight: 600; }
+        .badge-status-approved { background: #198754; color: #fff; font-weight: 600; }
+        .badge-status-rejected { background: #dc3545; color: #fff; font-weight: 600; }
+        .badge-status-banned { background: #6c757d; color: #fff; font-weight: 600; }
+        /* 【2026-07-20 加】Role badge (bg-secondary / bg-danger) 也是黑字粗體 */
+        span.badge.bg-secondary,
+        span.badge.bg-danger {
+            color: #fff !important;
+            font-weight: 600 !important;
+        }
+        /* 【2026-07-20 加】Audit log action badge (bg-info) 也是黑字粗體 */
+        span.badge.bg-info {
+            color: #212529 !important;
+            font-weight: 600 !important;
+        }
 
         /* 【2026-07-20 加】Tiffany Blue navbar admin 按鈕 (取代 btn-dark) */
         /* 標準 Tiffany Blue = #0ABAB5,但作為 navbar button 有點制，改用較亮的 #4FC3C0 */
