@@ -17,6 +17,16 @@
         .badge-status-approved { background: #198754; }
         .badge-status-rejected { background: #dc3545; }
         .badge-status-banned { background: #6c757d; }
+        /* Admin badge: 比 後台 button 高 4px(上下各 2px),更顯眼 */
+        .admin-badge-big {
+            font-size: 0.9rem;
+            padding: 0.45rem 0.7rem;
+            font-weight: 600;
+            vertical-align: middle;
+            border-radius: 0.35rem;
+        }
+        /* user-info tooltip 不會被 navbar 遮住 */
+        .tooltip-inner { max-width: 320px; text-align: left; }
     </style>
 </head>
 <body>
@@ -25,14 +35,26 @@
             <a class="navbar-brand" href="/">📚 考古題下載</a>
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
                 {% if user %}
-                    {# User info: 個人像 + 名稱 + Admin badge(都是 button 樣式) #}
-                    <span class="btn btn-sm btn-light d-inline-flex align-items-center disabled" style="opacity: 1;">
+                    {# User info: 個人像 + 名稱 + Admin badge(hover 顯示完整 user info tooltip) #}
+                    {% set tooltip_lines = [] %}
+                    {% set _ = tooltip_lines.append('Email: ' ~ user.email) %}
+                    {% if user.name %}{% set _ = tooltip_lines.append('Name: ' ~ user.name) %}{% endif %}
+                    {% set _ = tooltip_lines.append('角色: ' ~ user.role) %}
+                    {% set _ = tooltip_lines.append('狀態: ' ~ user.status) %}
+                    {% if user.first_seen_at %}{% set _ = tooltip_lines.append('首次登入: ' ~ user.first_seen_at) %}{% endif %}
+                    {% if user.last_login_at %}{% set _ = tooltip_lines.append('上次登入: ' ~ user.last_login_at) %}{% endif %}
+                    <span class="btn btn-sm btn-light d-inline-flex align-items-center disabled user-info-hover"
+                          style="opacity: 1; cursor: help;"
+                          data-bs-toggle="tooltip"
+                          data-bs-placement="bottom"
+                          data-bs-html="true"
+                          title="<div style='text-align:left;line-height:1.5'>{{ tooltip_lines|join('<br>')|replace(' ', '&nbsp;', 1) if false else tooltip_lines|join('<br>') }}</div>">
                         {% if user.picture %}
                             <img src="{{ user.picture }}" alt="" width="20" height="20" class="rounded-circle me-1">
                         {% endif %}
                         <span>{{ user.name or user.email }}</span>
                         {% if user.role == 'admin' %}
-                            <span class="badge bg-danger ms-1">Admin</span>
+                            <span class="badge bg-danger admin-badge-big ms-1">Admin</span>
                         {% endif %}
                     </span>
                     {% if user.role == 'admin' %}
@@ -58,10 +80,18 @@
     </main>
 
     <footer class="container container-narrow text-muted small mt-5 pt-3 border-top">
-        <p>TQark-web v{{ version }} · Private invite-only · Powered by William & 夥計</p>
+        <p>TQark-web v{{ version }} · Private invite-only · Powered by SanhaoFamily</p>
     </footer>
     <!-- Bootstrap JS (Modal/Dropdown/Toast 等需要) -->
     <script src="/static/bootstrap.bundle.min.js"></script>
+    <script>
+    // 全頁面 tooltip init (navbar user info hover 等)
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+            new bootstrap.Tooltip(el, {html: true, sanitize: false});
+        });
+    });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -35,6 +35,10 @@ def _user_ctx(user: User | None) -> dict:
     """把 User object 轉成 template 用的 dict"""
     if user is None:
         return {}
+
+    def fmt(dt):
+        return dt.strftime("%Y-%m-%d %H:%M") if dt else None
+
     return {
         "id": user.id,
         "email": user.email,
@@ -42,6 +46,8 @@ def _user_ctx(user: User | None) -> dict:
         "picture": user.picture,
         "role": user.role,
         "status": user.status,
+        "first_seen_at": fmt(user.first_seen_at),
+        "last_login_at": fmt(user.last_login_at),
     }
 
 
