@@ -74,6 +74,12 @@ document.addEventListener('change', e => {
     const selected = getSelected();
     const k = makeKey(e.target.dataset);
     if (e.target.checked) {
+        // 上限 20 個
+        if (Object.keys(selected).length >= MAX_BATCH) {
+            e.target.checked = false;
+            alert(`單批最多 ${MAX_BATCH} 個!請先取消其他勾選後再勾。`);
+            return;
+        }
         selected[k] = {
             classid: e.target.dataset.classid,
             fileid: e.target.dataset.fileid,
@@ -96,12 +102,53 @@ document.addEventListener('change', e => {
 });
 
 // 全選
+// 直接改 localStorage、不 dispatch change event
+// (原本用 dispatchEvent cascade, 但 updateBatchBar() 會在 forEach 中被多次
+// 觸發、每次都重設 selectAll.checked = false, 造成只剩第一個勾選)
 document.getElementById('selectAllChk').addEventListener('change', e => {
-    document.querySelectorAll('.itemChk').forEach(chk => {
-        chk.checked = e.target.checked;
-        // {bubbles: true}: 必要!不然 document.addEventListener('change') 收不到
-        chk.dispatchEvent(new Event('change', {bubbles: true}));
+    const want = e.target.checked;
+    const itemChks = document.querySelectorAll('.itemChk');
+    let selected = getSelected();
+
+    // 計算「要勾幾個 / 現在勾幾個」
+    const currentCount = Object.keys(selected).length;
+
+    itemChks.forEach(chk => {
+        const k = makeKey(chk.dataset);
+        if (want) {
+            // 勾: 不能超過 MAX_BATCH
+            if (!selected[k] && currentCount < MAX_BATCH) {
+                selected[k] = {
+                    classid: chk.dataset.classid,
+                    fileid: chk.dataset.fileid,
+                    filetype: chk.dataset.filetype,
+                    title: chk.dataset.title,
+                    school_name: chk.dataset.school,
+                    grade: chk.dataset.grade,
+                    school_year: chk.dataset.year,
+                    school_term: chk.dataset.term,
+                    category: chk.dataset.cat,
+                    subject: chk.dataset.subject,
+                    exam_type: chk.dataset.type,
+                    version: chk.dataset.version,
+                };
+                chk.checked = true;
+                currentCount++;
+            } else if (selected[k]) {
+                // 已經勾了
+                chk.checked = true;
+            } else {
+                // 會超過 20、不勾
+                chk.checked = false;
+            }
+        } else {
+            // 取消勾選
+            if (selected[k]) delete selected[k];
+            chk.checked = false;
+        }
     });
+    setSelected(selected);
+    updateBatchBar();
 });
 
 // 清除選取(頂部)
