@@ -90,7 +90,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
         <div class="container">
             <a class="navbar-brand" href="/">📚 <span class="brand-text">考古題下載</span></a>
-            <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
+            <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
                 {% if user %}
                     {# User info: 個人像 + 名稱 + Admin badge(hover 顯示完整 user info tooltip) #}
                     {% set tooltip_lines = [] %}
@@ -114,15 +114,18 @@
                         {% endif %}
                     </span>
                     {% if user.role == 'admin' %}
-                        <a href="/admin" class="btn btn-sm btn-tiffany {% if request.url.path == '/admin' %}active{% endif %}">後台</a>
+                        {# 後台: 🛡️ 盾 icon + 較大 padding #}
+                        <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🛡️ 後台</a>
                     {% endif %}
                     {# 在 Dashboard 頁本身時不顯示 Dashboard 連結 #}
                     {% if request.url.path != '/dashboard' %}
-                        <a href="/dashboard" class="btn btn-sm btn-outline-primary {% if request.url.path == '/dashboard' %}active{% endif %}">考卷搜尋</a>
+                        {# 考卷搜尋: 🔍 icon #}
+                        <a href="/dashboard" class="btn btn-sm btn-outline-primary {% if request.url.path == '/dashboard' %}active{% endif %}">🔍 考卷搜尋</a>
                     {% endif %}
                     <a href="/me/downloads" class="btn btn-sm btn-outline-info {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
+                    {# 登出: 🚪 門 icon + 較大 padding #}
                     <form method="post" action="/auth/logout" class="d-inline">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">登出</button>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary px-3">🚪 登出</button>
                     </form>
                 {% else %}
                     <a class="btn btn-sm btn-primary" href="/auth/google/login">Sign in with Google</a>
