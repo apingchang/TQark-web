@@ -235,15 +235,26 @@ async def download_pdf_stream(classid: str, fileid: str, filetype: str = "paper"
         resp.raise_for_status()
         body = resp.content
 
-        # 限流偵測: StudyArk 會回 「你下載太頻繁,請等待 N 分鐘後再試。」
+        # 限流偵測: StudyArk 限流時會回中文訊息 (長度 < 500 bytes)
+        # 常見訊息包括:
+        # - 「你下載太頻繁,請等待 N 分鐘後再試。」
+        # - 「今天下載太多次了,請明天再試。」
+        # - 「下載太多次」、「操作太頻繁」、「請稍後再試」等等
         if len(body) < 500:
             try:
                 text = body.decode("utf-8", errors="ignore")
-                if "下載太頻繁" in text or "等待" in text and "分鐘" in text:
+                rate_keywords = ["下載太頻繁", "太多次", "明天再試", "稍後再試", "訪問過於頻繁"]
+                is_rate_limit = any(kw in text for kw in rate_keywords)
+                if is_rate_limit:
                     # 抽出等待分鐘數
                     import re
                     m = re.search(r"等待\s*(\d+)\s*分鐘", text)
-                    retry_min = int(m.group(1)) if m else 25
+                    if m:
+                        retry_min = int(m.group(1))
+                    elif "明天" in text:
+                        retry_min = 24 * 60  # 明天
+                    else:
+                        retry_min = 25
                     raise StudyArkRateLimit(text.strip(), retry_after_minutes=retry_min)
             except StudyArkRateLimit:
                 raise

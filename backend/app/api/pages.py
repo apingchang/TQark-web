@@ -522,17 +522,55 @@ async def ui_download(
     )
     filename = studyark.build_download_filename(item)
 
-    try:
-        pdf_bytes, content_type = await studyark.download_pdf_stream(classid, fileid, filetype)
-    except studyark.StudyArkRateLimit as e:
-        raise HTTPException(
-            status_code=429,
-            detail=f"StudyArk 限流中:{e.message} 請等 {e.retry_after_minutes} 分鐘後重試。"
-        )
-    except FileNotFoundError as e:
-        raise HTTPException(503, str(e))
-    except Exception as e:
-        raise HTTPException(502, f"下載失敗: {e}")
+    # 【2026-07-20 加】先查 PDF cache( /mnt/my_book/考題收集/ )
+    # 命中 → 直接 serve (不用打 StudyArk、避開限流)
+    # 沒命中 → 走 StudyArk → save 到 cache → serve
+    from app.scraper.archive_path import find_pdf_in_archive, ensure_archive_dirs, build_archive_path, _safe_dirname
+    import logging
+    _cache_logger = logging.getLogger("tqark.cache")
+
+    pdf_bytes = None
+    if grade and subject and filetype in ("paper", "daan"):
+        cached = find_pdf_in_archive(grade, subject, filetype, fileid)
+        _cache_logger.info(f"[UI CACHE CHECK] grade={grade!r} subject={subject!r} filetype={filetype!r} fileid={fileid} -> cached={cached}")
+        if cached and cached.exists():
+            try:
+                pdf_bytes = cached.read_bytes()
+                _cache_logger.info(f"[UI CACHE HIT] {len(pdf_bytes)} bytes from {cached}")
+            except OSError as e:
+                _cache_logger.warning(f"UI cache read failed {cached}: {e}")
+                pdf_bytes = None
+        else:
+            _cache_logger.info(f"[UI CACHE MISS] cached={cached}, exists={cached.exists() if cached else None}")
+
+    if pdf_bytes is None:
+        try:
+            pdf_bytes, content_type = await studyark.download_pdf_stream(classid, fileid, filetype)
+        except studyark.StudyArkRateLimit as e:
+            raise HTTPException(
+                status_code=429,
+                detail=f"StudyArk 限流中:{e.message} 請等 {e.retry_after_minutes} 分鐘後重試。"
+            )
+        except FileNotFoundError as e:
+            raise HTTPException(503, str(e))
+        except Exception as e:
+            raise HTTPException(502, f"下載失敗: {e}")
+
+        # 驗證是 PDF 才存 cache (2026-07-20 加)
+        if pdf_bytes.startswith(b"%PDF") and grade and subject and filetype in ("paper", "daan"):
+            safe_subject = _safe_dirname(subject)
+            target = build_archive_path(grade, subject, filetype, fileid)
+            if target:
+                try:
+                    ensure_archive_dirs(grade, subject, filetype)
+                    target.write_bytes(pdf_bytes)
+                    _cache_logger.info(f"[UI CACHE SAVED] {len(pdf_bytes)} bytes to {target}")
+                except OSError as e:
+                    _cache_logger.warning(f"UI cache write failed {target}: {e}")
+
+        content_type = "application/pdf"
+    else:
+        content_type = "application/pdf"
 
     # 寫 DownloadHistory
     db_record = DownloadHistory(

@@ -3,6 +3,7 @@ StudyArk search + download endpoints(2026-07-19 改版)
 
 設計:
 - 不在 server disk 存 PDF
+- 但會從 /mnt/my_book/考題收集/ 找 cache (2026-07-20 加)
 - 直接從 StudyArk 抓 → stream 到 user → 寫 metadata 到 DownloadHistory
 - User 透過 Content-Disposition 收到友善檔名
 
@@ -30,6 +31,39 @@ from app.db.session import get_db
 from app.scraper import studyark
 
 router = APIRouter(prefix="/api", tags=["scraper"])
+
+import logging as _logging
+_logger = _logging.getLogger("tqark.cache")
+
+
+# ============================================================
+# PDF cache LRU metadata (2026-07-20 加)
+# ============================================================
+from datetime import datetime, timezone, timedelta
+from pathlib import Path as _Path
+
+CACHE_META_PATH = _Path("/mnt/my_book/考題收集/state/tqark_cache_meta.json")
+
+
+def _update_cache_meta(fileid: str, path: _Path) -> None:
+    """寫一下 fileid 最後被 access 的時間、用來未來 LRU 判斷。"""
+    try:
+        if CACHE_META_PATH.exists():
+            with open(CACHE_META_PATH, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        else:
+            meta = {}
+        now = datetime.now(timezone(timedelta(hours=8))).isoformat()
+        entry = meta.get(fileid, {"access_count": 0})
+        entry["last_access"] = now
+        entry["access_count"] = entry.get("access_count", 0) + 1
+        entry["path"] = str(path)
+        meta[fileid] = entry
+        CACHE_META_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(CACHE_META_PATH, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass  # meta 寫失敗不影響 serve
 
 
 class SearchRequest(BaseModel):
@@ -116,7 +150,7 @@ async def download(
     classid: str,
     fileid: str,
     request: Request,
-    filetype: str = Query("paper", regex="^(paper|answer)$"),
+    filetype: str = Query("paper", regex="^(paper|daan|answer)$"),
     # 從 search page 帶過來的完整 metadata(讓 user 下載檔名友善、log 完整)
     title: str | None = Query(None),
     school_name: str | None = Query(None),
@@ -153,6 +187,8 @@ async def download(
     filename = studyark.build_download_filename(item)
 
     # 從 StudyArk 抓 bytes
+    # (PDF cache 邏輯只在 /ui/download 內做 — /api/download 是內部 API、
+    #  跟 batch-download 一樣走 StudyArk,不讀 archive cache)
     try:
         pdf_bytes, content_type = await studyark.download_pdf_stream(classid, fileid, filetype)
     except studyark.StudyArkRateLimit as e:
