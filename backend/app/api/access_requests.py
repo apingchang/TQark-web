@@ -4,7 +4,9 @@ User access request endpoints
 - POST /api/access-requests  → User 申請存取
 """
 
-from fastapi import APIRouter, Depends, Form, HTTPException
+from urllib.parse import urlencode
+
+from fastapi import APIRouter, Depends, Form
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +18,22 @@ from app.db.session import get_db
 router = APIRouter(prefix="/api/access-requests", tags=["access-requests"])
 
 
+def _dashboard_redirect(error: str, error_msg: str, success: str | None = None) -> RedirectResponse:
+    """
+    【2026-07-20 加】所有錯誤都重導回 /dashboard 帶 error param (不要 raise HTTPException)。
+    原因:User 點表單 submit 是用 POST form 表單,如果 raise JSON 錯誤
+    user 看到 raw JSON 而不是友善訊息。Redirect 回 dashboard 讓 template 顯示 alert。
+    """
+    qs = {
+        "error": error,
+        "error_msg": error_msg,
+    }
+    if success:
+        qs["success"] = success
+        qs["success_msg"] = "申請已送出!請等 admin 審核。"
+    return RedirectResponse(url=f"/dashboard?{urlencode(qs)}", status_code=303)
+
+
 @router.post("")
 async def submit_request(
     reason: str = Form(...),
@@ -25,15 +43,27 @@ async def submit_request(
     """
     User 申請 access,需要填 reason。
     如果之前已經有 pending request,擋掉(避免 spam)。
+
+    【2026-07-20 改】所有錯誤改回 redirect + error query param (不 raise HTTPException)。
+    原因:raw JSON 對表單 submit 的 user 不友善。
     """
     from sqlalchemy import select
 
     if not reason.strip():
-        raise HTTPException(400, "Reason required")
+        return _dashboard_redirect(
+            "empty_reason",
+            "申請原因不能空白,請填寫後重試。"
+        )
     if user.status == "approved":
-        raise HTTPException(400, "Already approved")
+        return _dashboard_redirect(
+            "already_approved",
+            "你已經是 approved 狀態了,不需要重新申請。"
+        )
     if user.status == "banned":
-        raise HTTPException(403, "Account is banned")
+        return _dashboard_redirect(
+            "banned",
+            "你的帳號已被停用,無法申請。如有疑問請聯絡 admin。"
+        )
 
     # 【2026-07-20 修】擋重複 pending 申請
     # 同一個 user 如果已經有 pending request → 不能跳下一個
@@ -45,9 +75,9 @@ async def submit_request(
         )
     )).scalars().first()
     if existing:
-        raise HTTPException(
-            400,
-            f"你已經有 pending 申請了(理由: {existing.reason[:50]}...)。請等 admin 審核。"
+        return _dashboard_redirect(
+            "duplicate_pending",
+            f"你已經有 pending 申請了(理由:{existing.reason[:50]}...),請等 admin 審核。"
         )
 
     req = AccessRequest(
@@ -67,4 +97,6 @@ async def submit_request(
     )
 
     await db.commit()
-    return RedirectResponse(url="/dashboard", status_code=303)
+
+    # 成功也 redirect 帶 success param (可以顯示「申請已送出」)
+    return _dashboard_redirect("", "", success="1")

@@ -9,6 +9,19 @@
         {{ request.query_params.get('error_msg', '下載太頻繁，請等後重試。') }}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
+{% elif request.query_params.get('error') %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>⚠️ 申請失敗</strong><br>
+        {{ request.query_params.get('error_msg', '送出失敗，請重試。') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+{% endif %}
+{% if request.query_params.get('success') %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <strong>✅ 申請已送出</strong><br>
+        {{ request.query_params.get('success_msg', '請等 admin 審核。') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
 {% endif %}
 {% if user.status == 'pending' %}
 <div class="card">
