@@ -10,7 +10,17 @@
     <link rel="stylesheet" href="/static/bootstrap.min.css">
     <style>
         body { background: #f8f9fa; }
-        .navbar-brand { font-weight: 600; }
+        .navbar-brand {
+            font-weight: 600;
+            color: #0d6efd !important;  /* Bootstrap primary blue */
+            text-decoration: underline;
+            text-decoration-color: #0d6efd;
+            text-underline-offset: 3px;
+        }
+        .navbar-brand:hover {
+            color: #0a58ca !important;  /* darker blue on hover */
+            text-decoration-color: #0a58ca;
+        }
         .container-narrow { max-width: 720px; }
         .card { border: 1px solid #dee2e6; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
         .badge-status-pending { background: #ffc107; color: #000; }
