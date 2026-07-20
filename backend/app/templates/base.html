@@ -23,27 +23,31 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
         <div class="container">
             <a class="navbar-brand" href="/">📚 TQark-web</a>
-            <div class="navbar-nav ms-auto">
+            <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
                 {% if user %}
-                    <span class="nav-link">
+                    {# User info: 個人像 + 名稱 + Admin badge(都是 button 樣式) #}
+                    <span class="btn btn-sm btn-light d-inline-flex align-items-center disabled" style="opacity: 1;">
                         {% if user.picture %}
-                            <img src="{{ user.picture }}" alt="" width="24" height="24" class="rounded-circle me-1">
+                            <img src="{{ user.picture }}" alt="" width="20" height="20" class="rounded-circle me-1">
                         {% endif %}
-                        {{ user.name or user.email }}
+                        <span>{{ user.name or user.email }}</span>
                         {% if user.role == 'admin' %}
                             <span class="badge bg-danger ms-1">Admin</span>
                         {% endif %}
                     </span>
                     {% if user.role == 'admin' %}
-                        <a class="nav-link" href="/admin">後台</a>
+                        <a href="/admin" class="btn btn-sm btn-dark {% if request.url.path == '/admin' %}active{% endif %}">後台</a>
                     {% endif %}
-                    <a class="nav-link" href="/dashboard">Dashboard</a>
-                    <a class="nav-link" href="/me/downloads">📥 下載紀錄</a>
+                    {# 在 Dashboard 頁本身時不顯示 Dashboard 連結 #}
+                    {% if request.url.path != '/dashboard' %}
+                        <a href="/dashboard" class="btn btn-sm btn-outline-primary {% if request.url.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+                    {% endif %}
+                    <a href="/me/downloads" class="btn btn-sm btn-outline-info {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
                     <form method="post" action="/auth/logout" class="d-inline">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary ms-2">登出</button>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">登出</button>
                     </form>
                 {% else %}
-                    <a class="nav-link" href="/auth/google/login">Sign in with Google</a>
+                    <a class="btn btn-sm btn-primary" href="/auth/google/login">Sign in with Google</a>
                 {% endif %}
             </div>
         </div>
