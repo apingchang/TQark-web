@@ -88,7 +88,7 @@
                 <td><small>{{ r.exam_type or '' }}</small></td>
                 <td>
                     <div class="d-flex flex-column gap-1">
-                        <small class="text-muted text-truncate" style="max-width: 140px;" title="{{ r.download_filename }}">
+                        <small class="text-break" style="word-break: break-all;" title="{{ r.download_filename }}">
                             {{ r.download_filename }}
                         </small>
                         <div class="btn-group btn-group-sm" role="group">
