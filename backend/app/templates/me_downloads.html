@@ -56,15 +56,9 @@
     <table class="table table-hover table-sm align-middle">
         <thead class="table-light">
             <tr>
-                <th>下載時間</th>
-                <th>類型</th>
-                <th>學校</th>
-                <th>年級</th>
-                <th>學年/學期</th>
-                <th>科目</th>
-                <th>版本</th>
-                <th>段考</th>
-                <th style="width: 140px;">檔名 / 操作</th>
+                <th style="width: 160px;">下載時間</th>
+                <th>檔名(已含分類資訊)</th>
+                <th style="width: 200px;">操作</th>
             </tr>
         </thead>
         <tbody>
@@ -74,38 +68,25 @@
                     <small class="text-muted">{{ r.downloaded_at.strftime('%Y-%m-%d %H:%M') if r.downloaded_at else '—' }}</small>
                 </td>
                 <td>
-                    {% if r.filetype == 'daan' %}
-                        <span class="badge bg-secondary">📝 答案</span>
-                    {% else %}
-                        <span class="badge bg-primary">📄 試卷</span>
-                    {% endif %}
+                    <small class="text-break" style="word-break: break-all;" title="{{ r.download_filename }}">
+                        {{ r.download_filename }}
+                    </small>
                 </td>
-                <td><small>{{ r.school_name or '' }}</small></td>
-                <td><small>{{ r.grade or '' }}</small></td>
-                <td><small>{{ r.school_year or '' }}{{ r.school_term or '' }}</small></td>
-                <td><small>{{ r.subject or '' }}</small></td>
-                <td><small>{{ r.version or '' }}</small></td>
-                <td><small>{{ r.exam_type or '' }}</small></td>
                 <td>
-                    <div class="d-flex flex-column gap-1">
-                        <small class="text-break" style="word-break: break-all;" title="{{ r.download_filename }}">
-                            {{ r.download_filename }}
-                        </small>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <a href="/ui/download/{{ r.classid }}/{{ r.fileid }}?filetype={{ r.filetype }}&title={{ r.title|urlencode }}&school_name={{ r.school_name|urlencode }}&grade={{ r.grade|urlencode }}&school_year={{ r.school_year|urlencode }}&school_term={{ r.school_term|urlencode }}&category={{ r.category|urlencode }}&subject={{ r.subject|urlencode }}&exam_type={{ r.exam_type|urlencode }}&version={{ r.version|urlencode }}"
-                               class="btn btn-sm btn-outline-primary single-dl-btn"
-                               data-classid="{{ r.classid }}"
-                               data-fileid="{{ r.fileid }}"
-                               data-filetype="{{ r.filetype }}">
-                                <small>⬇ 重新下載</small>
-                            </a>
-                            <button type="button"
-                                    class="btn btn-sm btn-outline-danger delete-btn"
-                                    data-record-id="{{ r.id }}"
-                                    data-filename="{{ r.download_filename }}">
-                                <small>🗑 刪除</small>
-                            </button>
-                        </div>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="/ui/download/{{ r.classid }}/{{ r.fileid }}?filetype={{ r.filetype }}&title={{ r.title|urlencode }}&school_name={{ r.school_name|urlencode }}&grade={{ r.grade|urlencode }}&school_year={{ r.school_year|urlencode }}&school_term={{ r.school_term|urlencode }}&category={{ r.category|urlencode }}&subject={{ r.subject|urlencode }}&exam_type={{ r.exam_type|urlencode }}&version={{ r.version|urlencode }}"
+                           class="btn btn-sm btn-outline-primary single-dl-btn"
+                           data-classid="{{ r.classid }}"
+                           data-fileid="{{ r.fileid }}"
+                           data-filetype="{{ r.filetype }}">
+                            <small>⬇ 重新下載</small>
+                        </a>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-danger delete-btn"
+                                data-record-id="{{ r.id }}"
+                                data-filename="{{ r.download_filename }}">
+                            <small>🗑 刪除</small>
+                        </button>
                     </div>
                 </td>
             </tr>
