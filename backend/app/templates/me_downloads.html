@@ -91,13 +91,21 @@
                         <small class="text-muted text-truncate" style="max-width: 140px;" title="{{ r.download_filename }}">
                             {{ r.download_filename }}
                         </small>
-                        <a href="/ui/download/{{ r.classid }}/{{ r.fileid }}?filetype={{ r.filetype }}&title={{ r.title|urlencode }}&school_name={{ r.school_name|urlencode }}&grade={{ r.grade|urlencode }}&school_year={{ r.school_year|urlencode }}&school_term={{ r.school_term|urlencode }}&category={{ r.category|urlencode }}&subject={{ r.subject|urlencode }}&exam_type={{ r.exam_type|urlencode }}&version={{ r.version|urlencode }}"
-                           class="btn btn-sm btn-outline-primary single-dl-btn"
-                           data-classid="{{ r.classid }}"
-                           data-fileid="{{ r.fileid }}"
-                           data-filetype="{{ r.filetype }}">
-                            <small>⬇ 重新下載</small>
-                        </a>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="/ui/download/{{ r.classid }}/{{ r.fileid }}?filetype={{ r.filetype }}&title={{ r.title|urlencode }}&school_name={{ r.school_name|urlencode }}&grade={{ r.grade|urlencode }}&school_year={{ r.school_year|urlencode }}&school_term={{ r.school_term|urlencode }}&category={{ r.category|urlencode }}&subject={{ r.subject|urlencode }}&exam_type={{ r.exam_type|urlencode }}&version={{ r.version|urlencode }}"
+                               class="btn btn-sm btn-outline-primary single-dl-btn"
+                               data-classid="{{ r.classid }}"
+                               data-fileid="{{ r.fileid }}"
+                               data-filetype="{{ r.filetype }}">
+                                <small>⬇ 重新下載</small>
+                            </a>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger delete-btn"
+                                    data-record-id="{{ r.id }}"
+                                    data-filename="{{ r.download_filename }}">
+                                <small>🗑 刪除</small>
+                            </button>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -155,4 +163,42 @@
     💡 從這裡重抓同個考古題不需要再 search。如果 StudyArk 限流中(下載太頻繁),會跳友善錯誤訊息請你等 25 分鐘。
 </p>
 
+{# === 刪除確認 modal === #}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🗑 刪除下載紀錄</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">紀錄檔名:</p>
+                <code class="d-block p-2 bg-light rounded mb-3 text-break" id="deleteModalFilename"></code>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="deleteModalLocal" checked>
+                    <label class="form-check-label" for="deleteModalLocal">
+                        同時刪除電腦上的 PDF 檔案
+                    </label>
+                </div>
+                <p class="text-muted small mb-0" id="deleteModalFsaNote">
+                    ℹ️ 勾選後,瀏覽器會跳出資料夾選擇視窗,請選你的<strong>下載資料夾</strong>。
+                    <span id="deleteModalFsaUnsupported" class="d-none text-warning">
+                        ⚠️ 你目前的瀏覽器不支援自動刪除本機檔案(僅 Chrome/Edge 支援 File System Access API),
+                        勾選這個選項也會跳提示請你手動刪。
+                    </span>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="deleteModalConfirm">確認刪除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/me_downloads.js"></script>
 {% endblock %}

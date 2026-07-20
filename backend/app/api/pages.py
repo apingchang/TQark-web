@@ -17,6 +17,7 @@ from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.db_helpers import log_action
 from app.core.deps import get_current_user_from_token, require_admin, require_approved, require_login
 from app.db.models import AccessRequest, AuditLog, DownloadHistory, User
 from app.db.session import get_db
@@ -201,6 +202,39 @@ async def me_downloads(
             "filter_filetype": filetype or "",
         },
     )
+
+
+@router.post("/me/downloads/{record_id}/delete")
+async def me_downloads_delete(
+    record_id: int,
+    request: Request,
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    刪除單筆下載紀錄(2026-07-20 新增)。
+    - 只刪 metadata,不動本機檔案(本機檔案刪除交給 browser-side File System Access API)
+    - 只限 owner(user_id == current user.id),他人不可刪
+    - 寫 audit log
+    """
+    rec = await db.get(DownloadHistory, record_id)
+    if not rec:
+        raise HTTPException(404, "Record not found")
+    if rec.user_id != user.id:
+        raise HTTPException(403, "這不是你的下載紀錄")
+
+    fname = rec.download_filename
+    await db.delete(rec)
+    await log_action(
+        db,
+        action="delete_download",
+        user_id=user.id,
+        target=f"record:{record_id}",
+        detail=f"deleted download history: {fname}",
+        ip=str(request.client.host) if request.client else None,
+    )
+    await db.commit()
+    return {"ok": True, "deleted_id": record_id, "filename": fname}
 
 
 # ============================================================
