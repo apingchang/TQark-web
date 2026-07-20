@@ -111,7 +111,7 @@ document.getElementById('selectAllChk').addEventListener('change', e => {
     let selected = getSelected();
 
     // 計算「要勾幾個 / 現在勾幾個」
-    const currentCount = Object.keys(selected).length;
+    let currentCount = Object.keys(selected).length;
 
     itemChks.forEach(chk => {
         const k = makeKey(chk.dataset);
