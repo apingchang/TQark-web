@@ -230,6 +230,9 @@ document.getElementById('confirmDownloadBtn').addEventListener('click', async ()
             }
             progressBar.classList.remove('progress-bar-animated');
             progressText.innerHTML = `<span class="text-warning">${friendlyMsg}<br><small class="text-muted">${errText.slice(0, 200)}</small></span>`;
+            // 8 秒後自動關 modal、讓使用者可以重新操作
+            // (原本不關 → user 反映「卡住不會動」)
+            setTimeout(() => progressModal.hide(), 8000);
             return;
         }
 
