@@ -300,6 +300,16 @@ async def _render_search_results(
     except Exception as e:
         error = f"StudyArk 連線失敗: {e}"
 
+    # 一頁限 8 papers(原本 StudyArk 是 12 → 8)
+    # 理由: 12 papers × 2 (試卷+答案) = 24 files 太多
+    #       8 papers × 2 = 16 files,較接近 William 期望的 ~15 files/頁
+    PAPERS_PER_PAGE = 8
+    if results:
+        results = results[:PAPERS_PER_PAGE]
+        # 重新計算 total_page(以我們的 per-page 為準)
+        if total:
+            total_page = max(1, (total + PAPERS_PER_PAGE - 1) // PAPERS_PER_PAGE)
+
     # 本地 filter: county + school_name
     # (StudyArk 沒給 county,所以后端 filter)
     if results and (county or school_name):

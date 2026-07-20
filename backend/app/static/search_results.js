@@ -41,7 +41,8 @@ function updateBatchBar() {
     if (clearBtnBottom) clearBtnBottom.disabled = count === 0;
 
     // 標記已勾選的 checkbox(跨 page 保留)
-    document.querySelectorAll('.itemChk').forEach(chk => {
+    const allItemChks = document.querySelectorAll('.itemChk');
+    allItemChks.forEach(chk => {
         const k = makeKey(chk.dataset);
         if (selected[k]) {
             chk.checked = true;
@@ -56,6 +57,15 @@ function updateBatchBar() {
             if (row) row.style.backgroundColor = '';
         }
     });
+
+    // 同步 selectAllChk(header 全選 checkbox):
+    // 只有「本頁所有的 itemChk 都被勾」才打勾、否則取消
+    // (跨頁勾選的項目 不會讓 selectAllChk 變 checked,因為 header 全選只能全選當頁)
+    const selectAll = document.getElementById('selectAllChk');
+    if (selectAll && allItemChks.length > 0) {
+        const allChecked = Array.from(allItemChks).every(c => c.checked);
+        selectAll.checked = allChecked;
+    }
 }
 
 // 勾選變動時
