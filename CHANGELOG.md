@@ -29,6 +29,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — Archive OCR Improvements (2026-07-21)
+
+### Added
+- **County-aware folder structure** (2026-07-21 18:30)
+  - Each PDF: `<county>/<segment>/<grade>/<subject>/<filetype>/`
+  - Unknown county: `其他X/` (3-char width)
+  - Filename: `<county>_<year>_<exam>_<fileid>_<school>_<version>.pdf`
+- **PDF title extraction pipeline** (`app/scraper/pdf_title.py`)
+  - pdftotext first (fast path for text-based PDFs)
+  - PyMuPDF + tesseract OCR fallback (auto-rotates page rotation)
+  - `chi_tra` only (no +eng interference)
+  - PSM 6 (uniform block, stable for rotated pages)
+- **School/county statistics** (`app/scraper/school_stats.py`)
+  - 22 Taiwan counties + simplified aliases
+  - 桃園縣 → 桃園市 normalization
+  - school_stats.json tracks per-fileid county + school
+- **Multi-account archive** (`scripts/archive_multi_account.py`)
+  - 4 accounts rotation, auto-switch on rate limit
+  - Critical bug fix: rebind StudyArkRateLimit after importlib.reload
+- **Migration tools** (`scripts/`)
+  - `migrate_to_county_structure.py` — old → new folder layout
+  - `remigrate_other_x.py` — re-OCR 其他X/ PDFs to recover county
+  - `build_school_stats.py` — rebuild school/county index
+  - `manual_county_overrides.py` — fallback for OCR-unrecognizable
+- **CLI tools**
+  - `tqark-archive-status` — cumulative progress + account status
+  - `tqark-pdf-count` — PDF stats by level/grade
+  - `tqark-schools` — school/county distribution
+
+### Results (2026-07-21 21:42)
+- 99 PDFs total across 9 counties
+- County identification rate: ~82% (rest are 學力檢測 or no county in title)
+- Archive speed: ~120 fileids/day (4 accounts)
+- Estimated completion: ~168 days for 20,158 PDFs
+
+### Known Limitations (Future Work)
+- **直書中文標題 OCR** — tesseract 對「直書 + 注音 + 圖片型」PDF 完全失效
+  - 影響 19 個 其他X/ PDF
+  - Future: 逐字切割 + 90度旋轉 + tesseract (per William 建議, 2026-07-21 21:46)
+  - Priority: 低 (不影響功能,只影響分類完美度)
+- **Web UI county filter** — 從 dropdown 選 county 看所有 PDF
+  - school_stats.json 已經是 county-aware,純前端工作
+- **county 字典建表** — 用 Wikipedia API 查 county-school 對照
+  - 對其他X/ 內的 filename 短名自動查表補 county
+
+---
+
 ## [Unreleased] — Design Phase (2nd Revision)
 
 ### Changed

@@ -419,6 +419,32 @@ CREATE INDEX idx_audit_action ON audit_log(action);
 - [ ] 本地起服務測試
 - [ ] Caddy + systemd 上 production
 
+## 13. Future Improvements (Backlog, 2026-07-21+)
+
+### Archive / OCR Pipeline
+- [ ] **直書中文標題 OCR** (William feedback 2026-07-21 21:46)
+  - 目前 `tesseract --psm 6 chi_tra` 對**直書 + 注音 + 圖片型** PDF 完全失效
+  - 影響 19 個 其他X/ PDF (含 `30114_伸仁國小`, `22924_興南國小` 等)
+  - **解法 (William 建議)**:逐字切割 + 90度旋轉
+    1. 偵測 title 區域 (right strip, 假設 county 在最右直列)
+    2. 沿垂直方向找字元邊界 (黑度變化)
+    3. 切割成單字 boxes
+    4. 每個字 box 轉 90度變橫書
+    5. 丟給 tesseract (橫書模式處理)
+  - 預期把 county 識別率 82% → 95%+
+  - **優先度**:低 (因為其他 81% 已經足夠歸類 county,剩 19 個用 其他X 不影響功能)
+- [ ] **county 字典建表**:用 Wikipedia API 或教育部學校資料庫查 county-school 對照
+  - 對其他X/ 內的 filename 短名自動查表補 county
+  - 估計每天多 1000 個 API call,還在 quota 內
+- [ ] **Web UI county filter**:讓 user 可以從 dropdown 選 county 看所有 PDF
+  - school_stats.json 已經是 county-aware,純前端工作
+
+### Multi-account 改進
+- [ ] **StudyArk counter API** 研究:能不能用 HEAD request 預先 check counter?
+  - 避免下載到一半被踢掉浪費 quota
+- [ ] **Per-account daily limit 自動學習**:觀察每個帳號實際 quota,寫進 account_status.json
+  - 預設保守 30/day,實際可能 50-100
+
 ---
 
 **Review checklist**:
