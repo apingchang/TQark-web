@@ -162,8 +162,8 @@ async def collect_one(item: dict, log: logging.Logger) -> str | None:
         # 判斷 daan 是否存在 (StudyArk 給的欄位叫 'daan' = '有'/'無')
         # 但 batch archive 直接抓 paper, daan 看 paper response 是否帶 daan_url
         if filetype == "daan":
-            # 沒答案就不抓
-            if not item.get("daan_url") and item.get("daan") != "有":
+            # 沒答案就不抓 (StudyArk 欄位叫 'download_answer' = '有'/'无')
+            if item.get("download_answer") != "有" and not item.get("daan_url"):
                 continue
 
         try:

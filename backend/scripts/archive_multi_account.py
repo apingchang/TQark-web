@@ -172,7 +172,9 @@ async def collect_one(item: dict, account: dict, log: logging.Logger) -> str | N
 
     for filetype in ("paper", "daan"):
         if filetype == "daan":
-            if not item.get("daan_url") and item.get("daan") != "有":
+            # StudyArk search response 用 `download_answer` 標記是否有答案
+            # 值: "有" (有) / "无" (無)
+            if item.get("download_answer") != "有" and not item.get("daan_url"):
                 continue
         try:
             pdf_bytes, _ = await studyark.download_pdf_stream(
