@@ -162,11 +162,17 @@
                         {# 考卷搜尋: 🔍 icon + 填滿藍色 #}
                         <a href="/dashboard" class="btn btn-sm btn-primary px-3 {% if request.url.path == '/dashboard' %}active{% endif %}">🔍 考卷搜尋</a>
                     {% endif %}
-                    {# 下載紀錄: 📥 icon + 填滿 cyan #}
-                    <a href="/me/downloads" class="btn btn-sm btn-info px-3 {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
+                    {# 在下載紀錄頁本身時不顯示下載紀錄連結 #}
+                    {% if not request.url.path.startswith('/me/downloads') %}
+                        {# 下載紀錄: 📥 icon + 填滿 cyan #}
+                        <a href="/me/downloads" class="btn btn-sm btn-info px-3 {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
+                    {% endif %}
                     {% if user.role == 'admin' %}
-                        {# 後台: 🖥️ 終端機 icon + Tiffany blue (在登出左邊) #}
-                        <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🖥️ 後台</a>
+                        {# 在後台頁本身時不顯示後台連結 #}
+                        {% if request.url.path != '/admin' %}
+                            {# 後台: 🖥️ 終端機 icon + Tiffany blue (在登出左邊) #}
+                            <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🖥️ 後台</a>
+                        {% endif %}
                     {% endif %}
                     {# 登出: 🚪 門 icon + 填滿較深灰色 (在最右邊) #}
                     <form method="post" action="/auth/logout" class="d-inline">
