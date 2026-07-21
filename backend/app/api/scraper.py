@@ -304,10 +304,10 @@ async def batch_download(
     rate_limit_msg = ""
 
     for idx, item in enumerate(items):
-        # 批次中每個 item 之間休 3 秒,避免被 StudyArk anti-bot 限流
-        # (從 2.5 調高到 3,因為 20 個 × 3 秒 = 60 秒還是會被偵測)
+        # 【2026-07-21 改】批次中每個 item 之間休 10 秒 (從 3s 改 10s,更保守避免限流)
+        # 20 個 × 10s = 200 秒 (約 3.3 分鐘) 是 user 可以接受的等待時間
         if idx > 0:
-            await asyncio.sleep(3)
+            await asyncio.sleep(10)
         try:
             pdf_bytes, _ = await studyark.download_pdf_stream(
                 item.classid, item.fileid, item.filetype

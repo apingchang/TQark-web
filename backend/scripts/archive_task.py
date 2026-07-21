@@ -16,9 +16,10 @@
   uv run python scripts/archive_task.py
 
 設定 (透過 env var):
-  TQARK_ARCHIVE_DIR      default /mnt/my_book/考題收集
-  TQARK_ARCHIVE_BATCH    default 2 (每跑一次抓幾個)
-  TQARK_ARCHIVE_DELAY    default 5 (兩個之間間隔秒數)
+  TQARK_ARCHIVE_DIR         default /mnt/my_book/考題收集
+  TQARK_ARCHIVE_BATCH       default 4 (每跑一次抓幾個 fileid)
+  TQARK_ARCHIVE_DELAY       default 60 (不同 fileid 之間間隔秒數)
+  TQARK_ARCHIVE_INTRA_DELAY default 10 (同一 fileid 內 paper→daan 之間秒數)
 """
 import asyncio
 import json
@@ -41,8 +42,9 @@ from app.scraper.archive_path import (
 # ============================================================
 # 設定
 # ============================================================
-BATCH_SIZE = int(os.environ.get("TQARK_ARCHIVE_BATCH", "2"))
-ITEM_DELAY = float(os.environ.get("TQARK_ARCHIVE_DELAY", "5"))
+BATCH_SIZE = int(os.environ.get("TQARK_ARCHIVE_BATCH", "4"))
+ITEM_DELAY = float(os.environ.get("TQARK_ARCHIVE_DELAY", "60"))
+INTRA_DELAY = float(os.environ.get("TQARK_ARCHIVE_INTRA_DELAY", "10"))
 
 STATUS_FILE = get_state_path("archive_status.json")
 LOG_FILE = get_log_path("archive.log")
@@ -204,8 +206,9 @@ async def collect_one(item: dict, log: logging.Logger) -> str | None:
             continue
 
         # 兩個之間 delay 一下避免 burst
+        # 【2026-07-21 改】paper → daan 之間 default 10s (原本 1s,衝過頭會撞 StudyArk 限流)
         if filetype == "paper":
-            await asyncio.sleep(1)
+            await asyncio.sleep(INTRA_DELAY)
 
     return fileid
 
