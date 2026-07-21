@@ -525,15 +525,26 @@ async def ui_download(
     # 【2026-07-20 加】先查 PDF cache( /mnt/my_book/考題收集/ )
     # 命中 → 直接 serve (不用打 StudyArk、避開限流)
     # 沒命中 → 走 StudyArk → save 到 cache → serve
-    from app.scraper.archive_path import find_pdf_in_archive, ensure_archive_dirs, build_archive_path, _safe_dirname
+    # 【2026-07-21 加】cache path 加 county folder (其他X if unknown)
+    from app.scraper.archive_path import (
+        find_pdf_in_archive,
+        ensure_archive_dirs,
+        build_archive_path,
+        build_archive_filename,
+        _safe_dirname,
+        normalize_county,
+    )
+    from app.scraper.pdf_title import extract_school_from_pdf
     import logging
     _cache_logger = logging.getLogger("tqark.cache")
 
     pdf_bytes = None
+    cached_path = None  # 記住 cache path 以便檔名一致
     if grade and subject and filetype in ("paper", "daan"):
         cached = find_pdf_in_archive(grade, subject, filetype, fileid)
         _cache_logger.info(f"[UI CACHE CHECK] grade={grade!r} subject={subject!r} filetype={filetype!r} fileid={fileid} -> cached={cached}")
         if cached and cached.exists():
+            cached_path = cached
             try:
                 pdf_bytes = cached.read_bytes()
                 _cache_logger.info(f"[UI CACHE HIT] {len(pdf_bytes)} bytes from {cached}")
@@ -574,19 +585,61 @@ async def ui_download(
 
         # 驗證是 PDF 才存 cache (2026-07-20 加)
         if pdf_bytes.startswith(b"%PDF") and grade and subject and filetype in ("paper", "daan"):
-            safe_subject = _safe_dirname(subject)
-            target = build_archive_path(grade, subject, filetype, fileid)
-            if target:
+            # 先存到 tmp (其他X folder), OCR 後 rename 到正確 county
+            tmp_target = build_archive_path(
+                grade, subject, filetype,
+                f"_tmp_{fileid}_{filetype}",
+                county=None,
+            )
+            try:
+                ensure_archive_dirs(grade, subject, filetype, county=None)
+                tmp_target.write_bytes(pdf_bytes)
+                
+                # OCR 抓 county
                 try:
-                    ensure_archive_dirs(grade, subject, filetype)
-                    target.write_bytes(pdf_bytes)
+                    pdf_info = extract_school_from_pdf(tmp_target)
+                    effective_county = pdf_info["county"] if pdf_info["county"] not in ("未註明", "其他縣市") else None
+                    effective_school_name = pdf_info["school_name"] if pdf_info["school_name"] != "未註明" else school_name
+                except Exception:
+                    effective_county = None
+                    effective_school_name = school_name
+                
+                # 組正式檔名
+                year_term = f"{school_year or ''}{school_term or ''}"
+                version_clean = version or "未註明"
+                formal_filename = build_archive_filename(
+                    county=effective_county,
+                    year_term=year_term or "未分類",
+                    exam_type=exam_type or "考試",
+                    fileid=fileid,
+                    school_name=effective_school_name or "未註明",
+                    version=version_clean,
+                )
+                target = build_archive_path(
+                    grade, subject, filetype, formal_filename, county=effective_county,
+                )
+                if target:
+                    ensure_archive_dirs(grade, subject, filetype, county=effective_county)
+                    if target.exists() and target != tmp_target:
+                        tmp_target.unlink()
+                    else:
+                        tmp_target.rename(target)
+                        cached_path = target
+                        # 下載 filename = disk 檔名 (包含 county prefix)
+                        filename = formal_filename
                     _cache_logger.info(f"[UI CACHE SAVED] {len(pdf_bytes)} bytes to {target}")
-                except OSError as e:
-                    _cache_logger.warning(f"UI cache write failed {target}: {e}")
+            except OSError as e:
+                _cache_logger.warning(f"UI cache write failed {target}: {e}")
+                try: tmp_target.unlink()
+                except OSError: pass
 
         content_type = "application/pdf"
     else:
         content_type = "application/pdf"
+    
+    # 用 disk 上的檔名當 download filename (含 county prefix)
+    if cached_path is not None:
+        filename = cached_path.stem  # 不要 .pdf
 
     # 寫 DownloadHistory
     db_record = DownloadHistory(
