@@ -31,6 +31,87 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
+async def _background_fetch_companion(
+    classid: str,
+    fileid: str,
+    filetype: str,
+    grade: str,
+    subject: str,
+    school_year: str,
+    school_term: str,
+    exam_type: str,
+    version: str,
+    school_name: str,
+):
+    """Background fetch companion PDF (paper↔daan) 並存到 cache。
+    Lazy download 策略: user 下載 paper 時順手 background 抓 daan。
+    不影響 user download 的 latency。
+
+    Args:
+        filetype: companion 的 filetype ("paper" 或 "daan")
+        其他參數: 用來建正式檔名 (含 year/term/exam/version/school)
+    """
+    import logging
+    _bg_logger = logging.getLogger("tqark.bg_fetch")
+    try:
+        # 跳過 0.5s 讓 user 下載先出去
+        import asyncio
+        await asyncio.sleep(0.5)
+
+        pdf_bytes, _ = await studyark.download_pdf_stream(
+            classid=classid, fileid=fileid, filetype=filetype,
+        )
+
+        if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
+            _bg_logger.info(f"[BG] {fileid}/{filetype}: empty or not PDF, skipping")
+            return
+
+        # 存到 cache (OCR + county folder logic)
+        from app.scraper.archive_path import (
+            build_archive_path, build_archive_filename, ensure_archive_dirs, _safe_dirname,
+        )
+        from app.scraper.pdf_title import extract_school_from_pdf
+
+        tmp_target = build_archive_path(
+            grade, subject, filetype,
+            f"_tmp_{fileid}_{filetype}",
+            county=None,
+        )
+        ensure_archive_dirs(grade, subject, filetype, county=None)
+        tmp_target.write_bytes(pdf_bytes)
+
+        # OCR county
+        try:
+            pdf_info = extract_school_from_pdf(tmp_target)
+            effective_county = pdf_info["county"] if pdf_info["county"] not in ("未註明", "其他縣市") else None
+            effective_school_name = pdf_info["school_name"] if pdf_info["school_name"] != "未註明" else school_name
+        except Exception:
+            effective_county = None
+            effective_school_name = school_name
+
+        year_term = f"{school_year}{school_term}"
+        formal_filename = build_archive_filename(
+            county=effective_county,
+            year_term=year_term or "未分類",
+            exam_type=exam_type or "考試",
+            fileid=fileid,
+            school_name=effective_school_name or "未註明",
+            version=version or "未註明",
+        )
+        target = build_archive_path(grade, subject, filetype, formal_filename, county=effective_county)
+        if target:
+            ensure_archive_dirs(grade, subject, filetype, county=effective_county)
+            if target.exists() and target != tmp_target:
+                tmp_target.unlink()
+            else:
+                tmp_target.rename(target)
+                _bg_logger.info(f"[BG SAVED] {fileid}/{filetype} -> {target} ({len(pdf_bytes)} bytes)")
+    except studyark.StudyArkRateLimit as e:
+        _bg_logger.info(f"[BG] {fileid}/{filetype} rate-limited: {e.message}")
+    except Exception as e:
+        _bg_logger.warning(f"[BG ERROR] {fileid}/{filetype}: {e}")
+
+
 def _user_ctx(user: User | None) -> dict:
     """把 User object 轉成 template 用的 dict"""
     if user is None:
@@ -636,10 +717,36 @@ async def ui_download(
         content_type = "application/pdf"
     else:
         content_type = "application/pdf"
-    
+
     # 用 disk 上的檔名當 download filename (含 county prefix)
     if cached_path is not None:
         filename = cached_path.stem  # 不要 .pdf
+
+    # 【2026-07-22 加】Lazy companion download:
+    # 如果 user 下載 paper, background fetch daan (如果有) 並存到 cache
+    # 如果 user 下載 daan, background fetch paper 並存到 cache
+    # 這樣下次 user 抓同伴檔時就不用打 StudyArk
+    if pdf_bytes and pdf_bytes.startswith(b"%PDF") and grade and subject and filetype in ("paper", "daan"):
+        companion_filetype = "daan" if filetype == "paper" else "paper"
+        companion_cached = find_pdf_in_archive(grade, subject, companion_filetype, fileid)
+        if not companion_cached or not companion_cached.exists():
+            # 沒有 companion → background fetch (不擋 user download)
+            import asyncio
+            asyncio.create_task(
+                _background_fetch_companion(
+                    classid=classid,
+                    fileid=fileid,
+                    filetype=companion_filetype,
+                    grade=grade,
+                    subject=subject,
+                    school_year=school_year or "",
+                    school_term=school_term or "",
+                    exam_type=exam_type or "",
+                    version=version or "",
+                    school_name=school_name or "",
+                )
+            )
+            _cache_logger.info(f"[UI BG FETCH] {companion_filetype} for fileid={fileid}")
 
     # 寫 DownloadHistory
     db_record = DownloadHistory(
