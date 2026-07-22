@@ -133,9 +133,11 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/">📚 <span class="brand-text">考古題下載</span></a>
+            {# 【2026-07-23 改】左上角: 只留 🏠 圖示當 home link,不再顯示「考古題下載」品牌文字 #}
+            <a class="navbar-brand navbar-brand-icon" href="/" title="回首頁" style="font-size: 1.5rem; text-decoration: none;">🏠</a>
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
-                {% if user %}
+                {# 【2026-07-23 改】用 user.id 判斷登入狀態 (placeholder dict id=None 為 guest) #}
+                {% if user and user.id %}
                     {# User info: 個人像 + 名稱 + Admin badge(hover 顯示完整 user info tooltip) #}
                     {% set tooltip_lines = [] %}
                     {% set _ = tooltip_lines.append('Email: ' ~ user.email) %}
@@ -186,7 +188,8 @@
                         <button type="submit" class="btn btn-sm btn-secondary px-3">🚪 登出</button>
                     </form>
                 {% else %}
-                    <a class="btn btn-sm btn-primary" href="/auth/google/login">Sign in with Google</a>
+                    {# 【2026-07-23 改】未登入顯示「🔐 登入 / 註冊」按鈕 (取代原本 Sign in with Google) #}
+                    <a class="btn btn-sm btn-primary px-3" href="/auth/google/login">🔐 登入 / 註冊</a>
                 {% endif %}
             </div>
         </div>
