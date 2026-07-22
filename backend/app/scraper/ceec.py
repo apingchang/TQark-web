@@ -142,10 +142,48 @@ def parse_gsat_filename(filename: str) -> dict:
         "file_type": "",
     }
 
-    # 找年份 (3 位民國年)
-    m = re.search(r"(\d{3})學測", decoded) or re.search(r"(\d{3})分科", decoded)
+    # 找年份 (2-3 位民國年,例如 "97學測" 或 "100學測" 或 "114分科")
+    # \b word boundary 在中英文交界不會生效 (中文無 whitespace)
+    # 用 (?:^|\D) 確保前面不是數字
+    # 也支援: "105學年度", "93geo" (93年), "96 指考"
+    m = re.search(r"(?:^|\D)(\d{2,3})(?:學測|分科|指考|學年度|sat|SAT)", decoded, re.IGNORECASE)
     if m:
-        info["year"] = int(m.group(1))
+        year = int(m.group(1))
+        info["year"] = year
+    else:
+        # 純數字開頭: "93geo" "94bio" "95歷史" "91english" "95 歷史" (含空格) → year
+        m = re.search(r"(?:^|\D)(\d{2})\s*(?=[a-zA-Z\u4e00-\u9fff])", decoded)
+        if m:
+            year = int(m.group(1))
+            if 80 <= year <= 130:
+                info["year"] = year
+        if not info["year"]:
+            # Fallback: "01-96" "02-96ans" "101a國文" → year
+            # 從 "01-96" 拿最後的 2-3 位數字 (在 sep 之前)
+            m = re.search(r"[\-_](\d{2,3})(?:[a-zA-Z\u4e00-\u9fff.]|$)", decoded)
+            if m:
+                year = int(m.group(1))
+                if 80 <= year <= 130:
+                    info["year"] = year
+        if not info["year"]:
+            # 開頭是 2-3 位數字 "10-102 指考" → 102, "111 分科" → 111
+            # "101a國文" → 101, "960702數乙" → 96
+            # 用 lookahead/lookbehind 避免吃掉 sep char, 這樣 findall 才有重疊 match
+            candidates = []
+            for m in re.finditer(r"(?<![\d])(\d{2,3})(?!\d)", decoded):
+                candidates.append(m.group(1))
+            for cand in reversed(candidates):
+                year = int(cand)
+                if 80 <= year <= 130:
+                    info["year"] = year
+                    break
+            if not info["year"]:
+                # 最後一搏: 從 "960702" 這種日期取前 2 位當年份
+                m = re.search(r"^(\d{2})\d{2,4}", decoded)
+                if m:
+                    year = int(m.group(1))
+                    if 80 <= year <= 130:
+                        info["year"] = year
 
     # 找 file_type
     if "試題" in decoded or "試卷" in decoded:
