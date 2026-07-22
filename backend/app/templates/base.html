@@ -157,13 +157,13 @@
                             <span class="badge bg-danger admin-badge-big ms-1">Admin</span>
                         {% endif %}
                     </span>
-                    {# 在 Dashboard 頁本身時不顯示 Dashboard 連結 #}
-                    {% if request.url.path != '/dashboard' %}
+                    {# 在 Dashboard 頁本身時不顯示 Dashboard 連結 + 已登入且 approved 才顯示 #}
+                    {% if request.url.path != '/dashboard' and user and user.permission is not none and user.permission <= 7 %}
                         {# 考卷搜尋: 🔍 icon + 填滿藍色 #}
                         <a href="/dashboard" class="btn btn-sm btn-primary px-3 {% if request.url.path == '/dashboard' %}active{% endif %}">🔍 考卷搜尋</a>
                     {% endif %}
-                    {# 在下載紀錄頁本身時不顯示下載紀錄連結 #}
-                    {% if not request.url.path.startswith('/me/downloads') %}
+                    {# 在下載紀錄頁本身時不顯示下載紀錄連結 + 只 approved 才顯示 #}
+                    {% if not request.url.path.startswith('/me/downloads') and user and user.permission is not none and user.permission <= 7 %}
                         {# 下載紀錄: 📥 icon + 填滿 cyan #}
                         <a href="/me/downloads" class="btn btn-sm btn-info px-3 {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
                     {% endif %}

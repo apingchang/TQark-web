@@ -115,7 +115,19 @@ async def _background_fetch_companion(
 def _user_ctx(user: User | None) -> dict:
     """把 User object 轉成 template 用的 dict"""
     if user is None:
-        return {}
+        # 【2026-07-22 改】未登入 user 給個 placeholder dict
+        # 讓 template 可以安全用 user.permission 等屬性而不會 crash
+        return {
+            "id": None,
+            "email": None,
+            "name": None,
+            "picture": None,
+            "role": "guest",
+            "status": "guest",
+            "permission": 99,  # 比 9 還高,所有 permission 判斷都會是「未審核」
+            "first_seen_at": None,
+            "last_login_at": None,
+        }
 
     def fmt(dt):
         return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None  # 【2026-07-22 改】加秒數
@@ -147,10 +159,43 @@ def _common_ctx(user: User | None) -> dict:
 async def landing(
     request: Request,
     user: User | None = Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db),
 ):
+    """
+    【2026-07-22 19:12 改】新 landing page layout:
+    - 上方 banner
+    - 左側: function buttons
+    - 中央: login / status / access 申請
+    - 右側: 平台資訊
+    - 下方 banner: AdSense placeholder
+
+    同時拿 stats (paper 總數、approved user 數) 顯示在右側。
+    """
+    from sqlalchemy import func
+
+    # 拿 platform stats
+    stats: dict = {}
+    try:
+        from app.db.models import DownloadHistory, User as UserModel
+
+        # 總 paper 數 (從下載紀錄去重 fileid+filetype)
+        # 簡化: 總下載次數
+        paper_count = (await db.execute(
+            select(func.count(DownloadHistory.id)).where(DownloadHistory.filetype == "paper")
+        )).scalar() or 0
+        stats["total_papers"] = paper_count
+
+        # approved user 數
+        approved_count = (await db.execute(
+            select(func.count(UserModel.id)).where(UserModel.permission <= 7, UserModel.role != "admin")
+        )).scalar() or 0
+        stats["approved_users"] = approved_count
+    except Exception:
+        stats = {"total_papers": 0, "approved_users": 0}
+
     return templates.TemplateResponse(
         "landing.html",
-        {**_common_ctx(user), "request": request},
+        {**_common_ctx(user), "request": request, "stats": stats},
     )
 
 

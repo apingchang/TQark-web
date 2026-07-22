@@ -88,6 +88,11 @@ async def submit_request(
     db.add(req)
     user.application_reason = reason.strip()
 
+    # 【2026-07-22 改】送出申請 → permission 從 9 (register) 變 8 (pending)
+    if user.permission == 9:
+        user.permission = 8
+        user.status = "pending"
+
     await log_action(
         db,
         action="submit_access_request",

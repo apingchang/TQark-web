@@ -49,7 +49,7 @@ async def approve_request(
 
     # Update user
     user.status = "approved"
-    user.permission = 8  # 【2026-07-22 新】approved permission = 8
+    user.permission = 7  # 【2026-07-22 改】approved permission = 7
     user.decided_at = _now()
     user.decided_by_id = admin.id
 
@@ -90,7 +90,7 @@ async def reject_request(
     req.decision_note = note or None
 
     user.status = "rejected"
-    user.permission = 9  # 【2026-07-22 新】rejected 也用 9 (跟 pending 一樣都進不去)
+    user.permission = 9  # 【2026-07-22 改】rejected = 9 (跟 register 一樣,進不去)
     user.decided_at = _now()
     user.decided_by_id = admin.id
 
@@ -121,7 +121,7 @@ async def ban_user(
         raise HTTPException(404, "User not found")
 
     user.status = "banned"
-    user.permission = 9  # 【2026-07-22 新】ban 也用 9 (進不去)
+    user.permission = 9  # 【2026-07-22 改】ban 也用 9 (進不去)
 
     await log_action(
         db,
@@ -237,10 +237,10 @@ async def reset_user(
     if user.status not in ("approved", "rejected"):
         raise HTTPException(400, f"User is {user.status}, can't reset")
 
-    # Reset user 回 pending
+    # Reset user 回 register (9)
     prev_status = user.status
     user.status = "pending"
-    user.permission = 9  # 【2026-07-22 新】reset 也設回 9 (pending)
+    user.permission = 9  # 【2026-07-22 改】reset = 9 (register user 狀態)
     user.decided_at = None
     user.decided_by_id = None
     # application_reason 留著 (admin 看到的歷史理由) 讓 user 可以新填

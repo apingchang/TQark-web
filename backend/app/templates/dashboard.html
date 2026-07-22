@@ -23,12 +23,12 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 {% endif %}
-{% if user.status == 'pending' %}
+{% if user.permission == 9 or user.status == 'pending' %}
 <div class="card">
     <div class="card-body">
         <h5 class="card-title">申請 Access</h5>
         <p class="card-text text-muted">
-            您目前是 <strong>pending</strong> 狀態,需填寫申請原因讓管理員審核。
+            您目前是 <strong>{% if user.permission == 9 %}Register User{% else %}Pending{% endif %}</strong> 狀態,需填寫申請原因讓管理員審核。
         </p>
         <form method="post" action="/api/access-requests">
             <div class="mb-3">
@@ -66,7 +66,7 @@
         </form>
     </div>
 </div>
-{% elif user.status == 'approved' %}
+{% elif user.permission <= 7 %}
 <div class="card">
     <div class="card-body">
         <h5 class="card-title">搜尋考古題</h5>

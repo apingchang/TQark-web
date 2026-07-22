@@ -55,10 +55,14 @@ async def upsert_user(db: AsyncSession, userinfo: dict, admin_emails: list[str])
             name=userinfo.get("name", ""),
             picture=userinfo.get("picture", ""),
             role="admin" if is_admin else "user",
-            # admin 預設就是 approved,一般 user 預設 pending
+            # admin 預設就是 approved,一般 user 預設 register (剛登入、還沒申請)
             status="approved" if is_admin else "pending",
-            # 【2026-07-22 新】permission 跟著 status 設
-            permission=0 if is_admin else 9,  # admin=0, user=9 (pending)
+            # 【2026-07-22 改】permission 往下移一階:
+            #   admin = 0
+            #   approved = 7
+            #   pending = 8
+            #   register = 9 (剛 Google 登入,還沒申請)
+            permission=0 if is_admin else 9,
             first_seen_at=utcnow(),
             last_login_at=utcnow(),
         )

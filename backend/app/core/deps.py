@@ -67,13 +67,15 @@ async def require_approved(
 ) -> User:
     """
     【2026-07-22 改】用 permission 取代 status 判斷。
-    - permission <= 8 表示 user 通過審核 (8=approved, <8 是更高權限 / admin)
-    - permission == 9 表示 pending (不能下載)
-    - admin (permission=0) 也能進 (因為 0 < 8)
+    2026-07-22 19:12 再改:permission 往下移一階
+    - permission <= 7 表示 user 通過審核 (7=approved, <7 是 admin)
+    - permission == 8 表示 pending (已申請、還沒批)
+    - permission == 9 表示 register user (剛 Google 登入、還沒申請)
+    - admin (permission=0) 也能進 (因為 0 < 7)
     """
-    if user.permission > 8:
+    if user.permission > 7:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            f"Permission {user.permission}: need <= 8 (admin=0, approved=8, pending=9)",
+            f"Permission {user.permission}: need <= 7 (admin=0, approved=7, pending=8, register=9)",
         )
     return user
