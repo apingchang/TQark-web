@@ -54,6 +54,14 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="user")  # user / admin
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending/approved/rejected/banned
 
+    # 權限等級 (2026-07-22 新增)
+    # 0 = admin (最高,可改所有人的權限)
+    # 1-7 = 預留 (之後例如 county filter、feature flag)
+    # 8 = approved user (可下載/搜尋)
+    # 9 = pending user (剛登入、還沒審核)
+    # status 改用 permission 為主, status 只作 referential 顯示
+    permission: Mapped[int] = mapped_column(Integer, default=9)  # 0-9, default pending
+
     # 時間
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

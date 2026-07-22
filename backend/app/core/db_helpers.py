@@ -57,6 +57,8 @@ async def upsert_user(db: AsyncSession, userinfo: dict, admin_emails: list[str])
             role="admin" if is_admin else "user",
             # admin 預設就是 approved,一般 user 預設 pending
             status="approved" if is_admin else "pending",
+            # 【2026-07-22 新】permission 跟著 status 設
+            permission=0 if is_admin else 9,  # admin=0, user=9 (pending)
             first_seen_at=utcnow(),
             last_login_at=utcnow(),
         )
@@ -71,6 +73,7 @@ async def upsert_user(db: AsyncSession, userinfo: dict, admin_emails: list[str])
         if is_admin and user.role != "admin":
             user.role = "admin"
             user.status = "approved"
+            user.permission = 0  # admin permission = 0
 
     await db.flush()
     return user

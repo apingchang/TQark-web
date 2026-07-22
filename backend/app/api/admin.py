@@ -49,6 +49,7 @@ async def approve_request(
 
     # Update user
     user.status = "approved"
+    user.permission = 8  # 【2026-07-22 新】approved permission = 8
     user.decided_at = _now()
     user.decided_by_id = admin.id
 
@@ -89,6 +90,7 @@ async def reject_request(
     req.decision_note = note or None
 
     user.status = "rejected"
+    user.permission = 9  # 【2026-07-22 新】rejected 也用 9 (跟 pending 一樣都進不去)
     user.decided_at = _now()
     user.decided_by_id = admin.id
 
@@ -119,12 +121,77 @@ async def ban_user(
         raise HTTPException(404, "User not found")
 
     user.status = "banned"
+    user.permission = 9  # 【2026-07-22 新】ban 也用 9 (進不去)
 
     await log_action(
         db,
         action="ban_user",
         user_id=admin.id,
         target=f"user:{user.email}",
+    )
+
+    await db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/users/{user_id}/permission")
+async def change_permission(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+    permission: int = Form(...),
+):
+    """
+    【2026-07-22 新】直接設定 user 的 permission level。
+
+    權限層級 (0-9):
+    - 0 = admin (最高)
+    - 1-7 = 預留 (之後可能 county filter、feature flag)
+    - 8 = approved user
+    - 9 = pending / banned / rejected (不能下載)
+
+    限制:
+    - 不能改自己的權限 (避免自己鎖住自己)
+    - 不能把別的 admin 改成 < 0 或 > 9
+    - admin 才能用
+    """
+    if user_id == admin.id:
+        raise HTTPException(400, "Can't change your own permission")
+
+    if permission < 0 or permission > 9:
+        raise HTTPException(400, f"Permission must be 0-9, got {permission}")
+
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    # 別的 admin 也不准改 (只有最頂 admin 才能改 admin)
+    if user.role == "admin" and user.id != admin.id:
+        raise HTTPException(403, "Can't change another admin's permission")
+
+    prev_permission = user.permission
+    if prev_permission == permission:
+        # no-op
+        return RedirectResponse(url="/admin", status_code=303)
+
+    user.permission = permission
+
+    # 同步更新 status (讓 UI 顯示合理)
+    # 規則:
+    # - 0 = admin → status = approved
+    # - 1-8 = approved user → status = approved
+    # - 9 = pending / blocked → status = pending
+    if permission <= 8:
+        user.status = "approved"
+    else:
+        user.status = "pending"
+
+    await log_action(
+        db,
+        action="change_permission",
+        user_id=admin.id,
+        target=f"user:{user.email}",
+        detail=f"permission {prev_permission} -> {permission}",
     )
 
     await db.commit()
@@ -173,6 +240,7 @@ async def reset_user(
     # Reset user 回 pending
     prev_status = user.status
     user.status = "pending"
+    user.permission = 9  # 【2026-07-22 新】reset 也設回 9 (pending)
     user.decided_at = None
     user.decided_by_id = None
     # application_reason 留著 (admin 看到的歷史理由) 讓 user 可以新填

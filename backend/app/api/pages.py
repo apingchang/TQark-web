@@ -127,6 +127,7 @@ def _user_ctx(user: User | None) -> dict:
         "picture": user.picture,
         "role": user.role,
         "status": user.status,
+        "permission": user.permission,  # 【2026-07-22 新】template 用
         "first_seen_at": fmt(user.first_seen_at),
         "last_login_at": fmt(user.last_login_at),
     }
@@ -198,6 +199,7 @@ async def admin_panel(
             "pending_requests": pending,
             "users": users,
             "audit_logs": logs,
+            "admin": admin,  # 【2026-07-22 新】template 需要比對是否自己
         },
     )
 

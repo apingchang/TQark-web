@@ -145,6 +145,7 @@ async def google_callback(
         "picture": user.picture,
         "is_admin": user.role == "admin",
         "status": user.status,  # pending / approved / rejected / banned
+        "permission": user.permission,  # 【2026-07-22 新】0=admin, 8=approved, 9=pending
     }
     jwt_token = create_access_token(claims)
 

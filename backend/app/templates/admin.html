@@ -60,12 +60,17 @@
         <h5 class="mb-0">所有 User({{ users|length }} 人)</h5>
     </div>
     <div class="card-body">
+        <p class="text-muted small mb-2">
+            💡 <strong>權限等級</strong>:0 = admin · 8 = approved user · 9 = pending。
+            1-7 預留之後 (例如 county filter、feature flag)。
+        </p>
         <div class="table-responsive">
             <table class="table table-sm">
                 <thead>
                     <tr>
                         <th>Email</th>
                         <th>Role</th>
+                        <th>Permission</th>
                         <th>Status</th>
                         <th>上次登入</th>
                         <th>動作</th>
@@ -81,6 +86,27 @@
                             </span>
                         </td>
                         <td>
+                            {% if u.id == admin.id %}
+                                <span class="badge bg-danger">{{ u.permission }}</span>
+                                <small class="text-muted">(自己)</small>
+                            {% elif u.role == 'admin' %}
+                                <span class="badge bg-danger">{{ u.permission }}</span>
+                                <small class="text-muted">(admin 保護)</small>
+                            {% else %}
+                                <form method="post" action="/admin/users/{{ u.id }}/permission" class="d-inline-flex align-items-center gap-1">
+                                    <select name="permission" class="form-select form-select-sm" style="width: auto; min-width: 5rem;">
+                                        {% for p in range(0, 10) %}
+                                        <option value="{{ p }}" {% if p == u.permission %}selected{% endif %}>{{ p }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary"
+                                            onclick="return confirm('設定 {{ u.email }} 的權限為 ' + this.form.permission.value + '?');">
+                                        ✔
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                        <td>
                             <span class="badge badge-status-{{ u.status }}">{{ u.status }}</span>
                         </td>
                         <td><small>{{ u.last_login_at }}</small></td>
@@ -89,12 +115,12 @@
                                 <small class="text-muted">— (admin 保護)</small>
                             {% elif u.status == 'rejected' %}
                                 <form method="post" action="/admin/users/{{ u.id }}/reset" class="d-inline"
-                                      onsubmit="return confirm('確定要把這個 rejected user 重設回 pending?\\n\\n{{ u.email }}\\n\\n重設後該 user 可以重新到 dashboard 填申請理由。');">
+                                      onsubmit="return confirm('確定要把這個 rejected user 重設回 pending?\n\n{{ u.email }}\n\n重設後該 user 可以重新到 dashboard 填申請理由。');">
                                     <button type="submit" class="btn btn-sm btn-warning">🔄 重設 access</button>
                                 </form>
                             {% elif u.status == 'approved' %}
                                 <form method="post" action="/admin/users/{{ u.id }}/reset" class="d-inline"
-                                      onsubmit="return confirm('⛔ 警告: 這會把這個 approved user 的 access 撤銷!\\n\\n{{ u.email }}\\n\\n重設後:\\n- user 不能下載任何考卷\\n- user 需要重新到 dashboard 申請\\n\\n確定要繼續嗎?');">
+                                      onsubmit="return confirm('⛔ 警告: 這會把這個 approved user 的 access 撤銷!\n\n{{ u.email }}\n\n重設後:\n- user 不能下載任何考卷\n- user 需要重新到 dashboard 申請\n\n確定要繼續嗎?');">
                                     <button type="submit" class="btn btn-sm btn-soft-danger">⛔ 撤銷 access</button>
                                 </form>
                             {% endif %}
