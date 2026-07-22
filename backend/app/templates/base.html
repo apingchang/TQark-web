@@ -167,6 +167,13 @@
                         {# 下載紀錄: 📥 icon + 填滿 cyan #}
                         <a href="/me/downloads" class="btn btn-sm btn-info px-3 {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
                     {% endif %}
+                    {# 【2026-07-22 新】歷年會考/大學考 (public 連結,登入後可見) #}
+                    {% if not request.url.path.startswith('/ui/cap-exam') %}
+                        <a href="/ui/cap-exam" class="btn btn-sm btn-outline-secondary px-3 {% if request.url.path.startswith('/ui/cap-exam') %}active{% endif %}">📚 會考</a>
+                    {% endif %}
+                    {% if not request.url.path.startswith('/ui/ceec-exam') %}
+                        <a href="/ui/ceec-exam" class="btn btn-sm btn-outline-secondary px-3 {% if request.url.path.startswith('/ui/ceec-exam') %}active{% endif %}">🎓 大學考</a>
+                    {% endif %}
                     {% if user.role == 'admin' %}
                         {# 在後台頁本身時不顯示後台連結 #}
                         {% if request.url.path != '/admin' %}

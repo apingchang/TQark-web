@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}歷屆大學入學考試 - TQark{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <h1 class="mb-3">🎓 歷屆大學入學考試</h1>
+  <p class="text-muted">
+    來源: <a href="https://www.ceec.edu.tw/xmfile?xsmsid=0J052424829869345634" target="_blank">大學入學考試中心 CEEC</a>
+    ｜ 學測 + 分科測驗 + 英語聽力。
+  </p>
+
+  <div class="row mb-3">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-body py-2">
+          <strong>總計:</strong> {{ total_files }} 個 PDF ｜ <strong>總大小:</strong> {{ (total_size / 1024 / 1024) | round(1) }} MB
+          {% if all_years %}
+            ｜ <strong>年度:</strong> {{ all_years | length }} 屆
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if all_exam_types or all_years %}
+  <div class="row mb-3">
+    <div class="col-md-12">
+      <strong>考試類型:</strong>
+      <div class="btn-group ms-2" role="group">
+        <a href="/ui/ceec-exam" class="btn btn-sm {% if not selected_exam_type %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">全部</a>
+        {% for et in all_exam_types %}
+          <a href="/ui/ceec-exam?exam_type={{ et }}" class="btn btn-sm {% if selected_exam_type == et %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">{{ et }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if grouped %}
+    {% for (exam_type, year), items in grouped.items() %}
+      <div class="card mb-3">
+        <div class="card-header bg-light">
+          <strong>{{ exam_type }} {{ year }} 年</strong>
+          <span class="text-muted">({{ items | length }} 個檔案)</span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 12%;">科目</th>
+                <th style="width: 12%;">類型</th>
+                <th>檔名</th>
+                <th style="width: 12%;">大小</th>
+                <th style="width: 10%;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+                <tr>
+                  <td>{{ item.subject or '-' }}</td>
+                  <td>{{ item.file_type or '-' }}</td>
+                  <td><code class="small">{{ item.name }}</code></td>
+                  <td><small>{{ (item.size / 1024) | round(0) }} KB</small></td>
+                  <td>
+                    {% if user and user.permission is defined and user.permission <= 7 %}
+                      <a href="/ui/ceec-exam/download/{{ item.rel }}" class="btn btn-sm btn-tiffany" download>下載</a>
+                    {% else %}
+                      <small class="text-muted">需登入</small>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="alert alert-warning">
+      <strong>還沒有檔案</strong>
+      <p class="mb-0">跑 <code>python scripts/archive_ceec.py</code> 抓取歷年大學入學考試 PDF。</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

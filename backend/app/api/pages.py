@@ -249,6 +249,190 @@ async def admin_panel(
     )
 
 
+# === CAP / CEEC exam archives ============================================
+# 2026-07-22 新增 - 獨立頁面顯示歷年 CAP 會考 + CEEC 大考
+
+CAP_DIR = Path("/mnt/my_book/考題收集/cap_exam")
+CEEC_DIR = Path("/mnt/my_book/考題收集/ceec")
+
+
+def _scan_pdf_tree(root: Path) -> list[dict]:
+    """
+    掃描 PDF 樹狀結構,回傳分組資料。
+    每個 dict: {path, year, subject, file_type, size, mtime}
+    """
+    items = []
+    if not root.exists():
+        return items
+    for pdf in root.rglob("*.pdf"):
+        if not pdf.is_file():
+            continue
+        stat = pdf.stat()
+        # 解析路徑: {root}/{exam_type}/{year}年/{filename}
+        rel = pdf.relative_to(root)
+        parts = rel.parts
+        exam_type = parts[0] if len(parts) >= 3 else ""
+        # 從 filename 解析 year/subject/file_type
+        # 例: 115_國綜_試題_01-115學測國綜試卷.pdf
+        import re as _re
+        m = _re.match(r"^(\d+)_([^_]+)_([^_]+)_", pdf.name)
+        if m:
+            year = int(m.group(1))
+            subject = m.group(2)
+            file_type = m.group(3)
+        else:
+            year = 0
+            subject = ""
+            file_type = ""
+
+        items.append({
+            "path": str(pdf),
+            "rel": str(rel),
+            "name": pdf.name,
+            "exam_type": exam_type,
+            "year": year,
+            "subject": subject,
+            "file_type": file_type,
+            "size": stat.st_size,
+            "mtime": stat.st_mtime,
+        })
+    return items
+
+
+@router.get("/ui/cap-exam", response_class=HTMLResponse)
+async def cap_exam_browser(
+    request: Request,
+    user: User | None = Depends(get_current_user_from_token),
+    year: int | None = Query(None),
+):
+    """
+    歷屆國中教育會考瀏覽頁面 (CAP / RCPET)。
+    公開頁面,不需登入 (但下載連結在 archive 路徑,Web UI 只列出 metadata)。
+    """
+    items = _scan_pdf_tree(CAP_DIR)
+
+    # Group by year
+    by_year: dict[int, list] = {}
+    for item in items:
+        by_year.setdefault(item["year"], []).append(item)
+
+    # Apply year filter
+    if year is not None:
+        by_year = {year: by_year.get(year, [])}
+
+    # Build year list (for filter)
+    all_years = sorted(set(i["year"] for i in items if i["year"] > 0), reverse=True)
+
+    return templates.TemplateResponse(
+        "cap_exam.html",
+        {
+            **_common_ctx(user),
+            "request": request,
+            "by_year": dict(sorted(by_year.items(), reverse=True)),
+            "all_years": all_years,
+            "selected_year": year,
+            "total_files": len(items),
+            "total_size": sum(i["size"] for i in items),
+        },
+    )
+
+
+@router.get("/ui/cap-exam/download/{rel:path}")
+async def cap_exam_download(rel: str, user: User = Depends(require_login)):
+    """
+    下載 CAP 會考 PDF。
+    只給 approved (permission <= 7) 下載,跟 StudyArk 一樣。
+    """
+    from fastapi.responses import FileResponse
+
+    # 安全檢查: 不允許 .. 路徑穿越
+    if ".." in rel or rel.startswith("/"):
+        raise HTTPException(403, "Invalid path")
+
+    file_path = CAP_DIR / rel
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(404, "File not found")
+
+    if not file_path.suffix.lower() == ".pdf":
+        raise HTTPException(403, "Not a PDF")
+
+    return FileResponse(
+        file_path,
+        media_type="application/pdf",
+        filename=file_path.name,
+    )
+
+
+@router.get("/ui/ceec-exam", response_class=HTMLResponse)
+async def ceec_exam_browser(
+    request: Request,
+    user: User | None = Depends(get_current_user_from_token),
+    exam_type: str | None = Query(None),
+    year: int | None = Query(None),
+):
+    """
+    歷屆大學入學考試瀏覽頁面 (CEEC)。
+    公開頁面 (metadata),下載要登入。
+    """
+    items = _scan_pdf_tree(CEEC_DIR)
+
+    # Group by (exam_type, year)
+    grouped: dict[tuple, list] = {}
+    for item in items:
+        key = (item["exam_type"], item["year"])
+        grouped.setdefault(key, []).append(item)
+
+    # Apply filters
+    if exam_type is not None:
+        grouped = {k: v for k, v in grouped.items() if k[0] == exam_type}
+    if year is not None:
+        grouped = {k: v for k, v in grouped.items() if k[1] == year}
+
+    # Sorted
+    grouped = dict(sorted(grouped.items(), reverse=True))
+
+    # Build filter lists
+    all_exam_types = sorted(set(i["exam_type"] for i in items if i["exam_type"]))
+    all_years = sorted(set(i["year"] for i in items if i["year"] > 0), reverse=True)
+
+    return templates.TemplateResponse(
+        "ceec_exam.html",
+        {
+            **_common_ctx(user),
+            "request": request,
+            "grouped": grouped,
+            "all_exam_types": all_exam_types,
+            "all_years": all_years,
+            "selected_exam_type": exam_type,
+            "selected_year": year,
+            "total_files": len(items),
+            "total_size": sum(i["size"] for i in items),
+        },
+    )
+
+
+@router.get("/ui/ceec-exam/download/{rel:path}")
+async def ceec_exam_download(rel: str, user: User = Depends(require_login)):
+    """下載 CEEC PDF (approved only)"""
+    from fastapi.responses import FileResponse
+
+    if ".." in rel or rel.startswith("/"):
+        raise HTTPException(403, "Invalid path")
+
+    file_path = CEEC_DIR / rel
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(404, "File not found")
+
+    if not file_path.suffix.lower() == ".pdf":
+        raise HTTPException(403, "Not a PDF")
+
+    return FileResponse(
+        file_path,
+        media_type="application/pdf",
+        filename=file_path.name,
+    )
+
+
 @router.get("/me/downloads", response_class=HTMLResponse)
 async def me_downloads(
     request: Request,
