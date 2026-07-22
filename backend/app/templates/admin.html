@@ -35,7 +35,7 @@
                             <td>{{ req.user.name or '(無名稱)' }}</td>
                             <td><code>{{ req.user.email }}</code></td>
                             <td><small>{{ req.reason }}</small></td>
-                            <td><small>{{ req.created_at }}</small></td>
+                            <td><small>{{ req.created_at.strftime("%Y-%m-%d %H:%M:%S") if req.created_at else "—" }}</small></td>
                             <td>
                                 <form method="post" action="/admin/requests/{{ req.id }}/approve" class="d-inline">
                                     <button class="btn btn-sm btn-success">通過</button>
@@ -109,7 +109,7 @@
                         <td>
                             <span class="badge badge-status-{{ u.status }}">{{ u.status }}</span>
                         </td>
-                        <td><small>{{ u.last_login_at }}</small></td>
+                        <td><small>{{ u.last_login_at.strftime("%Y-%m-%d %H:%M:%S") if u.last_login_at else "—" }}</small></td>
                         <td>
                             {% if u.role == 'admin' %}
                                 <small class="text-muted">— (admin 保護)</small>
@@ -149,7 +149,7 @@
                 <tbody>
                     {% for log in audit_logs %}
                     <tr>
-                        <td><small>{{ log.created_at }}</small></td>
+                        <td><small>{{ log.created_at.strftime("%Y-%m-%d %H:%M:%S") if log.created_at else "—" }}</small></td>
                         <td><small>{{ log.user.email if log.user else '—' }}</small></td>
                         <td><span class="badge bg-info">{{ log.action }}</span></td>
                         <td><small>{{ log.target or '—' }}</small></td>

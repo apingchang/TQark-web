@@ -73,7 +73,7 @@
             {% for r in rows %}
             <tr>
                 <td>
-                    <small class="text-muted">{{ r.downloaded_at.strftime('%Y-%m-%d %H:%M') if r.downloaded_at else '—' }}</small>
+                    <small class="text-muted">{{ r.downloaded_at.strftime('%Y-%m-%d %H:%M:%S') if r.downloaded_at else '—' }}</small>
                 </td>
                 <td>
                     <small class="text-break" style="word-break: break-all;" title="{{ r.download_filename }}">

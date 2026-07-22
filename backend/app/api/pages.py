@@ -118,7 +118,7 @@ def _user_ctx(user: User | None) -> dict:
         return {}
 
     def fmt(dt):
-        return dt.strftime("%Y-%m-%d %H:%M") if dt else None
+        return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None  # 【2026-07-22 改】加秒數
 
     return {
         "id": user.id,

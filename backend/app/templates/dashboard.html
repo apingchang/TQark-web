@@ -46,7 +46,7 @@
         <h5 class="card-title text-danger">⛔ 申請被拒絕</h5>
         <p class="card-text">
             你的 access 申請被管理員拒絕了。
-            {% if user.decided_at %}<small class="text-muted">決定時間:{{ user.decided_at }}</small>{% endif %}
+            {% if user.decided_at %}<small class="text-muted">決定時間:{{ user.decided_at.strftime("%Y-%m-%d %H:%M:%S") if user.decided_at else "—" }}</small>{% endif %}
         </p>
         <p class="card-text">
             如果你認為這是誤判,請聯絡管理員(<a href="mailto:william@example.com">william@example.com</a>)。
