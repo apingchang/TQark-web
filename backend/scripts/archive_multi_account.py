@@ -20,7 +20,7 @@ import os
 import shutil
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -212,21 +212,31 @@ def load_account_status(log: logging.Logger | None = None) -> dict:
     讀 daily account status (race-safe).
 
     用 fcntl shared lock 防止讀到半寫入狀態。
+
+    【2026-07-22 改】舊的 "exhausted": [...] 欄位會被 drop,改成 "cooldown": {}。
+    舊 user 被 mark 為 persistent exhausted (改為今天 00:00 reset 才可重試) 不再有效。
     """
     import fcntl
     if not ACCOUNT_STATUS_FILE.exists():
-        return {"date": None, "exhausted": []}
+        return {"date": None, "cooldown": {}}
     # shared lock 讀
     try:
         with open(ACCOUNT_STATUS_FILE, "r") as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_SH)
             try:
-                return json.loads(f.read())
+                status = json.loads(f.read())
             finally:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except (BlockingIOError, OSError):
         # 讀失敗 → fallback 不 lock
-        return json.loads(ACCOUNT_STATUS_FILE.read_text())
+        status = json.loads(ACCOUNT_STATUS_FILE.read_text())
+
+    # 【2026-07-22】舊格式轉新格式
+    if "exhausted" in status and "cooldown" not in status:
+        status["cooldown"] = {}
+        status.pop("exhausted", None)
+
+    return status
 
 
 def save_account_status(status: dict, log: logging.Logger | None = None):
@@ -280,19 +290,41 @@ def reset_studyark_module():
 
 
 def is_account_exhausted(account_name: str, status: dict) -> bool:
+    """
+    【2026-07-22 改】cooldown-based 而不是 persistent list。
+    - `cooldown` 是 dict: account_name -> ISO timestamp when 可重試
+    - 過了 cooldown_until 就是「fresh」可重試
+    - 沒在 dict 裡也 fresh
+    - 跨日自動 reset (date 不同)
+    """
     today = datetime.now(TZ_TAIPEI).date().isoformat()
     if status.get("date") != today:
         return False
-    return account_name in status.get("exhausted", [])
+    cooldown = status.get("cooldown", {})
+    until = cooldown.get(account_name)
+    if not until:
+        return False
+    # 過了 cooldown 就 not exhausted
+    try:
+        cooldown_until = datetime.fromisoformat(until)
+        return datetime.now(TZ_TAIPEI) < cooldown_until
+    except ValueError:
+        return False
 
 
-def mark_account_exhausted(account_name: str, status: dict):
+def mark_account_exhausted(account_name: str, status: dict, retry_after_minutes: int = 25):
+    """
+    【2026-07-22 改】記 cooldown_until, 不是 persistent mark。
+    原因: StudyArk rate limit 不是永久,是 N 分鐘後可重試。
+    """
     today = datetime.now(TZ_TAIPEI).date().isoformat()
     if status.get("date") != today:
         status["date"] = today
-        status["exhausted"] = []
-    if account_name not in status["exhausted"]:
-        status["exhausted"].append(account_name)
+        status["cooldown"] = {}
+    if "cooldown" not in status:
+        status["cooldown"] = {}
+    cooldown_until = datetime.now(TZ_TAIPEI) + timedelta(minutes=retry_after_minutes)
+    status["cooldown"][account_name] = cooldown_until.isoformat()
 
 
 def get_next_account(accounts: list, current: str | None, status: dict) -> dict | None:
@@ -454,7 +486,14 @@ async def main():
     today = datetime.now(TZ_TAIPEI).date().isoformat()
     if account_status.get("date") != today:
         log.info(f"  Reset account_status (new day: {today})")
-        account_status = {"date": today, "exhausted": []}
+        account_status = {"date": today, "cooldown": {}}
+        save_account_status(account_status)
+    elif "exhausted" in account_status:
+        # 【2026-07-22 改】舊格式 (exhausted: [...]) 自動轉成新格式 (cooldown: {})
+        # 並把轉換後的寫回 disk
+        log.info(f"  Migrating old exhausted -> cooldown format")
+        account_status["cooldown"] = {}
+        account_status.pop("exhausted", None)
         save_account_status(account_status)
 
     if STATUS_FILE.exists():
@@ -517,8 +556,8 @@ async def main():
                     saved_count += 1
                 break  # 成功,離開 retry loop
             except StudyArkRateLimit as e:
-                log.warning(f"  ✗ {current_account['name']} rate-limited: {e.message[:60]}")
-                mark_account_exhausted(current_account["name"], account_status)
+                log.warning(f"  ✗ {current_account['name']} rate-limited: {e.message[:60]} (cooldown {e.retry_after_minutes}min)")
+                mark_account_exhausted(current_account["name"], account_status, retry_after_minutes=e.retry_after_minutes)
                 save_account_status(account_status)
 
                 next_acc = get_next_account(accounts, current_account["name"], account_status)
