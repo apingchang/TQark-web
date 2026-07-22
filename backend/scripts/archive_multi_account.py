@@ -19,6 +19,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -83,16 +84,178 @@ def load_accounts() -> list[dict]:
     ]
 
 
-def load_account_status() -> dict:
-    """讀 daily account status"""
-    if ACCOUNT_STATUS_FILE.exists():
+def _check_and_kill_stale_lock(log: logging.Logger):
+    """
+    如果 lock file 存在且 > 8 分鐘沒更新,代表舊 process 已經 hang/dead。
+    Kill 舊 process + 刪 lock file,讓這次 run 能 acquire。
+
+    為什麼需要: 2026-07-22 12:43 發現 archive 從 03:42 卡到 12:29 才被發現,
+    原因是 account_status.json 被 race condition mark 成 4 個 exhausted,
+    cron 雖然還在跑、但每個 run 都 early exit,lock 一直 hold 住。
+    """
+    lock_path = _lock_path(ACCOUNT_STATUS_FILE)
+    if not lock_path.exists():
+        return
+    try:
+        mtime = lock_path.stat().st_mtime
+        age = time.time() - mtime
+    except FileNotFoundError:
+        return
+    if age < 480:  # < 8 分鐘 = 正常
+        return
+    # Stale!
+    log.warning(f"🔍 Stale account_status lock detected (age={age:.0f}s), checking PID...")
+    pid_str = "?"
+    try:
+        pid_str = lock_path.read_text().strip().split("\n")[0]
+        pid = int(pid_str)
+    except (ValueError, FileNotFoundError, IndexError):
+        pid = None
+    if pid and pid != os.getpid():
+        # Kill old process (SIGTERM first, then SIGKILL if needed)
+        try:
+            import signal
+            os.kill(pid, signal.SIGTERM)
+            log.warning(f"  → Sent SIGTERM to PID {pid}")
+            time.sleep(2)
+            try:
+                os.kill(pid, signal.SIGKILL)
+                log.warning(f"  → Sent SIGKILL to PID {pid}")
+            except ProcessLookupError:
+                pass
+        except ProcessLookupError:
+            log.warning(f"  → PID {pid} already dead")
+        except PermissionError:
+            log.warning(f"  → No permission to kill PID {pid}")
+    # 刪 lock
+    try:
+        lock_path.unlink()
+        log.warning(f"  → Removed stale lock file")
+    except FileNotFoundError:
+        pass
+
+
+def _lock_path(target: Path) -> Path:
+    """Lock file path next to target (sibling .lock)"""
+    return target.with_suffix(target.suffix + ".lock")
+
+
+def _acquire_lock(target: Path, timeout: float = 60.0, log: logging.Logger | None = None) -> bool:
+    """
+    取得 account_status.json 的 exclusive lock。
+
+    Race condition 防護:防止兩個 cron run 同時讀寫 status
+    - 用 O_CREAT + LOCK_EX
+    - 超過 timeout 就當 dead process,強制 steal lock
+    """
+    import fcntl
+    lock_path = _lock_path(target)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout
+    last_err: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            fd = open(lock_path, "w")
+            fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # 寫入自己的 PID 到 lock file,debug / stale detection 用
+            fd.write(f"{os.getpid()}\n")
+            fd.flush()
+            # 把 fd 留著,後面 release 用 — 但 Python fcntl 在 fd close 時會 release
+            # 所以 caller 需要持有 fd 期間都沒問題
+            # 解法: 把 fd 存到全域,process 結束自動 release
+            _LOCK_FDS[target] = fd
+            return True
+        except (BlockingIOError, OSError) as e:
+            last_err = e
+            # 看 lock file 多舊 — stale detection
+            try:
+                mtime = lock_path.stat().st_mtime
+                age = time.time() - mtime
+                if age > 480:  # > 8 分鐘 = 死掉的 cron
+                    if log:
+                        log.warning(f"  🔓 Stale lock detected (age={age:.0f}s), stealing it")
+                    try:
+                        lock_path.unlink()
+                    except FileNotFoundError:
+                        pass
+                    continue
+            except FileNotFoundError:
+                pass
+            time.sleep(2)
+    if log:
+        log.warning(f"  ⚠️  Failed to acquire lock after {timeout}s: {last_err}")
+    return False
+
+
+def _release_lock(target: Path):
+    """Release lock (close fd → flock 自動 release)"""
+    fd = _LOCK_FDS.pop(target, None)
+    if fd:
+        try:
+            fd.close()
+        except Exception:
+            pass
+    # 嘗試刪 lock file (best effort)
+    lock_path = _lock_path(target)
+    try:
+        lock_path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+# 全域 fd dict: process 持有的 lock fd
+_LOCK_FDS: dict[Path, object] = {}
+
+
+def load_account_status(log: logging.Logger | None = None) -> dict:
+    """
+    讀 daily account status (race-safe).
+
+    用 fcntl shared lock 防止讀到半寫入狀態。
+    """
+    import fcntl
+    if not ACCOUNT_STATUS_FILE.exists():
+        return {"date": None, "exhausted": []}
+    # shared lock 讀
+    try:
+        with open(ACCOUNT_STATUS_FILE, "r") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+            try:
+                return json.loads(f.read())
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+    except (BlockingIOError, OSError):
+        # 讀失敗 → fallback 不 lock
         return json.loads(ACCOUNT_STATUS_FILE.read_text())
-    return {"date": None, "exhausted": []}
 
 
-def save_account_status(status: dict):
+def save_account_status(status: dict, log: logging.Logger | None = None):
+    """
+    寫入 daily account status (race-safe + atomic).
+
+    1. 取得 exclusive lock
+    2. 寫到 .tmp
+    3. atomic rename 到正式 file
+    4. release lock
+    """
+    import fcntl
     ACCOUNT_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    ACCOUNT_STATUS_FILE.write_text(json.dumps(status, indent=2, ensure_ascii=False))
+
+    # 1. Exclusive lock
+    if not _acquire_lock(ACCOUNT_STATUS_FILE, log=log):
+        raise RuntimeError("Failed to acquire account_status lock")
+
+    try:
+        # 2. Write to tmp
+        tmp_path = ACCOUNT_STATUS_FILE.with_suffix(".json.tmp")
+        tmp_path.write_text(json.dumps(status, indent=2, ensure_ascii=False))
+        tmp_path.chmod(0o600)
+
+        # 3. Atomic rename
+        tmp_path.replace(ACCOUNT_STATUS_FILE)
+    finally:
+        # 4. Release
+        _release_lock(ACCOUNT_STATUS_FILE)
 
 
 def switch_to_account(account: dict, log: logging.Logger) -> bool:
@@ -283,7 +446,11 @@ async def main():
         log.error("No accounts configured")
         return
 
-    account_status = load_account_status()
+    # Stale detection: 如果看到 lock file 過舊 (> 8 分鐘) 代表上次 cron hang 住
+    # Kill 舊 process + 刪 lock,讓這次 run 接手
+    _check_and_kill_stale_lock(log)
+
+    account_status = load_account_status(log)
     today = datetime.now(TZ_TAIPEI).date().isoformat()
     if account_status.get("date") != today:
         log.info(f"  Reset account_status (new day: {today})")
