@@ -1,30 +1,30 @@
 {% extends "base.html" %}
 
-{% block title %}考古題下載 — 個人化學習平台{% endblock %}
+{# 【2026-07-24 改】站名: 三好學習平台 #}
+{% block title %}三好學習平台{% endblock %}
 
 {% block content %}
-{# 【2026-07-22 19:12 改】新 landing page layout:
-   - 上方 banner (placeholder, 之後放圖片)
-   - 左側 function buttons (目前只有「考題搜尋」)
-   - 中央 console (login / status / access 申請)
-   - 右側 info panel (跟左邊一樣寬)
-   - 下方 banner (AdSense placeholder)
+{# Landing page layout (2026-07-24 重構):
+   - 上方 banner
+   - 左側: 功能 (只有「考題搜尋」)
+   - 中央: 空白 placeholder (之後填公告/活動)
+   - 右側: 平台資訊 (5 類 PDF 計數)
+   - 下方 banner: AdSense placeholder
 #}
 <div class="banner-top text-center py-4 mb-3">
-    <h1 class="banner-title m-0">🎓 個人化學習平台</h1>
-    <p class="banner-subtitle m-0 mt-2 text-muted small">
-        國高中小學考古題 · 私人邀請制 · Powered by SanhaoFamily
-    </p>
+    <h1 class="banner-title m-0">🎓 三好學習平台</h1>
+    {# 【2026-07-24 改】副標題拿掉,只留站名 #}
 </div>
 
 <div class="row g-3 main-grid">
-    {# 左側: function buttons #}
+    {# 左側: 功能 #}
     <aside class="col-12 col-md-3 left-sidebar">
         <div class="card sidebar-card">
             <div class="card-header bg-white">
                 <strong>🧰 功能</strong>
             </div>
             <div class="list-group list-group-flush">
+                {# 【2026-07-24 改】只留「考題搜尋」,歷屆會考 & 大學考移到 search page 篩選 #}
                 <a href="/dashboard"
                    class="list-group-item list-group-item-action {% if user and user.permission and user.permission > 7 %}disabled{% endif %}"
                    {% if user and user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
@@ -33,117 +33,53 @@
                         <span class="badge bg-warning text-dark float-end">需審核</span>
                     {% endif %}
                 </a>
-                <a href="/ui/cap-exam"
-                   class="list-group-item list-group-item-action">
-                    📚 歷屆會考
-                    <span class="badge bg-success float-end">公開</span>
-                </a>
-                <a href="/ui/ceec-exam"
-                   class="list-group-item list-group-item-action">
-                    🎓 歷屆大學入學考
-                    <span class="badge bg-success float-end">公開</span>
-                </a>
-                {# 之後會加更多功能 button (例如: 個人下載紀錄等) #}
             </div>
         </div>
     </aside>
 
-    {# 中央: console (login / status / 申請) #}
+    {# 中央: 空白 placeholder console #}
+    {# 【2026-07-24 改】所有登入/申請/status 文字和按鈕都拿掉,登入按鈕只留右上角 navbar #}
     <section class="col-12 col-md-6 center-console">
         <div class="card">
             <div class="card-body p-4">
-                {% if user.role == "guest" %}
-                    {# === 未登入: Google login === #}
-                    <h4 class="mb-3">🔐 登入 / 註冊</h4>
-                    <p class="text-muted">使用 Google 帳號登入後即自動註冊。需經管理員審核才能搜尋、下載考古題。</p>
-                    <a href="/auth/google/login" class="btn btn-primary btn-lg w-100 mt-3">
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                             width="20" height="20" class="me-2 align-middle">
-                        Sign in with Google
-                    </a>
-                {% elif user.role == 'admin' %}
-                    {# === Admin: 給兩個快速入口 === #}
-                    <h4 class="mb-3">👋 歡迎,{{ user.name or user.email }} <span class="badge bg-danger">Admin</span></h4>
-                    <p class="text-muted">您是管理員,可以進入後台審核申請。</p>
-                    <div class="d-grid gap-2">
-                        <a href="/dashboard" class="btn btn-primary btn-lg">🔍 考題搜尋</a>
-                        <a href="/admin" class="btn btn-danger btn-lg">🛠 管理後台</a>
-                        <form method="post" action="/auth/logout" class="mt-2">
-                            <button type="submit" class="btn btn-link text-muted">🚪 登出</button>
-                        </form>
-                    </div>
-                {% elif user.permission == 9 %}
-                    {# === Register user (剛登入、還沒申請) === #}
-                    <h4 class="mb-3">👋 歡迎,{{ user.name or user.email }}</h4>
-                    <div class="alert alert-info text-start">
-                        <strong>📝 您目前是 Register User</strong><br>
-                        要使用「考題搜尋」功能,請填寫申請原因,管理員審核通過後即可使用。
-                    </div>
-                    <form method="post" action="/api/access-requests" class="text-start">
-                        <div class="mb-3">
-                            <label for="reason" class="form-label">申請原因</label>
-                            <textarea name="reason" id="reason" class="form-control" rows="4" required
-                                      placeholder="例:我是 William 的同事,小孩念國中七年級,想下載考古題..."></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-lg w-100">送出申請</button>
-                    </form>
-                    <form method="post" action="/auth/logout" class="mt-3 text-center">
-                        <button type="submit" class="btn btn-link text-muted">🚪 登出</button>
-                    </form>
-                {% elif user.permission == 8 %}
-                    {# === Pending user (已申請、還沒批) === #}
-                    <h4 class="mb-3">⏳ {{ user.name or user.email }}</h4>
-                    <div class="alert alert-warning text-start">
-                        <strong>✅ 您的申請已送出</strong><br>
-                        管理員正在審核中,通過後即可使用「考題搜尋」功能。
-                        <hr>
-                        <small class="text-muted">審核結果會同步更新到這裡,重新整理即可看到。</small>
-                    </div>
-                    {% if user.application_reason %}
-                    <div class="card mt-3 text-start">
-                        <div class="card-body">
-                            <h6 class="card-title">您提交的申請原因</h6>
-                            <p class="card-text small">{{ user.application_reason }}</p>
-                        </div>
-                    </div>
-                    {% endif %}
-                    <form method="post" action="/auth/logout" class="mt-3 text-center">
-                        <button type="submit" class="btn btn-link text-muted">🚪 登出</button>
-                    </form>
-                {% elif user.permission <= 7 %}
-                    {# === Approved user (含 admin) === #}
-                    <h4 class="mb-3">🎉 歡迎,{{ user.name or user.email }}</h4>
-                    <p class="text-muted">您的帳號已通過審核,可以開始搜尋考古題。</p>
-                    <div class="d-grid gap-2 mt-3">
-                        <a href="/dashboard" class="btn btn-primary btn-lg">🔍 開始搜尋</a>
-                        <a href="/me/downloads" class="btn btn-info btn-lg">📥 我的下載紀錄</a>
-                        <form method="post" action="/auth/logout" class="mt-2">
-                            <button type="submit" class="btn btn-link text-muted">🚪 登出</button>
-                        </form>
-                    </div>
-                {% endif %}
+                {# 空卡片, 之後放公告/活動/消息 #}
             </div>
         </div>
     </section>
 
-    {# 右側: info panel (跟左邊一樣寬) #}
+    {# 右側: info panel #}
+    {# 【2026-07-24 改】只顯示 5 類 PDF 計數 #}
     <aside class="col-12 col-md-3 right-sidebar">
         <div class="card sidebar-card">
             <div class="card-header bg-white">
-                <strong>ℹ️ 平台資訊</strong>
+                <strong>ℹ️ 平台考題數量</strong>
             </div>
             <div class="card-body small">
-                <p class="mb-2"><strong>📊 平台數據</strong></p>
-                <ul class="list-unstyled mb-3">
-                    <li>📚 考古題總數:<strong>{{ stats.total_papers or 0 }}</strong> 份</li>
-                    <li>👥 已通過審核:<strong>{{ stats.approved_users or 0 }}</strong> 人</li>
-                </ul>
-                <p class="mb-2"><strong>🔐 權限說明</strong></p>
                 <ul class="list-unstyled mb-0">
-                    <li><span class="badge bg-success">7</span> Approved (可搜尋下載)</li>
-                    <li><span class="badge bg-warning text-dark">8</span> Pending (審核中)</li>
-                    <li><span class="badge bg-secondary">9</span> Register (剛登入)</li>
-                    <li><span class="badge bg-danger">0</span> Admin</li>
+                    <li class="d-flex justify-content-between py-1">
+                        <span>📒 小學考題</span>
+                        <strong>{{ stats.count_elementary or 0 }}</strong>
+                    </li>
+                    <li class="d-flex justify-content-between py-1">
+                        <span>📗 國中考題</span>
+                        <strong>{{ stats.count_junior or 0 }}</strong>
+                    </li>
+                    <li class="d-flex justify-content-between py-1">
+                        <span>📘 高中考題</span>
+                        <strong>{{ stats.count_senior or 0 }}</strong>
+                    </li>
+                    <li class="d-flex justify-content-between py-1">
+                        <span>📙 會考考題</span>
+                        <strong>{{ stats.count_cap or 0 }}</strong>
+                    </li>
+                    <li class="d-flex justify-content-between py-1">
+                        <span>📕 大學入學考試</span>
+                        <strong>{{ stats.count_ceec or 0 }}</strong>
+                    </li>
+                    <li class="d-flex justify-content-between py-1 mt-2 border-top pt-2">
+                        <span><strong>總計</strong></span>
+                        <strong>{{ stats.total_all or 0 }}</strong>
+                    </li>
                 </ul>
             </div>
         </div>

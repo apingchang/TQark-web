@@ -8,6 +8,8 @@ HTML page routes
 """
 
 from pathlib import Path
+import threading
+import time as _time
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, FileResponse, Response, RedirectResponse
@@ -165,25 +167,30 @@ async def landing(
     【2026-07-22 19:12 改】新 landing page layout:
     - 上方 banner
     - 左側: function buttons
-    - 中央: login / status / access 申請
+    - 中央: console (login / status / 申請)
     - 右側: 平台資訊
     - 下方 banner: AdSense placeholder
 
-    同時拿 stats (paper 總數、approved user 數) 顯示在右側。
-    """
-    from sqlalchemy import func
+    【2026-07-24 改】右側加 5 類 PDF 計數:
+    - 小學考題 (StudyArk 國小 + 其他X/國小)
+    - 國中考題
+    - 高中考題
+    - 會考考題 (CAP)
+    - 大學入學考試 (CEEC)
 
-    # 拿 platform stats
+    【2026-07-24 改】in-memory cache, 避免 CIFS rglob 慢:
+    - /mnt/my_book 是網路磁碟, rglob 每次都要 server round-trip (~30+ 秒)
+    - cache 10 分鐘, background refresh stale
+    """
+    import os
+    import threading
+    import time as _time
+    from pathlib import Path
+
+    # 拿 platform stats (DB query)
     stats: dict = {}
     try:
-        from app.db.models import DownloadHistory, User as UserModel
-
-        # 總 paper 數 (從下載紀錄去重 fileid+filetype)
-        # 簡化: 總下載次數
-        paper_count = (await db.execute(
-            select(func.count(DownloadHistory.id)).where(DownloadHistory.filetype == "paper")
-        )).scalar() or 0
-        stats["total_papers"] = paper_count
+        from app.db.models import User as UserModel
 
         # approved user 數
         approved_count = (await db.execute(
@@ -191,12 +198,125 @@ async def landing(
         )).scalar() or 0
         stats["approved_users"] = approved_count
     except Exception:
-        stats = {"total_papers": 0, "approved_users": 0}
+        stats["approved_users"] = 0
+
+    # 5 類 PDF 計數 (cached)
+    stats.update(_get_cached_archive_counts())
 
     return templates.TemplateResponse(
         "landing.html",
         {**_common_ctx(user), "request": request, "stats": stats},
     )
+
+
+# === Archive PDF count cache (2026-07-24) ===
+# 因為 /mnt/my_book 是 CIFS 網路磁碟, rglob 超慢
+# In-memory cache + 10 分鐘 TTL, background refresh
+_archive_counts_cache: dict = {"data": None, "ts": 0.0}
+_archive_counts_lock = threading.Lock()
+_ARCHIVE_COUNTS_TTL = 600  # 10 minutes
+
+
+def _get_cached_archive_counts() -> dict:
+    """Get cached PDF counts. Returns previous cache if still fresh."""
+    now = _time.time()
+    with _archive_counts_lock:
+        if _archive_counts_cache["data"] is not None and now - _archive_counts_cache["ts"] < _ARCHIVE_COUNTS_TTL:
+            return _archive_counts_cache["data"]
+        if _archive_counts_cache["data"] is not None:
+            # Stale — trigger background refresh (non-blocking), return stale
+            import threading as _threading
+            _threading.Thread(target=_refresh_archive_counts_bg, daemon=True).start()
+            return _archive_counts_cache["data"]
+    # Cold start or cache missing — synchronously scan
+    data = _scan_archive_counts()
+    with _archive_counts_lock:
+        _archive_counts_cache["data"] = data
+        _archive_counts_cache["ts"] = _time.time()
+    return data
+
+
+def _refresh_archive_counts_bg():
+    """Background refresh without blocking request."""
+    data = _scan_archive_counts()
+    with _archive_counts_lock:
+        _archive_counts_cache["data"] = data
+        _archive_counts_cache["ts"] = _time.time()
+
+
+def _scan_archive_counts() -> dict:
+    """Walk /mnt/my_book/考題收集 and count PDFs by category.
+
+    Return keys: count_elementary, count_junior, count_senior, count_cap, count_ceec, total_all
+    """
+    import os
+    from pathlib import Path
+
+    archive_root = Path(os.environ.get("TQARK_ARCHIVE_DIR", "/mnt/my_book/考題收集"))
+    result = {
+        "count_elementary": 0,
+        "count_junior": 0,
+        "count_senior": 0,
+        "count_cap": 0,
+        "count_ceec": 0,
+        "total_all": 0,
+    }
+    if not archive_root.exists():
+        return result
+
+    SKIP_TOP_DIRS = ("state", "logs")  # cap_exam/ceec 還是要 walk
+
+    count_elementary = 0
+    count_junior = 0
+    count_senior = 0
+    count_cap = 0
+    count_ceec = 0
+
+    try:
+        # 用 os.walk 比 Path.rglob 在 CIFS 上快 (local readdir 不再 server roundtrip)
+        for dirpath, dirnames, filenames in os.walk(archive_root):
+            # prune non-archive top dirs (state/, logs/)
+            if dirpath == str(archive_root):
+                dirnames[:] = [d for d in dirnames if d not in SKIP_TOP_DIRS]
+            for fname in filenames:
+                if not fname.endswith(".pdf"):
+                    continue
+                full = os.path.join(dirpath, fname)
+                rel = os.path.relpath(full, archive_root)
+                parts = rel.split(os.sep)
+
+                # Top-level dirs: cap_exam, ceec
+                if parts and parts[0] == "cap_exam":
+                    count_cap += 1
+                    continue
+                if parts and parts[0] == "ceec":
+                    count_ceec += 1
+                    continue
+                # 其他縣市路徑檢查 "國小"/"國中"/"高中"
+                # 格式: <county>/<level>/<grade>/<subject>/<filetype>/file.pdf
+                # 或: <level>/<grade>/<subject>/<filetype>/file.pdf (未分 county)
+                for p in parts[:-1]:
+                    if p == "國小":
+                        count_elementary += 1
+                        break
+                    elif p == "國中":
+                        count_junior += 1
+                        break
+                    elif p == "高中":
+                        count_senior += 1
+                        break
+    except OSError:
+        pass
+
+    result["count_elementary"] = count_elementary
+    result["count_junior"] = count_junior
+    result["count_senior"] = count_senior
+    result["count_cap"] = count_cap
+    result["count_ceec"] = count_ceec
+    result["total_all"] = (
+        count_elementary + count_junior + count_senior + count_cap + count_ceec
+    )
+    return result
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -761,6 +881,14 @@ async def ui_search_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Form submit(dashboard 的 search form)"""
+    # 【2026-07-24 新】統一考試 filter: 「會考」「大學入學考」 → 導向對應 archive page
+    if grade == "會考":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/ui/cap-exam", status_code=303)
+    if grade == "大學入學考":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/ui/ceec-exam", status_code=303)
+
     return await _render_search_results(
         request, user, db,
         grade=grade, subject=subject, school_year=school_year, school_term=school_term,
@@ -786,6 +914,14 @@ async def ui_search_get(
     db: AsyncSession = Depends(get_db),
 ):
     """Page 切換(分頁按鈕 → querystring)"""
+    # 【2026-07-24 新】統一考試 filter: 「會考」「大學入學考」 → 導向對應 archive page
+    if grade == "會考":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/ui/cap-exam", status_code=303)
+    if grade == "大學入學考":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/ui/ceec-exam", status_code=303)
+
     return await _render_search_results(
         request, user, db,
         grade=grade, subject=subject, school_year=school_year, school_term=school_term,

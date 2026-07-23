@@ -81,8 +81,8 @@
         <form method="post" action="/ui/search">
             <div class="row g-2">
                 <div class="col-md-6">
-                    <label class="form-label small">年級</label>
-                    <select name="grade" class="form-select form-select-sm">
+                    <label class="form-label small">年級 / 考試類別</label>
+                    <select name="grade" class="form-select form-select-sm" id="gradeSelect">
                         <option value="">不限</option>
                         <optgroup label="國小">
                             <option>一年級</option>
@@ -101,6 +101,11 @@
                             <option>高一</option>
                             <option>高二</option>
                             <option>高三</option>
+                        </optgroup>
+                        {# 【2026-07-24 新】統一考試 (歷屆會考 / 大學入學考 移到 search page 篩選) #}
+                        <optgroup label="統一考試">
+                            <option value="會考">📙 歷屆會考 (CAP)</option>
+                            <option value="大學入學考">📕 歷屆大學入學考 (CEEC)</option>
                         </optgroup>
                     </select>
                 </div>
