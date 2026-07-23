@@ -513,7 +513,26 @@ async def main():
                 break
 
     if not current_account:
-        log.warning("  All accounts exhausted for today, exiting")
+        # 【2026-07-24 新】log 最早 cooldown_until,讓 user 知道何時可以重試
+        cooldowns = account_status.get("cooldown", {})
+        if cooldowns:
+            from datetime import datetime as _dt
+            earliest = None  # tuple (acc_name, until_dt)
+            for acc_name, until_str in cooldowns.items():
+                try:
+                    until = _dt.fromisoformat(until_str)
+                    if earliest is None or until < earliest[1]:
+                        earliest = (acc_name, until)
+                except ValueError:
+                    pass
+            if earliest:
+                acc_name, ts = earliest
+                minutes_left = max(0, int((ts - datetime.now(TZ_TAIPEI)).total_seconds() / 60))
+                log.warning(f"  All accounts exhausted, exit. Earliest recovery: {acc_name} in {minutes_left}min ({ts.isoformat()})")
+            else:
+                log.warning("  All accounts exhausted for today, exiting")
+        else:
+            log.warning("  All accounts exhausted for today, exiting")
         return
 
     # 收集 batch fileids
@@ -542,7 +561,10 @@ async def main():
     log.info(f"  Will process {len(pending)} pending fileids")
 
     saved_count = 0
+    all_exhausted_break = False  # 【2026-07-24 新】一旦所有帳號都 exhausted, break outer batch loop
     for idx, item in enumerate(pending):
+        if all_exhausted_break:
+            break
         if idx > 0:
             log.info(f"  delay {ITEM_DELAY}s before next item...")
             await asyncio.sleep(ITEM_DELAY)
@@ -567,7 +589,8 @@ async def main():
                     log.info(f"  Retry fileid={item.get('id')} with new account")
                     continue
                 else:
-                    log.warning(f"  All accounts exhausted, skip this fileid")
+                    log.warning(f"  All accounts exhausted, skip this fileid + break batch loop")
+                    all_exhausted_break = True  # 【2026-07-24 新】跳過剩餘 fileid
                     break
 
     status["collected_fileids"] = sorted(collected_set)
