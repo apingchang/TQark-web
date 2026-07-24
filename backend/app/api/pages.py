@@ -604,45 +604,60 @@ def _normalize_ceec_subject(subj: str) -> str:
     return _CEEC_SUBJECT_NORMALIZE.get(subj, subj)
 
 
-def _scan_pdf_tree(root: Path) -> list[dict]:
-    """
-    掃描 PDF 樹狀結構,回傳分組資料。
-    每個 dict: {path, year, subject, file_type, size, mtime}
+# === PDF tree in-memory cache (2026-07-24) ===========================
+# /mnt/my_book/考題收集 是 CIFS 網路磁碟, _scan_pdf_tree() 對 1490 個 CEEC PDF
+# 要 9 秒、323 個 CAP 要 2 秒。 dashboard 每次 request 會呼 4-6 次 (CAP/CEEC 各 2-3 次)
+# 結果 user 看到 18-36 秒 page load。
+#
+# 解法: in-memory cache + TTL + background refresh
+#   - cache hit (TTL 內): 瞬間 return
+#   - stale (TTL 外): return stale + background thread refresh
+#   - 10 分鐘 TTL: archive cron 加新檔後 10 分鐘內看不到 (可接受, 因為 subject filter 對 user 主動加檔不敏感)
+#
+# 不需要建 db: 全部 metadata 只 ~300KB in-memory
+_pdf_tree_cache: dict[str, tuple[float, list[dict]]] = {}
+_pdf_tree_lock = threading.Lock()
+_PDF_TREE_TTL = 600  # 10 minutes
 
-    【2026-07-24】過濾 _generic 資料夾 - generic instruction files
-    沒年份資訊,不適合顯示在年份 filter 列表。
 
-    【2026-07-24 改】year 從路徑 parts[1] 拿 ("100年" → 100), 不再依賴
-    filename regex - 之前 "01-100學測國文試卷.pdf" 這種格式 regex 抓不到
-    year 結果 UI 顯示一堆「學測 0 年 (685 個檔案)」讓 user 疑惑。
-    """
+def _refresh_pdf_tree_bg(root_str: str, root: Path):
+    """Background refresh, non-blocking"""
+    items = _do_scan_pdf_tree(root)
+    with _pdf_tree_lock:
+        _pdf_tree_cache[root_str] = (_time.time(), items)
+
+
+def _do_scan_pdf_tree(root: Path) -> list[dict]:
+    """實際執行 rglob + stat (耗時, 走 background)"""
     items = []
     if not root.exists():
         return items
-    for pdf in root.rglob("*.pdf"):
+    import os
+    pdf_paths = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        if "_generic" in Path(dirpath).parts:
+            dirnames[:] = []
+            continue
+        for fn in filenames:
+            if fn.endswith(".pdf"):
+                pdf_paths.append(Path(dirpath) / fn)
+
+    for pdf in pdf_paths:
         if not pdf.is_file():
             continue
-        # 【2026-07-24 新】跳過 _generic/ (統一 generic 檔案資料夾)
-        if "_generic" in pdf.parts:
-            continue
         stat = pdf.stat()
-        # 解析路徑: {root}/{exam_type}/{year}年/{filename}
         rel = pdf.relative_to(root)
         parts = rel.parts
         exam_type = parts[0] if len(parts) >= 3 else ""
-        # 【2026-07-24 改】year 從路徑拿
         year = 0
         if len(parts) >= 3:
-            year_dir = parts[1]  # "100年" or "115年"
+            year_dir = parts[1]
             year_m = _re_year_dir.match(year_dir)
             if year_m:
                 year = int(year_m.group(1))
-        # 從 filename 解析 subject/file_type
         if root == CEEC_DIR:
-            # CEEC: 01-100學測國文試卷定稿.pdf, 100sat_語音_國文_...
             subject, file_type = _parse_ceec_filename(pdf.name)
         else:
-            # CAP: 102_英語_英語科_1ZfjE4.pdf / 104_英語_英語（閱讀）_xxx.pdf
             subject, file_type = _parse_cap_filename(pdf.name)
 
         items.append({
@@ -656,6 +671,43 @@ def _scan_pdf_tree(root: Path) -> list[dict]:
             "size": stat.st_size,
             "mtime": stat.st_mtime,
         })
+    return items
+
+
+def _scan_pdf_tree(root: Path) -> list[dict]:
+    """
+    掃描 PDF 樹狀結構,回傳分組資料。
+    每個 dict: {path, year, subject, file_type, size, mtime}
+
+    【2026-07-24】過濾 _generic 資料夾 - generic instruction files
+    沒年份資訊,不適合顯示在年份 filter 列表。
+
+    【2026-07-24 改】year 從路徑 parts[1] 拿 ("100年" → 100), 不再依賴
+    filename regex - 之前 "01-100學測國文試卷.pdf" 這種格式 regex 抓不到
+    year 結果 UI 顯示一堆「學測 0 年 (685 個檔案)」讓 user 疑惑。
+
+    【2026-07-24】in-memory cache + TTL + background refresh
+    避免每次 request 都 rglob 一次 (CEEC 1490 PDFs 要 9 秒)
+    - TTL 10 分鐘, stale 時 return 舊 cache + background thread refresh
+    - cold start (cache 空) 時同步 scan, 之後的 request 都是瞬時
+    """
+    root_str = str(root)
+    now = _time.time()
+
+    cached = _pdf_tree_cache.get(root_str)
+    if cached is not None:
+        cached_ts, cached_items = cached
+        if now - cached_ts < _PDF_TREE_TTL:
+            return cached_items  # Fresh cache hit
+        # Stale: return old + background refresh
+        import threading as _threading
+        _threading.Thread(target=_refresh_pdf_tree_bg, args=(root_str, root), daemon=True).start()
+        return cached_items
+
+    # Cold start: synchronous scan
+    items = _do_scan_pdf_tree(root)
+    with _pdf_tree_lock:
+        _pdf_tree_cache[root_str] = (_time.time(), items)
     return items
 
 
@@ -680,9 +732,12 @@ def _render_cap_exam_results(request, user, year, subject, filetype):
     """
     內部 helper: 渲染 cap_exam.html 結果。可由 cap_exam_browser 或 /ui/search (grade=會考) 呼。
     """
-    items = _scan_pdf_tree(CAP_DIR)
+    # 取 raw items, 做 filter (subject + filetype + year)
+    # 【2026-07-24 改】一個 call _scan_pdf_tree() 就好, 避免 repeated scan
+    all_items = _scan_pdf_tree(CAP_DIR)
 
     # Apply subject/filetype filters
+    items = all_items
     if subject:
         items = [i for i in items if i["subject"] == subject]
     if filetype:
@@ -697,10 +752,9 @@ def _render_cap_exam_results(request, user, year, subject, filetype):
     if year is not None:
         by_year = {year: by_year.get(year, [])}
 
-    # Build year/subject lists (for filter UI)
-    all_items_for_filters = _scan_pdf_tree(CAP_DIR)  # 原始 (未套 subject filter) 拿全部科目)
-    all_years = sorted(set(i["year"] for i in all_items_for_filters if i["year"] > 0), reverse=True)
-    all_subjects = sorted(set(i["subject"] for i in all_items_for_filters if i["subject"]))
+    # Build year/subject lists (for filter UI) - 用未 filter 的 all_items
+    all_years = sorted(set(i["year"] for i in all_items if i["year"] > 0), reverse=True)
+    all_subjects = sorted(set(i["subject"] for i in all_items if i["subject"]))
 
     return templates.TemplateResponse(
         "cap_exam.html",
@@ -767,9 +821,11 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
     """
     內部 helper: 渲染 ceec_exam.html 結果。可由 ceec_exam_browser 或 /ui/search (grade=大學入學考) 呼。
     """
-    items = _scan_pdf_tree(CEEC_DIR)
+    # 【2026-07-24 改】一次取 all_items, 用全量建 filter buttons (受 cache 保護, 0.02s)
+    all_items = _scan_pdf_tree(CEEC_DIR)
 
     # Apply subject/filetype filters
+    items = all_items
     if subject:
         items = [i for i in items if i["subject"] == subject]
     if filetype:
@@ -790,11 +846,10 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
     # Sorted
     grouped = dict(sorted(grouped.items(), reverse=True))
 
-    # Build filter lists (from raw items, 不受 subject filter 影響)
-    all_items_raw = _scan_pdf_tree(CEEC_DIR)
-    all_exam_types = sorted(set(i["exam_type"] for i in all_items_raw if i["exam_type"]))
-    all_years = sorted(set(i["year"] for i in all_items_raw if i["year"] > 0), reverse=True)
-    all_subjects = sorted(set(i["subject"] for i in all_items_raw if i["subject"]))
+    # Build filter lists (from all_items, 不受 subject filter 影響)
+    all_exam_types = sorted(set(i["exam_type"] for i in all_items if i["exam_type"]))
+    all_years = sorted(set(i["year"] for i in all_items if i["year"] > 0), reverse=True)
+    all_subjects = sorted(set(i["subject"] for i in all_items if i["subject"]))
 
     return templates.TemplateResponse(
         "ceec_exam.html",
