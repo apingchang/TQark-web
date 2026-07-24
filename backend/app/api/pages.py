@@ -8,6 +8,7 @@ HTML page routes
 """
 
 from pathlib import Path
+import json
 import threading
 import time as _time
 
@@ -328,12 +329,21 @@ async def dashboard(
     request: Request,
     user: User = Depends(require_login),
 ):
+    # 【2026-07-24 新】拿 CAP / CEEC 真實 subject list (從 disk scan) 傳到 template
+    #   避免 JS hardcode 漏掉 (例如 CAP 有「寫作測驗」)
+    cap_items = _scan_pdf_tree(CAP_DIR)
+    ceec_items = _scan_pdf_tree(CEEC_DIR)
+    cap_subjects = sorted({i["subject"] for i in cap_items if i["subject"]})
+    ceec_subjects = sorted({i["subject"] for i in ceec_items if i["subject"]})
+
     return templates.TemplateResponse(
         "dashboard.html",
         {
             **_common_ctx(user),
             "request": request,
             "user_full": user,  # 完整 User object 給 template 用 datetime 等
+            "cap_subjects_json": json.dumps(cap_subjects, ensure_ascii=False),
+            "ceec_subjects_json": json.dumps(ceec_subjects, ensure_ascii=False),
         },
     )
 

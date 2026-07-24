@@ -1,41 +1,52 @@
 // =========================================================
-// dashboard form 互動邏輯 (2026-07-24 新)
-// 監聽 grade dropdown 變化, 動態切換科目清單 + 隱藏無關 filter
+// dashboard form 互動邏輯 (2026-07-24)
+// 監聽 grade dropdown 變化, 動態切換:
+//   1. 科目清單 (StudyArk / CAP / CEEC)
+//   2. 隱藏無關 filter (縣市 / 學校 / 學期 / 段考 / 版本 / 含答案)
+//   3. 隱藏 StudyArk 相關說明文字 + 限流警語
+//   4. form action / 按鈕文字 / card title
 //
 // 規則:
 //   - 選擇「歷屆會考」 (value="會考")
-//     → 顯示 CAP 科目清單
-//     → 隱藏 縣市 / 學校 / 學期 / 段考 / 版本 / 含答案 filter
+//     → 顯示 CAP 科目清單 (從後端拿真實清單, 含「寫作測驗」)
+//     → 隱藏 StudyArk-only 元素 (.studyark-only)
 //     → 學年 保留 (讓 user 篩選特定年度)
-//     → form action 改成 /ui/cap-exam, 搜尋按鈕變成「📙 前往 歷屆會考」
+//     → 按鈕變成「🔍 搜尋 歷屆會考」
 //
 //   - 選擇「歷屆大學入學考」 (value="大學入學考")
-//     → 顯示 CEEC 科目清單
-//     → 隱藏 縣市 / 學校 / 學期 / 段考 / 版本 / 含答案 filter
+//     → 顯示 CEEC 科目清單 (從後端拿真實清單)
+//     → 隱藏 StudyArk-only 元素
 //     → 學年 保留
-//     → form action 改成 /ui/ceec-exam, 按鈕變成「📕 前往 歷屆大學入學考」
+//     → 按鈕變成「🔍 搜尋 歷屆大學入學考」
 //
 //   - 選擇一般年級 (一年級 ~ 高三)
 //     → 顯示 StudyArk 科目清單
-//     → 顯示所有 filter
+//     → 顯示所有 StudyArk-only 元素
 //     → form action = /ui/search, 按鈕 = 「🔍 搜尋」
 // =========================================================
 
-const CAP_SUBJECTS = [
-    "國文", "英語", "數學", "社會", "自然",
-];
+// 【2026-07-24 改】CAP/CEEC subjects 從後端 Jinja 注入, 不再 hardcode
+//   為的是 CAP 有「寫作測驗」、CEEC 有「國語文綜合能力測驗」等特殊科目
+//   後端從 _scan_pdf_tree 抓真實清單, 這裡只 fallback 到 hardcoded list
+const SUBJECTS_FALLBACK = {
+    cap: ["國文", "英語", "數學", "社會", "自然", "寫作測驗", "參考答案", "其他", "試題說明"],
+    ceec: [
+        "國文", "國綜", "國寫", "國語文綜合能力測驗", "國語文寫作能力測驗",
+        "英文", "數學", "數甲", "數乙", "數a", "數b", "數學a", "數學b", "數學甲", "數學乙",
+        "社會", "自然", "物理", "化學", "生物", "歷史", "地理", "公民", "公民與社會",
+    ],
+    studyark: [
+        "數學", "國語", "英語", "生活", "健康與體育",
+        "社會", "地理", "歷史", "理化", "公民", "自然", "作文",
+    ],
+};
 
-const CEEC_SUBJECTS = [
-    "國文", "國綜", "國寫", "英文",
-    "數學", "數甲", "數乙", "數a", "數b",
-    "社會", "自然",
-    "物理", "化學", "生物", "歷史", "地理", "公民",
-];
-
-const STUDYARK_SUBJECTS = [
-    "數學", "國語", "英語", "生活", "健康與體育",
-    "社會", "地理", "歷史", "理化", "公民", "自然", "作文",
-];
+function getSubjects(mode) {
+    const win = window.DASHBOARD_SUBJECTS || {};
+    const fromServer = win[mode] || [];
+    if (fromServer.length > 0) return fromServer;
+    return SUBJECTS_FALLBACK[mode] || [];
+}
 
 // =========================================================
 // State
@@ -56,9 +67,11 @@ let savedValues = {
 // DOM refs
 // =========================================================
 function $id(id) { return document.getElementById(id); }
+function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
 
-let form, gradeSelect, subjectSelect, countySelect, schoolNameInput, submitBtn;
+let form, gradeSelect, subjectSelect, countySelect, schoolNameInput, submitBtn, cardTitle;
 let countyCol, schoolCol, termCol, examTypeCol, versionCol, daanCol, yearCol;
+let studyarkOnlyEls;  // 【2026-07-24 新】所有 .studyark-only 元素 (text + filters)
 
 function initDomRefs() {
     form = document.querySelector('form[action="/ui/search"]');
@@ -69,14 +82,12 @@ function initDomRefs() {
     countySelect = $id("countySelect");
     schoolNameInput = $id("schoolNameInput");
     submitBtn = form.querySelector('button[type="submit"]');
+    cardTitle = document.querySelector('h5.card-title');
 
-    // 找各 filter 的 col-md-* container (向上找 col-md-X parent)
     function findCol(name) {
         const el = form.querySelector(`[name="${name}"]`);
         if (!el) return null;
-        // 找最近的 col-md-* parent
-        let p = el.closest('.col-md-2, .col-md-3, .col-md-4, .col-md-6');
-        return p;
+        return el.closest('.col-md-2, .col-md-3, .col-md-4, .col-md-6');
     }
 
     countyCol = findCol("county");
@@ -86,6 +97,9 @@ function initDomRefs() {
     examTypeCol = findCol("exam_type");
     versionCol = findCol("version");
     daanCol = findCol("daan");
+
+    // 【2026-07-24 新】所有 StudyArk-only 元素 (text + 限流警語 + 各 filter col)
+    studyarkOnlyEls = $all('.studyark-only');
 }
 
 // =========================================================
@@ -103,6 +117,7 @@ function addOption(select, value, text) {
 }
 
 function populateSubjects(select, subjects, placeholder) {
+    if (!select) return;
     clearChildren(select);
     addOption(select, "", placeholder || "不限");
     subjects.forEach(s => addOption(select, s, s));
@@ -129,62 +144,60 @@ function enableIn(el) {
     });
 }
 
+// 【2026-07-24 新】StudyArk-only 元素切換
+function showStudyarkOnly() {
+    studyarkOnlyEls.forEach(el => {
+        el.style.display = "";
+        enableIn(el);
+    });
+}
+function hideStudyarkOnly() {
+    studyarkOnlyEls.forEach(el => {
+        el.style.display = "none";
+        disableIn(el);
+    });
+}
+
 // =========================================================
 // Mode switch
 // =========================================================
 function setModeStudyark() {
     currentMode = "studyark";
-    populateSubjects(subjectSelect, STUDYARK_SUBJECTS, "不限");
+    populateSubjects(subjectSelect, getSubjects("studyark"), "不限");
 
-    showEl(countyCol);     enableIn(countyCol);
-    showEl(schoolCol);     enableIn(schoolCol);
-    showEl(termCol);       enableIn(termCol);
-    showEl(examTypeCol);   enableIn(examTypeCol);
-    showEl(versionCol);    enableIn(versionCol);
-    showEl(daanCol);       enableIn(daanCol);
+    showStudyarkOnly();
     showEl(yearCol);       enableIn(yearCol);
 
     form.action = "/ui/search";
     submitBtn.textContent = "🔍 搜尋";
     submitBtn.className = "btn btn-primary mt-3";
+    if (cardTitle) cardTitle.textContent = "搜尋考古題 (StudyArk)";
 }
 
 function setModeCap() {
     currentMode = "cap";
-    populateSubjects(subjectSelect, CAP_SUBJECTS, "不限");
+    populateSubjects(subjectSelect, getSubjects("cap"), "不限");
 
-    hideEl(countyCol);     disableIn(countyCol);
-    hideEl(schoolCol);     disableIn(schoolCol);
-    hideEl(termCol);       disableIn(termCol);
-    hideEl(examTypeCol);   disableIn(examTypeCol);
-    hideEl(versionCol);    disableIn(versionCol);
-    hideEl(daanCol);       disableIn(daanCol);
-    showEl(yearCol);       enableIn(yearCol);  // 學年保留 (CAP filter by year)
+    hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
+    showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CAP filter by year)
 
-    // 【2026-07-24 改】全部 form 都 submit 到 /ui/search
-    //   後端根據 grade=會考 自動 render cap_exam.html 結果 (filter by subject + year)
     form.action = "/ui/search";
     submitBtn.textContent = "🔍 搜尋 歷屆會考";
     submitBtn.className = "btn btn-warning mt-3";
+    if (cardTitle) cardTitle.textContent = "📙 搜尋歷屆會考 (CAP)";
 }
 
 function setModeCeec() {
     currentMode = "ceec";
-    populateSubjects(subjectSelect, CEEC_SUBJECTS, "不限");
+    populateSubjects(subjectSelect, getSubjects("ceec"), "不限");
 
-    hideEl(countyCol);     disableIn(countyCol);
-    hideEl(schoolCol);     disableIn(schoolCol);
-    hideEl(termCol);       disableIn(termCol);
-    hideEl(examTypeCol);   disableIn(examTypeCol);
-    hideEl(versionCol);    disableIn(versionCol);
-    hideEl(daanCol);       disableIn(daanCol);
-    showEl(yearCol);       enableIn(yearCol);  // 學年保留 (CEEC filter by year)
+    hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
+    showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CEEC filter by year)
 
-    // 【2026-07-24 改】全部 form 都 submit 到 /ui/search
-    //   後端根據 grade=大學入學考 自動 render ceec_exam.html 結果
     form.action = "/ui/search";
     submitBtn.textContent = "🔍 搜尋 歷屆大學入學考";
     submitBtn.className = "btn btn-warning mt-3";
+    if (cardTitle) cardTitle.textContent = "📕 搜尋歷屆大學入學考 (CEEC)";
 }
 
 // =========================================================

@@ -70,10 +70,10 @@
 <div class="card">
     <div class="card-body">
         <h5 class="card-title">搜尋考古題</h5>
-        <p class="card-text text-muted small mb-3">
+        <p class="card-text text-muted small mb-3 studyark-only">
             從 <a href="https://www.studyark.org/" target="_blank" rel="noopener noreferrer">StudyArk</a> (全國中小學題庫網) 搜尋。可留空表示不限。
         </p>
-        <div class="alert alert-warning py-2 px-3 small mb-3" role="alert">
+        <div class="alert alert-warning py-2 px-3 small mb-3 studyark-only" role="alert">
             ⚠️ <strong>StudyArk 限流警語</strong>:如果 StudyArk 限流中(下載太頻繁),會跳友善錯誤訊息請你等 <strong>25 分鐘</strong>。
             <br>
             <span class="text-muted">⏱ 提醒:批次下載 20 個檔案需要約 <strong>50 秒</strong>(每個間隔 2.5s,避免撞 StudyArk anti-bot)。</span>
@@ -127,7 +127,7 @@
                         <option>作文</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 studyark-only">
                     <label class="form-label small">縣市</label>
                     <select name="county" id="countySelect" class="form-select form-select-sm">
                         <option value="">不限</option>
@@ -155,7 +155,7 @@
                         <option value="lienchiang">連江縣</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 studyark-only">
                     <label class="form-label small">學校(自動完成)</label>
                     <input type="text" name="school_name" id="schoolNameInput"
                            class="form-control form-control-sm"
@@ -167,18 +167,17 @@
                     <small class="form-text text-muted">例:中山、台北、石門</small>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label small">學年</label>
-                    <select name="school_year" class="form-select form-select-sm">
-                        <option value="">不限</option>
-                        <option>113</option>
-                        <option>112</option>
-                        <option>111</option>
-                        <option>110</option>
-                        <option>109</option>
-                        <option>108</option>
-                    </select>
+                    <label class="form-label small">學年 (如: 110, 不限表示全部)</label>
+                    <input type="text" name="school_year" class="form-control form-control-sm"
+                           placeholder="例如 110, 不限留空" list="yearList" autocomplete="off">
+                    <datalist id="yearList">
+                        {# 【2026-07-24 改】用 datalist + input 代替 select, 範圍 83-115 (涵蓋 StudyArk + CAP + CEEC) #}
+                        {% for y in range(115, 82, -1) %}
+                            <option value="{{ y }}">{{ y }}</option>
+                        {% endfor %}
+                    </datalist>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 studyark-only">
                     <label class="form-label small">學期</label>
                     <select name="school_term" class="form-select form-select-sm">
                         <option value="">不限</option>
@@ -186,7 +185,7 @@
                         <option>下學期</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 studyark-only">
                     <label class="form-label small">段考</label>
                     <select name="exam_type" class="form-select form-select-sm">
                         <option value="">不限</option>
@@ -194,7 +193,7 @@
                         <option>期末考</option>
                     </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 studyark-only">
                     <label class="form-label small">版本</label>
                     <select name="version" class="form-select form-select-sm">
                         <option value="">不限</option>
@@ -209,7 +208,7 @@
                         <option>其他</option>
                     </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 studyark-only">
                     <label class="form-label small">是否含答案</label>
                     <select name="daan" class="form-select form-select-sm">
                         <option value="">不限</option>
@@ -226,5 +225,14 @@
 {% endblock %}
 
 {% block scripts %}
+{# 【2026-07-24 新】後端 Jinja 注入 CAP / CEEC 真實 subject list 到 JS #}
+{#   CAP 有「寫作測驗」、「試題說明」等, CEEC 有「國語文綜合能力測驗」等 #}
+{#   避免 JS hardcode 漏掉 #}
+<script>
+window.DASHBOARD_SUBJECTS = {
+    cap: {{ cap_subjects_json | safe }},
+    ceec: {{ ceec_subjects_json | safe }},
+};
+</script>
 <script src="/static/dashboard_form.js?v=2026-07-24"></script>
 {% endblock %}
