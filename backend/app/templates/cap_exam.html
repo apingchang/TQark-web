@@ -26,9 +26,22 @@
   <div class="row mb-3">
     <div class="col-md-12">
       <div class="btn-group" role="group">
-        <a href="/ui/cap-exam" class="btn btn-sm {% if not selected_year %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">全部</a>
+        <a href="/ui/cap-exam{% if selected_subject %}?subject={{ selected_subject }}{% endif %}" class="btn btn-sm {% if not selected_year %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">全部年度</a>
         {% for y in all_years %}
-          <a href="/ui/cap-exam?year={{ y }}" class="btn btn-sm {% if selected_year == y %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">{{ y }} 年</a>
+          <a href="/ui/cap-exam?year={{ y }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}" class="btn btn-sm {% if selected_year == y %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">{{ y }} 年</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if all_subjects %}
+  <div class="row mb-3">
+    <div class="col-md-12">
+      <div class="btn-group" role="group">
+        <a href="/ui/cap-exam{% if selected_year %}?year={{ selected_year }}{% endif %}" class="btn btn-sm {% if not selected_subject %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">全部科目</a>
+        {% for s in all_subjects %}
+          <a href="/ui/cap-exam?subject={{ s }}{% if selected_year %}&year={{ selected_year }}{% endif %}" class="btn btn-sm {% if selected_subject == s %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">{{ s }}</a>
         {% endfor %}
       </div>
     </div>

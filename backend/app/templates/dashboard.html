@@ -78,7 +78,7 @@
             <br>
             <span class="text-muted">⏱ 提醒:批次下載 20 個檔案需要約 <strong>50 秒</strong>(每個間隔 2.5s,避免撞 StudyArk anti-bot)。</span>
         </div>
-        <form method="post" action="/ui/search">
+        <form method="get" action="/ui/search">
             <div class="row g-2">
                 <div class="col-md-6">
                     <label class="form-label small">年級 / 考試類別</label>
@@ -223,4 +223,8 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/dashboard_form.js?v=2026-07-24"></script>
 {% endblock %}

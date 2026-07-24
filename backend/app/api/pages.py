@@ -400,6 +400,56 @@ _CEEC_SUBJECTS = (
 _CEEC_SUBJECTS_SORTED = sorted(set(_CEEC_SUBJECTS), key=lambda s: -len(s))
 
 
+# 【2026-07-24 新】CAP filename parser
+_CAP_SUBJECTS = (
+    "國文", "英語", "數學", "社會", "自然", "寫作測驗",
+)
+_CAP_SUBJECTS_SORTED = sorted(set(_CAP_SUBJECTS), key=lambda s: -len(s))
+
+
+def _parse_cap_filename(name: str) -> tuple[str, str]:
+    """
+    從 CAP filename 解析 subject + file_type。
+    Layout 1 (4 parts): '102_英語_英語科_1ZfjE4' → ('英語', '英語科')
+    Layout 2 (3 parts): '102_國文_1ZfjE4' → ('國文', '')
+    Layout 3 (參考答案): '102_參考答案_1b3Vusr5' → ('', '參考答案')  # 參考答案是 filetype
+    Layout 4 (其他): '102_其他_一級分_1amvNV' → ('', '其他')  # 其他 是 file_type
+    Layout 5 (3 parts): '115_英語_英語科' → ('英語', '英語科')
+    """
+    stem = name[:-4] if name.endswith(".pdf") else name
+    parts = stem.split("_")
+    if len(parts) < 3 or not parts[0].isdigit():
+        return ("", "")
+
+    raw_subject = parts[1]
+
+    # Layout 3/4: 參考答案 / 其他 / 試題說明 - 這些不是 subject, 是 file_type
+    if raw_subject in ("參考答案", "其他", "試題說明"):
+        return ("", raw_subject)
+
+    # Layout 2 (3 parts, parts[2] 是 gdoc_id 隨機字串): 用 _CAP_SUBJECTS_SORTED 確認是 subject
+    subject = ""
+    for s in _CAP_SUBJECTS_SORTED:
+        if raw_subject == s:
+            subject = s
+            break
+
+    # file_type = parts[2] if exists and not gdoc_id-like
+    # gdoc_id 通常 6 字以上 random alphanumeric
+    file_type = ""
+    if len(parts) >= 3:
+        candidate = parts[2]
+        # 如果是 gdoc_id (random alphanumeric), file_type 為空
+        if len(candidate) >= 6 and candidate.replace("-", "").isalnum() and not any('\u4e00' <= c <= '\u9fff' for c in candidate):
+            file_type = ""
+        else:
+            file_type = candidate
+        # 4 parts: parts[3] 也是 gdoc_id, file_type 是 parts[2]
+        # 3 parts: file_type 是 parts[2] unless 是 gdoc_id
+
+    return (subject, file_type)
+
+
 def _parse_ceec_filename(name: str) -> tuple[str, str]:
     """
     從 CEEC filename 解析 subject + file_type。
@@ -475,9 +525,12 @@ def _scan_pdf_tree(root: Path) -> list[dict]:
             if year_m:
                 year = int(year_m.group(1))
         # 從 filename 解析 subject/file_type
-        # 例: 01-100學測國文試卷定稿.pdf → subject=國文, file_type=試卷
-        # 例: 100sat_語音_國文_圖文(序號).pdf → subject=語音國文, file_type=圖文
-        subject, file_type = _parse_ceec_filename(pdf.name)
+        if root == CEEC_DIR:
+            # CEEC: 01-100學測國文試卷定稿.pdf, 100sat_語音_國文_...
+            subject, file_type = _parse_ceec_filename(pdf.name)
+        else:
+            # CAP: 102_英語_英語科_1ZfjE4.pdf / 104_英語_英語（閱讀）_xxx.pdf
+            subject, file_type = _parse_cap_filename(pdf.name)
 
         items.append({
             "path": str(pdf),
@@ -498,12 +551,22 @@ async def cap_exam_browser(
     request: Request,
     user: User | None = Depends(get_current_user_from_token),
     year: int | None = Query(None),
+    subject: str | None = Query(None),
+    filetype: str | None = Query(None),
 ):
     """
     歷屆國中教育會考瀏覽頁面 (CAP / RCPET)。
     公開頁面,不需登入 (但下載連結在 archive 路徑,Web UI 只列出 metadata)。
+
+    【2026-07-24 新】支援 subject / filetype 篩選 (從 dashboard form 送過來)
     """
     items = _scan_pdf_tree(CAP_DIR)
+
+    # Apply subject/filetype filters
+    if subject:
+        items = [i for i in items if i["subject"] == subject]
+    if filetype:
+        items = [i for i in items if filetype in i["file_type"]]
 
     # Group by year
     by_year: dict[int, list] = {}
@@ -514,8 +577,10 @@ async def cap_exam_browser(
     if year is not None:
         by_year = {year: by_year.get(year, [])}
 
-    # Build year list (for filter)
-    all_years = sorted(set(i["year"] for i in items if i["year"] > 0), reverse=True)
+    # Build year/subject lists (for filter UI)
+    all_items_for_filters = _scan_pdf_tree(CAP_DIR)  # 原始 (未套 subject filter) 拿全部科目)
+    all_years = sorted(set(i["year"] for i in all_items_for_filters if i["year"] > 0), reverse=True)
+    all_subjects = sorted(set(i["subject"] for i in all_items_for_filters if i["subject"]))
 
     return templates.TemplateResponse(
         "cap_exam.html",
@@ -524,7 +589,10 @@ async def cap_exam_browser(
             "request": request,
             "by_year": dict(sorted(by_year.items(), reverse=True)),
             "all_years": all_years,
+            "all_subjects": all_subjects,
             "selected_year": year,
+            "selected_subject": subject,
+            "selected_filetype": filetype,
             "total_files": len(items),
             "total_size": sum(i["size"] for i in items),
         },
@@ -563,12 +631,22 @@ async def ceec_exam_browser(
     user: User | None = Depends(get_current_user_from_token),
     exam_type: str | None = Query(None),
     year: int | None = Query(None),
+    subject: str | None = Query(None),
+    filetype: str | None = Query(None),
 ):
     """
     歷屆大學入學考試瀏覽頁面 (CEEC)。
     公開頁面 (metadata),下載要登入。
+
+    【2026-07-24 新】支援 subject / filetype 篩選 (從 dashboard form 送過來)
     """
     items = _scan_pdf_tree(CEEC_DIR)
+
+    # Apply subject/filetype filters
+    if subject:
+        items = [i for i in items if i["subject"] == subject]
+    if filetype:
+        items = [i for i in items if filetype in i["file_type"]]
 
     # Group by (exam_type, year)
     grouped: dict[tuple, list] = {}
@@ -585,9 +663,11 @@ async def ceec_exam_browser(
     # Sorted
     grouped = dict(sorted(grouped.items(), reverse=True))
 
-    # Build filter lists
-    all_exam_types = sorted(set(i["exam_type"] for i in items if i["exam_type"]))
-    all_years = sorted(set(i["year"] for i in items if i["year"] > 0), reverse=True)
+    # Build filter lists (from raw items, 不受 subject filter 影響)
+    all_items_raw = _scan_pdf_tree(CEEC_DIR)
+    all_exam_types = sorted(set(i["exam_type"] for i in all_items_raw if i["exam_type"]))
+    all_years = sorted(set(i["year"] for i in all_items_raw if i["year"] > 0), reverse=True)
+    all_subjects = sorted(set(i["subject"] for i in all_items_raw if i["subject"]))
 
     return templates.TemplateResponse(
         "ceec_exam.html",
@@ -597,8 +677,11 @@ async def ceec_exam_browser(
             "grouped": grouped,
             "all_exam_types": all_exam_types,
             "all_years": all_years,
+            "all_subjects": all_subjects,
             "selected_exam_type": exam_type,
             "selected_year": year,
+            "selected_subject": subject,
+            "selected_filetype": filetype,
             "total_files": len(items),
             "total_size": sum(i["size"] for i in items),
         },
