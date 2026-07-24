@@ -275,9 +275,13 @@ def _scan_archive_counts() -> dict:
     try:
         # 用 os.walk 比 Path.rglob 在 CIFS 上快 (local readdir 不再 server roundtrip)
         for dirpath, dirnames, filenames in os.walk(archive_root):
-            # prune non-archive top dirs (state/, logs/)
+            # prune non-archive top dirs (state/, logs/, _generic)
             if dirpath == str(archive_root):
                 dirnames[:] = [d for d in dirnames if d not in SKIP_TOP_DIRS]
+            # 【2026-07-24 新】ceec/_generic 是 generic instruction files, 不算入 5 類計數
+            if "_generic" in dirpath.split(os.sep):
+                dirnames[:] = []  # don't recurse
+                continue
             for fname in filenames:
                 if not fname.endswith(".pdf"):
                     continue
@@ -380,12 +384,18 @@ def _scan_pdf_tree(root: Path) -> list[dict]:
     """
     掃描 PDF 樹狀結構,回傳分組資料。
     每個 dict: {path, year, subject, file_type, size, mtime}
+
+    【2026-07-24】過濾 _generic 資料夾 - generic instruction files
+    沒年份資訊,不適合顯示在年份 filter 列表。
     """
     items = []
     if not root.exists():
         return items
     for pdf in root.rglob("*.pdf"):
         if not pdf.is_file():
+            continue
+        # 【2026-07-24 新】跳過 _generic/ (統一 generic 檔案資料夾)
+        if "_generic" in pdf.parts:
             continue
         stat = pdf.stat()
         # 解析路徑: {root}/{exam_type}/{year}年/{filename}

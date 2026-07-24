@@ -90,6 +90,10 @@ try:
     for _dirpath, _dirnames, _filenames in _os.walk(ARCHIVE_DIR_PATH):
         if _dirpath == ARCHIVE_DIR_PATH:
             _dirnames[:] = [d for d in _dirnames if d not in SKIP_TOP_DIRS]
+        # 【2026-07-24 新】ceec/_generic 不算入 5 類 (跟 web UI 一致)
+        if '_generic' in _dirpath.split(_os.sep):
+            _dirnames[:] = []
+            continue
         for _fname in _filenames:
             if not _fname.endswith('.pdf'):
                 continue
