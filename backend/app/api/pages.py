@@ -395,19 +395,45 @@ import re as _re_year_dir_module
 _re_year_dir = _re_year_dir_module.compile(r"^(\d{2,3})年?$")
 
 # 學測/分科常見學科清單 (用來從 filename 拆 subject)
+# 【2026-07-24 改】只列「短名」, 「國語文綜合能力測驗」之類在 parser 內 normalize 成「國綜」
+# 這樣 filter UI 不會出現重複按鈕
 _CEEC_SUBJECTS = (
-    # 學測 (5 主科)
+    # 學測 (舊制 5 主科)
     "國文", "英文", "數學", "社會", "自然",
-    # 學測 (新制)
+    # 學測 (新制 4 主科)
     "國綜", "國寫", "數a", "數b",
-    "國語文綜合能力測驗", "國語文寫作能力測驗", "數學a", "數學b",
     # 分科
-    "數學甲", "數甲", "數學乙", "數乙",
+    "數甲", "數乙",
     "物理", "化學", "生物",
-    "歷史", "地理", "公民與社會", "公民",
+    "歷史", "地理", "公民與社會",
 )
-# 排序: 越長的越先 match (避免 "數學" 比 "數學甲" 先 match)
+# 排序: 越長的越先 match (避免 "數學" 比 "數甲" 先 match)
 _CEEC_SUBJECTS_SORTED = sorted(set(_CEEC_SUBJECTS), key=lambda s: -len(s))
+
+# 【2026-07-24 新】長名 → 短名 normalization (避免 UI 重複)
+# 國語文綜合能力測驗 = 國綜
+# 國語文寫作能力測驗 = 國寫
+# 數學a = 數a, 數學b = 數b, 數學甲 = 數甲, 數學乙 = 數乙
+# 公民 (簡寫) = 公民與社會
+_CEEC_SUBJECT_NORMALIZE = {
+    "國語文綜合能力測驗": "國綜",
+    "國語文寫作能力測驗": "國寫",
+    "數學a": "數a",
+    "數學b": "數b",
+    "數學甲": "數甲",
+    "數學乙": "數乙",
+    "公民": "公民與社會",  # 「公民」簡寫 → 完整名
+}
+
+# 【2026-07-24 新】單字 subject → 完整名 (視障生試題音軌 106sat 檔案用)
+# 106sat_音軌對照表_國_圖文.pdf → '國' → '國文'
+_SHORT_SUBJECT_MAP = {
+    "國": "國文",
+    "數": "數學",
+    "社": "社會",
+    "自": "自然",
+    "英": "英文",
+}
 
 
 # 【2026-07-24 新】CAP filename parser
@@ -463,42 +489,119 @@ def _parse_cap_filename(name: str) -> tuple[str, str]:
 def _parse_ceec_filename(name: str) -> tuple[str, str]:
     """
     從 CEEC filename 解析 subject + file_type。
-    例:
+    【2026-07-24 改】長名 normalize 成短名 (避免 UI 出現重複按鈕)
+      '國語文綜合能力測驗' → '國綜'
+      '國語文寫作能力測驗' → '國寫'
+      '數學a' / '數學b' → '數a' / '數b'
+      '數學甲' / '數學乙' → '數甲' / '數乙'
+      '公民' → '公民與社會'
+
+    Pattern:
       '01-100學測國文試卷定稿.pdf' → ('國文', '試卷定稿')
-      '100sat_語音_國文_圖文(序號).pdf' → ('語音_國文', '圖文(序號)')
-      '01-100指考國文選擇題答案-0712.pdf' → ('國文', '選擇題答案-0712')
+      '01-111分科測驗數學甲選擇題答案.pdf' → ('數甲', '選擇題答案')
+      '01-111學測國語文綜合能力測驗答案.pdf' → ('國綜', '答案')
+      '100sat_語音_國文_圖文(序號).pdf' → ('國文', '語音_圖文(序號)')  # 「語音」 變 file_type prefix
+      '103指考試題音軌對照表_化學.pdf' → ('化學', '試題音軌對照表')
     回傳 (subject, file_type) 任一失敗回 ("", "")
     """
     # 拿掉 .pdf
     stem = name[:-4] if name.endswith(".pdf") else name
 
-    # Pattern 1: 01-100學測國文試卷定稿 / 01-100指考數甲選擇(填)題答案-0712
-    # group 1: rest after "<num>-<year><type>"
-    m = _re_year_dir_module.match(r"^\d{2}-\d{2,3}(?:學測|分科(?:測驗)?|指考)(.+)$", stem)
+    # Pattern 3 (先試, 以免被 Pattern 1 吃掉): 103指考試題音軌對照表_化學 / 106sat_音軌對照表_國_圖文
+    # tokens: ['103指考試題音軌對照表', '化學'] / ['106sat', '音軌對照表', '國', '圖文']
+    if "_" in stem:
+        parts = stem.split("_")
+        # 檢查是否含「音軌對照表」
+        if any("音軌對照表" in p for p in parts):
+            if "試題音軌對照表" in stem:
+                # Layout A: 103指考試題音軌對照表_化學 → ['103指考試題音軌對照表', '化學']
+                subject_token = parts[-1]
+                subject, _ = _match_ceec_subject(subject_token)
+                if not subject:
+                    subject = subject_token  # fallback
+                return subject, "試題音軌對照表"
+            else:
+                # Layout B: 106sat_音軌對照表_國_圖文 → ['106sat', '音軌對照表', '國', '圖文']
+                # tokens[-2] 是單字 (國/數/社/自/英) 要展開成完整名
+                # tokens[-1] 是 圖文/文字/點字 (file_type)
+                single_char = parts[-2]
+                subject = _SHORT_SUBJECT_MAP.get(single_char, single_char)
+                file_type = "音軌對照表_" + parts[-1]
+                return subject, file_type
+
+    # Pattern 1: 01-100學測國文試卷定稿 / 01-100指考數甲選擇(填)題答案-0712 / 01-111分科測驗數學甲...
+    m = _re_year_dir_module.match(r"^\d{1,3}-\d{2,3}(?:學測|分科(?:測驗)?|指考)(.+)$", stem)
     if m:
         rest = m.group(1)
-        # subject: 用 _CEEC_SUBJECTS_SORTED 找最長的開頭 match
-        subject = ""
-        for subj in _CEEC_SUBJECTS_SORTED:
-            if rest.startswith(subj):
-                subject = subj
-                break
-        if subject:
-            file_type = rest[len(subject):]
-        else:
-            file_type = rest
+        subject, match_len = _match_ceec_subject(rest)
+        file_type = rest[match_len:] if subject else rest
         return subject, file_type
 
-    # Pattern 2: 100sat_語音_國文_圖文(序號)
+    # Pattern 2: 100sat_語音_國文_圖文(序號) / 100sat_語音_數學_文字(序號)
+    # tokens: ['100sat', '語音', '國文', '圖文(序號)']
     if "_" in stem:
         tokens = stem.split("_")
         if len(tokens) >= 3 and (tokens[0].endswith("sat") or tokens[0].isdigit()):
-            # tokens: ['100sat', '語音', '國文', '圖文(序號)']
-            subject = "_".join(tokens[1:-1])  # '語音_國文'
-            file_type = tokens[-1]
+            # 跳過 「語音」prefix (視障生試題語音檔)
+            # 真正的 subject 是中間的 tokens
+            content_tokens = tokens[1:-1]  # ['語音', '國文']
+            # 如果中間有「語音」, 把它移成 file_type prefix
+            if content_tokens and content_tokens[0] == "語音":
+                subject_part = "_".join(content_tokens[1:])  # '國文'
+                file_type = "語音_" + tokens[-1]  # '語音_圖文(序號)'
+            else:
+                subject_part = "_".join(content_tokens)
+                file_type = tokens[-1]
+            subject = _normalize_ceec_subject(subject_part)
             return subject, file_type
 
+    # Pattern 4: 104指考生物定稿 (沒有 - 隔開, 只有 num + 指考 + subject + filetype)
+    m = _re_year_dir_module.match(r"^\d{2,3}(?:學測|分科(?:測驗)?|指考)(.+)$", stem)
+    if m:
+        rest = m.group(1)
+        subject, match_len = _match_ceec_subject(rest)
+        file_type = rest[match_len:] if subject else rest
+        return subject, file_type
+
     return ("", "")
+
+
+def _match_ceec_subject(text: str) -> tuple[str, int]:
+    """從 text 開頭找最長的 subject match, 回傳 (normalized_subject, match_length)。
+    match_length 是檔名中 match 的長度 (用來計算 file_type)。
+
+    順序: 先試所有候選 (短名 + 長名) 找最長的 match, 再 normalize 成短名。
+    避免「公民」先於「公民與社會」 match (兩個都包含「公民」開頭)
+
+    例:
+      '數學甲選擇題答案' → match '數學甲' (len=3) → normalize '數甲'
+      '公民試卷定稿' → match '公民' (len=2) → normalize '公民與社會'
+      '公民與社會試卷定稿' → match '公民與社會' (len=5) → normalize '公民與社會'
+      '國語文綜合能力測驗答案' → match '國語文綜合能力測驗' (len=8) → normalize '國綜'
+    """
+    # 建立完整候選清單: (原始名, 顯示名) 對照
+    candidates = []
+    # 短名清單 (已 normalize)
+    for subj in _CEEC_SUBJECTS:
+        candidates.append((subj, subj))  # 原始名 == 顯示名
+    # 長名 → 短名
+    for long_name, short_name in _CEEC_SUBJECT_NORMALIZE.items():
+        candidates.append((long_name, short_name))
+
+    # 找最長的 match
+    best_match = ""
+    best_subj = ""
+    for raw_name, subj in candidates:
+        if len(raw_name) > len(best_match) and text.startswith(raw_name):
+            best_match = raw_name
+            best_subj = subj
+
+    return best_subj, len(best_match)
+
+
+def _normalize_ceec_subject(subj: str) -> str:
+    """單個 subject 名稱 normalize (長名 → 短名)"""
+    return _CEEC_SUBJECT_NORMALIZE.get(subj, subj)
 
 
 def _scan_pdf_tree(root: Path) -> list[dict]:
