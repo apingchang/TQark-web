@@ -560,6 +560,13 @@ async def cap_exam_browser(
 
     【2026-07-24 新】支援 subject / filetype 篩選 (從 dashboard form 送過來)
     """
+    return _render_cap_exam_results(request, user, year, subject, filetype)
+
+
+def _render_cap_exam_results(request, user, year, subject, filetype):
+    """
+    內部 helper: 渲染 cap_exam.html 結果。可由 cap_exam_browser 或 /ui/search (grade=會考) 呼。
+    """
     items = _scan_pdf_tree(CAP_DIR)
 
     # Apply subject/filetype filters
@@ -639,6 +646,13 @@ async def ceec_exam_browser(
     公開頁面 (metadata),下載要登入。
 
     【2026-07-24 新】支援 subject / filetype 篩選 (從 dashboard form 送過來)
+    """
+    return _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
+
+
+def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype):
+    """
+    內部 helper: 渲染 ceec_exam.html 結果。可由 ceec_exam_browser 或 /ui/search (grade=大學入學考) 呼。
     """
     items = _scan_pdf_tree(CEEC_DIR)
 
@@ -1038,13 +1052,16 @@ async def ui_search_post(
     db: AsyncSession = Depends(get_db),
 ):
     """Form submit(dashboard 的 search form)"""
-    # 【2026-07-24 新】統一考試 filter: 「會考」「大學入學考」 → 導向對應 archive page
+    # 【2026-07-24 改】統一考試 filter: 「會考」「大學入學考」 → render 對應 archive 結果
+    #   不跳走、保留 filter (subject / year), user 看到的是「考古題 + 答案」清單
     if grade == "會考":
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/ui/cap-exam", status_code=303)
+        year = int(school_year) if school_year and school_year.isdigit() else None
+        filetype = daan if daan and daan in ("yes", "no") else None  # 沒意義但保留 URL
+        return _render_cap_exam_results(request, user, year, subject, filetype)
     if grade == "大學入學考":
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/ui/ceec-exam", status_code=303)
+        year = int(school_year) if school_year and school_year.isdigit() else None
+        filetype = daan if daan and daan in ("yes", "no") else None
+        return _render_ceec_exam_results(request, user, None, year, subject, filetype)
 
     return await _render_search_results(
         request, user, db,
@@ -1071,13 +1088,15 @@ async def ui_search_get(
     db: AsyncSession = Depends(get_db),
 ):
     """Page 切換(分頁按鈕 → querystring)"""
-    # 【2026-07-24 新】統一考試 filter: 「會考」「大學入學考」 → 導向對應 archive page
+    # 【2026-07-24 改】統一考試 filter: 「會考」「大學入學考」 → render 對應 archive 結果
     if grade == "會考":
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/ui/cap-exam", status_code=303)
+        year = int(school_year) if school_year and school_year.isdigit() else None
+        filetype = daan if daan and daan in ("yes", "no") else None
+        return _render_cap_exam_results(request, user, year, subject, filetype)
     if grade == "大學入學考":
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/ui/ceec-exam", status_code=303)
+        year = int(school_year) if school_year and school_year.isdigit() else None
+        filetype = daan if daan and daan in ("yes", "no") else None
+        return _render_ceec_exam_results(request, user, None, year, subject, filetype)
 
     return await _render_search_results(
         request, user, db,

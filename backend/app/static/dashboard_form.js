@@ -161,8 +161,10 @@ function setModeCap() {
     hideEl(daanCol);       disableIn(daanCol);
     showEl(yearCol);       enableIn(yearCol);  // 學年保留 (CAP filter by year)
 
-    form.action = "/ui/cap-exam";
-    submitBtn.textContent = "📙 前往 歷屆會考 (CAP)";
+    // 【2026-07-24 改】全部 form 都 submit 到 /ui/search
+    //   後端根據 grade=會考 自動 render cap_exam.html 結果 (filter by subject + year)
+    form.action = "/ui/search";
+    submitBtn.textContent = "🔍 搜尋 歷屆會考";
     submitBtn.className = "btn btn-warning mt-3";
 }
 
@@ -178,8 +180,10 @@ function setModeCeec() {
     hideEl(daanCol);       disableIn(daanCol);
     showEl(yearCol);       enableIn(yearCol);  // 學年保留 (CEEC filter by year)
 
-    form.action = "/ui/ceec-exam";
-    submitBtn.textContent = "📕 前往 歷屆大學入學考 (CEEC)";
+    // 【2026-07-24 改】全部 form 都 submit 到 /ui/search
+    //   後端根據 grade=大學入學考 自動 render ceec_exam.html 結果
+    form.action = "/ui/search";
+    submitBtn.textContent = "🔍 搜尋 歷屆大學入學考";
     submitBtn.className = "btn btn-warning mt-3";
 }
 

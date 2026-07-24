@@ -1,13 +1,29 @@
 {% extends "base.html" %}
-{% block title %}歷屆國中教育會考 - TQark{% endblock %}
+{% block title %}
+{% if selected_year or selected_subject %}搜尋結果 - 歷屆會考 - TQark{% else %}歷屆國中教育會考 - TQark{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-  <h1 class="mb-3">📚 歷屆國中教育會考</h1>
+  <h1 class="mb-3">
+    {% if selected_year or selected_subject %}
+      🔍 搜尋結果 - 歷屆會考
+    {% else %}
+      📚 歷屆國中教育會考
+    {% endif %}
+  </h1>
+  {% if selected_year or selected_subject %}
+  <p class="text-muted">
+    {% if selected_subject %}科目: <span class="badge bg-warning text-dark">{{ selected_subject }}</span>{% endif %}
+    {% if selected_year %}學年: <span class="badge bg-success">{{ selected_year }}</span>{% endif %}
+    ｜ <a href="/ui/cap-exam">清除篩選</a>
+  </p>
+  {% else %}
   <p class="text-muted">
     來源: <a href="https://cap.rcpet.edu.tw/examination.html" target="_blank">RCPET 國立臺灣師範大學心理與教育測驗研究發展中心</a>
     ｜ 公開、免登入、無限流。
   </p>
+  {% endif %}
 
   <div class="row mb-3">
     <div class="col-md-12">
