@@ -380,6 +380,67 @@ CAP_DIR = Path("/mnt/my_book/考題收集/cap_exam")
 CEEC_DIR = Path("/mnt/my_book/考題收集/ceec")
 
 
+# 【2026-07-24 新】CEEC filename parser helpers
+import re as _re_year_dir_module
+_re_year_dir = _re_year_dir_module.compile(r"^(\d{2,3})年?$")
+
+# 學測/分科常見學科清單 (用來從 filename 拆 subject)
+_CEEC_SUBJECTS = (
+    # 學測 (5 主科)
+    "國文", "英文", "數學", "社會", "自然",
+    # 學測 (新制)
+    "國綜", "國寫", "數a", "數b",
+    "國語文綜合能力測驗", "國語文寫作能力測驗", "數學a", "數學b",
+    # 分科
+    "數學甲", "數甲", "數學乙", "數乙",
+    "物理", "化學", "生物",
+    "歷史", "地理", "公民與社會", "公民",
+)
+# 排序: 越長的越先 match (避免 "數學" 比 "數學甲" 先 match)
+_CEEC_SUBJECTS_SORTED = sorted(set(_CEEC_SUBJECTS), key=lambda s: -len(s))
+
+
+def _parse_ceec_filename(name: str) -> tuple[str, str]:
+    """
+    從 CEEC filename 解析 subject + file_type。
+    例:
+      '01-100學測國文試卷定稿.pdf' → ('國文', '試卷定稿')
+      '100sat_語音_國文_圖文(序號).pdf' → ('語音_國文', '圖文(序號)')
+      '01-100指考國文選擇題答案-0712.pdf' → ('國文', '選擇題答案-0712')
+    回傳 (subject, file_type) 任一失敗回 ("", "")
+    """
+    # 拿掉 .pdf
+    stem = name[:-4] if name.endswith(".pdf") else name
+
+    # Pattern 1: 01-100學測國文試卷定稿 / 01-100指考數甲選擇(填)題答案-0712
+    # group 1: rest after "<num>-<year><type>"
+    m = _re_year_dir_module.match(r"^\d{2}-\d{2,3}(?:學測|分科(?:測驗)?|指考)(.+)$", stem)
+    if m:
+        rest = m.group(1)
+        # subject: 用 _CEEC_SUBJECTS_SORTED 找最長的開頭 match
+        subject = ""
+        for subj in _CEEC_SUBJECTS_SORTED:
+            if rest.startswith(subj):
+                subject = subj
+                break
+        if subject:
+            file_type = rest[len(subject):]
+        else:
+            file_type = rest
+        return subject, file_type
+
+    # Pattern 2: 100sat_語音_國文_圖文(序號)
+    if "_" in stem:
+        tokens = stem.split("_")
+        if len(tokens) >= 3 and (tokens[0].endswith("sat") or tokens[0].isdigit()):
+            # tokens: ['100sat', '語音', '國文', '圖文(序號)']
+            subject = "_".join(tokens[1:-1])  # '語音_國文'
+            file_type = tokens[-1]
+            return subject, file_type
+
+    return ("", "")
+
+
 def _scan_pdf_tree(root: Path) -> list[dict]:
     """
     掃描 PDF 樹狀結構,回傳分組資料。
@@ -387,6 +448,10 @@ def _scan_pdf_tree(root: Path) -> list[dict]:
 
     【2026-07-24】過濾 _generic 資料夾 - generic instruction files
     沒年份資訊,不適合顯示在年份 filter 列表。
+
+    【2026-07-24 改】year 從路徑 parts[1] 拿 ("100年" → 100), 不再依賴
+    filename regex - 之前 "01-100學測國文試卷.pdf" 這種格式 regex 抓不到
+    year 結果 UI 顯示一堆「學測 0 年 (685 個檔案)」讓 user 疑惑。
     """
     items = []
     if not root.exists():
@@ -402,18 +467,17 @@ def _scan_pdf_tree(root: Path) -> list[dict]:
         rel = pdf.relative_to(root)
         parts = rel.parts
         exam_type = parts[0] if len(parts) >= 3 else ""
-        # 從 filename 解析 year/subject/file_type
-        # 例: 115_國綜_試題_01-115學測國綜試卷.pdf
-        import re as _re
-        m = _re.match(r"^(\d+)_([^_]+)_([^_]+)_", pdf.name)
-        if m:
-            year = int(m.group(1))
-            subject = m.group(2)
-            file_type = m.group(3)
-        else:
-            year = 0
-            subject = ""
-            file_type = ""
+        # 【2026-07-24 改】year 從路徑拿
+        year = 0
+        if len(parts) >= 3:
+            year_dir = parts[1]  # "100年" or "115年"
+            year_m = _re_year_dir.match(year_dir)
+            if year_m:
+                year = int(year_m.group(1))
+        # 從 filename 解析 subject/file_type
+        # 例: 01-100學測國文試卷定稿.pdf → subject=國文, file_type=試卷
+        # 例: 100sat_語音_國文_圖文(序號).pdf → subject=語音國文, file_type=圖文
+        subject, file_type = _parse_ceec_filename(pdf.name)
 
         items.append({
             "path": str(pdf),
