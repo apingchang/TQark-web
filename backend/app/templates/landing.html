@@ -174,25 +174,43 @@
         border: 1px solid #dee2e6;
         border-radius: 0.5rem;
         min-height: 80px;
+        width: 100%;
+        margin: 0 0.5rem 1rem 0.5rem;
+        /* 內部內容限制 max-width, 但背景 100% */
+        box-sizing: border-box;
+        padding: 1rem 0.5rem;
     }
     .banner-bottom {
         background: #fff;
         border: 1px dashed #adb5bd;
         border-radius: 0.5rem;
         min-height: 60px;
+        width: 100%;
+        margin: 1rem 0.5rem 0 0.5rem;
+        box-sizing: border-box;
+        padding: 0.75rem 0.5rem;
     }
 
-    /* 【2026-07-25 改】Dynamic CSS Grid layout
+    /* 【2026-07-25 改】Dynamic CSS Grid layout + full-width
+       - 移除 max-width / margin: auto 讓 main-grid 真的填滿 viewport
+       - Override base.html 的 .container-narrow (720px) 為 100%
+       - Banner 跟 AdSense 自然 100% width (block element default)
        - 大螢幕 (≥ 1400px): 左 200px / 中 1fr / 右 240px
        - 中大螢幕 (≥ 992px): 左 180px / 中 1fr / 右 220px
        - 中螢幕 (768-991px): 左 160px / 中 1fr / 右 200px
        - 小螢幕 (< 768px): 垂直堆疊 (mobile) */
+
+    /* 【2026-07-25 改】Override base.html container-narrow 720px 限制 */
+    main.container.container-narrow {
+        max-width: 100% !important;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
     .main-grid {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 1rem;
-        max-width: 1600px;
-        margin: 0 auto;
+        gap: 0.75rem;
         padding: 0 0.5rem;
     }
 
