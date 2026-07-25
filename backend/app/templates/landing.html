@@ -117,7 +117,7 @@
     <aside class="right-sidebar">
         <div class="card sidebar-card">
             <div class="card-header bg-white">
-                <strong>ℹ️ 平台考題數量</strong>
+                <strong>ℹ️ 平台資訊</strong>
             </div>
             <div class="card-body small">
                 <ul class="list-unstyled mb-0">
@@ -241,10 +241,11 @@
         pointer-events: none;
     }
     .news-card .news-body {
-        min-height: 280px;
+        /* Remove fixed min-height; let content + 2-3 items flow naturally */
+        padding: 0.75rem 1rem;
     }
     .news-item {
-        padding: 8px 0;
+        padding: 6px 0;
         border-bottom: 1px dashed #eee;
     }
     .news-item:last-child {
@@ -254,6 +255,7 @@
         font-weight: 600;
         color: #0d6efd;
         text-decoration: none;
+        line-height: 1.35;
     }
     .news-item .news-title:hover {
         text-decoration: underline;
@@ -261,16 +263,17 @@
     .news-item .news-summary {
         color: #555;
         font-size: 0.875rem;
-        margin-top: 4px;
+        margin-top: 2px;
+        line-height: 1.4;
         display: -webkit-box;
-        -webkit-line-clamp: 3;
+        -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
     .news-item .news-meta {
         font-size: 0.75rem;
         color: #888;
-        margin-top: 4px;
+        margin-top: 2px;
     }
 </style>
 <script src="/static/landing_news.js?v=2026-07-25"></script>
