@@ -609,19 +609,49 @@ def _normalize_ceec_subject(subj: str) -> str:
 # 要 9 秒、323 個 CAP 要 2 秒。 dashboard 每次 request 會呼 4-6 次 (CAP/CEEC 各 2-3 次)
 # 結果 user 看到 18-36 秒 page load。
 #
-# 解法: in-memory cache + TTL + background refresh
+# 解法: in-memory cache + TTL + background refresh + invalidation signal
 #   - cache hit (TTL 內): 瞬間 return
 #   - stale (TTL 外): return stale + background thread refresh
-#   - 10 分鐘 TTL: archive cron 加新檔後 10 分鐘內看不到 (可接受, 因為 subject filter 對 user 主動加檔不敏感)
+#   - invalidate signal: archive cron 在 state/_pdf_tree_cache.invalidate touch
+#     下次 request 看到 signal 比 cache 新 → invalidate + re-scan
 #
 # 不需要建 db: 全部 metadata 只 ~300KB in-memory
 _pdf_tree_cache: dict[str, tuple[float, list[dict]]] = {}
 _pdf_tree_lock = threading.Lock()
+_scan_in_progress: dict[str, threading.Lock] = {}
 _PDF_TREE_TTL = 600  # 10 minutes
+_PDF_TREE_INVALIDATE_SIGNAL = Path("/mnt/my_book/考題收集/state/_pdf_tree_cache.invalidate")
+
+
+def _check_invalidate_signal(root: Path) -> bool:
+    """【2026-07-24 新】檢查 archive cron 是否寫了 invalidate signal。
+    如果 signal mtime > cache ts → cache stale, 需 re-scan
+    """
+    cached = _pdf_tree_cache.get(str(root))
+    if cached is None:
+        return False
+    cached_ts = cached[0]
+    try:
+        if not _PDF_TREE_INVALIDATE_SIGNAL.exists():
+            return False
+        sig_mtime = _PDF_TREE_INVALIDATE_SIGNAL.stat().st_mtime
+        return sig_mtime > cached_ts
+    except OSError:
+        return False
 
 
 def _refresh_pdf_tree_bg(root_str: str, root: Path):
     """Background refresh, non-blocking"""
+    items = _do_scan_pdf_tree(root)
+
+
+def _refresh_pdf_tree_bg(root_str: str, root: Path):
+    """Background refresh, non-blocking"""
+    with _pdf_tree_lock:
+        # 避免重複 scan - 如果另一個 thread 已經在 scan 或 cache 已更新, 跳過
+        cached = _pdf_tree_cache.get(root_str)
+        if cached is not None and _time.time() - cached[0] < 5:  # 5 秒內有人更新過
+            return
     items = _do_scan_pdf_tree(root)
     with _pdf_tree_lock:
         _pdf_tree_cache[root_str] = (_time.time(), items)
@@ -686,10 +716,12 @@ def _scan_pdf_tree(root: Path) -> list[dict]:
     filename regex - 之前 "01-100學測國文試卷.pdf" 這種格式 regex 抓不到
     year 結果 UI 顯示一堆「學測 0 年 (685 個檔案)」讓 user 疑惑。
 
-    【2026-07-24】in-memory cache + TTL + background refresh
+    【2026-07-24】in-memory cache + TTL + background refresh + invalidation
     避免每次 request 都 rglob 一次 (CEEC 1490 PDFs 要 9 秒)
     - TTL 10 分鐘, stale 時 return 舊 cache + background thread refresh
     - cold start (cache 空) 時同步 scan, 之後的 request 都是瞬時
+    - invalidation: archive cron touch state/_pdf_tree_cache.invalidate
+      下次 request 看到 signal 比 cache 新 → invalidate + re-scan
     """
     root_str = str(root)
     now = _time.time()
@@ -697,17 +729,30 @@ def _scan_pdf_tree(root: Path) -> list[dict]:
     cached = _pdf_tree_cache.get(root_str)
     if cached is not None:
         cached_ts, cached_items = cached
-        if now - cached_ts < _PDF_TREE_TTL:
+        # 【2026-07-24 新】invalidation signal check (越過 TTL/8 分鐘)
+        if _check_invalidate_signal(root):
+            pass  # 往下走 invalidate 邏輯
+        elif now - cached_ts < _PDF_TREE_TTL:
             return cached_items  # Fresh cache hit
-        # Stale: return old + background refresh
-        import threading as _threading
-        _threading.Thread(target=_refresh_pdf_tree_bg, args=(root_str, root), daemon=True).start()
-        return cached_items
-
-    # Cold start: synchronous scan
-    items = _do_scan_pdf_tree(root)
-    with _pdf_tree_lock:
-        _pdf_tree_cache[root_str] = (_time.time(), items)
+        else:
+            # Stale (TTL 外, 無 invalidate): return old + background refresh
+            import threading as _threading
+            _threading.Thread(target=_refresh_pdf_tree_bg, args=(root_str, root), daemon=True).start()
+            return cached_items
+    # Invalidate 或 cache miss: 同步 scan
+    # 用 per-root scan lock 避免 concurrent scan (warmup thread + first user request 同時 scan)
+    scan_lock = _scan_in_progress.setdefault(root_str, threading.Lock())
+    with scan_lock:
+        # Double-check: 可能另一個 thread 剛剛完成 scan
+        with _pdf_tree_lock:
+            cached = _pdf_tree_cache.get(root_str)
+            if cached is not None:
+                cached_ts, cached_items = cached
+                if not _check_invalidate_signal(root) and _time.time() - cached_ts < _PDF_TREE_TTL:
+                    return cached_items
+        items = _do_scan_pdf_tree(root)
+        with _pdf_tree_lock:
+            _pdf_tree_cache[root_str] = (_time.time(), items)
     return items
 
 
@@ -1505,3 +1550,29 @@ async def ui_download(
         media_type=content_type,
         headers=headers,
     )
+
+
+# === Cache warm-up on module import (2026-07-24) ======================
+# Service 啟動時 background thread 先 scan CAP + CEEC 各一次
+# 避免 user 第一個 request 慢 (cold start 9 秒)
+# module import 結束時 background thread 開始跑, 完全不阻塞 startup
+def _warmup_pdf_tree_cache():
+    import logging
+    import sys
+    log = logging.getLogger("tqark.warmup")
+    # 確保 log 會寫到 stdout (systemd journal)
+    if not log.handlers:
+        h = logging.StreamHandler(sys.stdout)
+        h.setLevel(logging.INFO)
+        log.addHandler(h)
+    try:
+        log.info("Cache warm-up: scanning CAP_DIR...")
+        _scan_pdf_tree(CAP_DIR)
+        log.info("Cache warm-up: scanning CEEC_DIR...")
+        _scan_pdf_tree(CEEC_DIR)
+        log.info("Cache warm-up: done")
+    except Exception as e:
+        log.warning(f"Cache warm-up failed: {e}")
+
+import threading as _warmup_threading
+_warmup_threading.Thread(target=_warmup_pdf_tree_cache, daemon=True).start()

@@ -163,6 +163,13 @@ def main():
     }
     save_status(status)
 
+    # 【2026-07-24 新】touch invalidate signal, 讓 tqark-web 下次 request 重新 scan
+    if saved > 0:
+        invalidate_signal = STATE_DIR / "_pdf_tree_cache.invalidate"
+        invalidate_signal.parent.mkdir(parents=True, exist_ok=True)
+        invalidate_signal.touch()
+        print(f"  Touched invalidate signal: {invalidate_signal}")
+
     print(f"\n=== Done ===")
     print(f"  Saved: {saved}")
     print(f"  Skipped: {skipped}")

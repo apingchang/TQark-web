@@ -600,6 +600,14 @@ async def main():
     STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATUS_FILE.write_text(json.dumps(status, indent=2, ensure_ascii=False))
 
+    # 【2026-07-24 新】touch invalidate signal, 讓 tqark-web 下次 request 重新 scan
+    # 不需要 TTL 等 10 分鐘才能看到新加的檔
+    if saved_count > 0:
+        invalidate_signal = STATE_DIR / "_pdf_tree_cache.invalidate"
+        invalidate_signal.parent.mkdir(parents=True, exist_ok=True)
+        invalidate_signal.touch()
+        log.info(f"  Touched invalidate signal: {invalidate_signal}")
+
     log.info(f"=== Archive task done (saved={saved_count}, total={len(collected_set)}) ===")
 
 
