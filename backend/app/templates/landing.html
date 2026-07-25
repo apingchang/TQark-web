@@ -212,6 +212,8 @@
         grid-template-columns: 1fr;
         gap: 0.75rem;
         padding: 0 0.5rem;
+        /* 【2026-07-25】給 center-console 撐出高度 (banner ~80px + footer ~70px + gap) */
+        min-height: calc(100vh - 200px);
     }
 
     @media (min-width: 768px) {
@@ -240,8 +242,28 @@
         opacity: 0.6;
         pointer-events: none;
     }
+    /* 【2026-07-25 改】Equal-height news cards
+       - center-console 用 grid-template-rows: 1fr 1fr 平均分配剩餘高度
+       - 每個 news-card 內部 flex column, body scroll if overflow
+       - 視窗變矮時, 兩個 card 各佔 50%, 不會有一個被推到看不見 */
+    .center-console {
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        gap: 1rem;
+        min-height: 0;
+    }
+    .news-card {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+    .news-card .card-body {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        min-height: 0;
+    }
     .news-card .news-body {
-        /* Remove fixed min-height; let content + 2-3 items flow naturally */
         padding: 0.75rem 1rem;
     }
     .news-item {
