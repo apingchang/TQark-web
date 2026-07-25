@@ -776,26 +776,33 @@ async def cap_exam_browser(
 def _render_cap_exam_results(request, user, year, subject, filetype):
     """
     內部 helper: 渲染 cap_exam.html 結果。可由 cap_exam_browser 或 /ui/search (grade=會考) 呼。
+    【2026-07-25 改】改成單一 flat list, 排序: 年度 DESC → 科目 → 類型 → 檔名
     """
     # 取 raw items, 做 filter (subject + filetype + year)
     # 【2026-07-24 改】一個 call _scan_pdf_tree() 就好, 避免 repeated scan
     all_items = _scan_pdf_tree(CAP_DIR)
 
-    # Apply subject/filetype filters
+    # Apply subject/filetype/year filters
     items = all_items
     if subject:
         items = [i for i in items if i["subject"] == subject]
     if filetype:
         items = [i for i in items if filetype in i["file_type"]]
-
-    # Group by year
-    by_year: dict[int, list] = {}
-    for item in items:
-        by_year.setdefault(item["year"], []).append(item)
-
-    # Apply year filter
     if year is not None:
-        by_year = {year: by_year.get(year, [])}
+        items = [i for i in items if i["year"] == year]
+
+    # Sort: year DESC → subject → file_type → filename
+    # Empty subject/file_type 排後面 (用 (is_empty, value) tuple)
+    def _sort_key(i):
+        subj = i["subject"] or ""
+        ftype = i["file_type"] or ""
+        return (
+            -(i["year"] or 0),
+            (1, "") if subj == "" else (0, subj),  # empty 排後面
+            (1, "") if ftype == "" else (0, ftype),
+            i["name"] or "",
+        )
+    items = sorted(items, key=_sort_key)
 
     # Build year/subject lists (for filter UI) - 用未 filter 的 all_items
     all_years = sorted(set(i["year"] for i in all_items if i["year"] > 0), reverse=True)
@@ -806,7 +813,7 @@ def _render_cap_exam_results(request, user, year, subject, filetype):
         {
             **_common_ctx(user),
             "request": request,
-            "by_year": dict(sorted(by_year.items(), reverse=True)),
+            "items": items,
             "all_years": all_years,
             "all_subjects": all_subjects,
             "selected_year": year,
@@ -865,31 +872,35 @@ async def ceec_exam_browser(
 def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype):
     """
     內部 helper: 渲染 ceec_exam.html 結果。可由 ceec_exam_browser 或 /ui/search (grade=大學入學考) 呼。
+    【2026-07-25 改】改成單一 flat list, 排序: 年度 DESC → 考試類型 → 科目 → 類型 → 檔名
     """
     # 【2026-07-24 改】一次取 all_items, 用全量建 filter buttons (受 cache 保護, 0.02s)
     all_items = _scan_pdf_tree(CEEC_DIR)
 
-    # Apply subject/filetype filters
+    # Apply subject/filetype/exam_type/year filters
     items = all_items
+    if exam_type:
+        items = [i for i in items if i["exam_type"] == exam_type]
+    if year is not None:
+        items = [i for i in items if i["year"] == year]
     if subject:
         items = [i for i in items if i["subject"] == subject]
     if filetype:
         items = [i for i in items if filetype in i["file_type"]]
 
-    # Group by (exam_type, year)
-    grouped: dict[tuple, list] = {}
-    for item in items:
-        key = (item["exam_type"], item["year"])
-        grouped.setdefault(key, []).append(item)
-
-    # Apply filters
-    if exam_type is not None:
-        grouped = {k: v for k, v in grouped.items() if k[0] == exam_type}
-    if year is not None:
-        grouped = {k: v for k, v in grouped.items() if k[1] == year}
-
-    # Sorted
-    grouped = dict(sorted(grouped.items(), reverse=True))
+    # Sort: year DESC → exam_type → subject → file_type → filename
+    # Empty subject/file_type 排後面
+    def _sort_key_ceec(i):
+        subj = i["subject"] or ""
+        ftype = i["file_type"] or ""
+        return (
+            -(i["year"] or 0),
+            i["exam_type"] or "",
+            (1, "") if subj == "" else (0, subj),
+            (1, "") if ftype == "" else (0, ftype),
+            i["name"] or "",
+        )
+    items = sorted(items, key=_sort_key_ceec)
 
     # Build filter lists (from all_items, 不受 subject filter 影響)
     all_exam_types = sorted(set(i["exam_type"] for i in all_items if i["exam_type"]))
@@ -901,7 +912,7 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
         {
             **_common_ctx(user),
             "request": request,
-            "grouped": grouped,
+            "items": items,
             "all_exam_types": all_exam_types,
             "all_years": all_years,
             "all_subjects": all_subjects,

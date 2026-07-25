@@ -63,45 +63,44 @@
   </div>
   {% endif %}
 
-  {% if grouped %}
-    {% for (exam_type, year), items in grouped.items() %}
-      <div class="card mb-3">
-        <div class="card-header bg-light">
-          <strong>{{ exam_type }} {{ year }} 年</strong>
-          <span class="text-muted">({{ items | length }} 個檔案)</span>
-        </div>
-        <div class="card-body p-0">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
+  {% if items %}
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 8%;">年度</th>
+              <th style="width: 12%;">科目</th>
+              <th style="width: 12%;">類型</th>
+              <th>檔名</th>
+              <th style="width: 10%;">大小</th>
+              <th style="width: 10%;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
               <tr>
-                <th style="width: 12%;">科目</th>
-                <th style="width: 12%;">類型</th>
-                <th>檔名</th>
-                <th style="width: 12%;">大小</th>
-                <th style="width: 10%;">操作</th>
+                <td>
+                  <strong>{{ item.year or '-' }}</strong>
+                  {% if item.exam_type %}<br><small class="text-muted">{{ item.exam_type }}</small>{% endif %}
+                </td>
+                <td>{{ item.subject or '-' }}</td>
+                <td>{{ item.file_type or '-' }}</td>
+                <td><code class="small">{{ item.name }}</code></td>
+                <td><small>{{ (item.size / 1024) | round(0) }} KB</small></td>
+                <td>
+                  {% if user and user.permission is defined and user.permission <= 7 %}
+                    <a href="/ui/ceec-exam/download/{{ item.rel }}" class="btn btn-sm btn-tiffany" download>下載</a>
+                  {% else %}
+                    <small class="text-muted">需登入</small>
+                  {% endif %}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {% for item in items %}
-                <tr>
-                  <td>{{ item.subject or '-' }}</td>
-                  <td>{{ item.file_type or '-' }}</td>
-                  <td><code class="small">{{ item.name }}</code></td>
-                  <td><small>{{ (item.size / 1024) | round(0) }} KB</small></td>
-                  <td>
-                    {% if user and user.permission is defined and user.permission <= 7 %}
-                      <a href="/ui/ceec-exam/download/{{ item.rel }}" class="btn btn-sm btn-tiffany" download>下載</a>
-                    {% else %}
-                      <small class="text-muted">需登入</small>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-    {% endfor %}
+    </div>
   {% else %}
     <div class="alert alert-warning">
       <strong>還沒有檔案</strong>
