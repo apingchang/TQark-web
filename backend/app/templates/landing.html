@@ -31,49 +31,8 @@
 
     {# 中央: console 分上下 2 部 + 30 秒輪播 #}
     <section class="center-console">
-        {# 上半: 靈覓今日新聞摘要 #}
-        <div class="card mb-3 news-card" id="lingmianCard" data-source="lingmian">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <strong>📰 靈覓今日新聞摘要</strong>
-                <div class="d-flex align-items-center gap-3 ms-auto">
-                    <small class="text-muted" id="lingmianMeta">
-                        {{ news.lingmian_date or '—' }}
-                        · {{ news.lingmian|length }} 則
-                    </small>
-                    <small class="text-muted">
-                        <span class="lingmian-page-indicator">1</span> / <span class="lingmian-total-pages">{{ (news.lingmian|length + 2) // 3 }}</span> 頁
-                        · 每 30 秒自動換頁
-                    </small>
-                    <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-outline-secondary lingmian-prev" type="button">‹</button>
-                        <button class="btn btn-outline-secondary lingmian-next" type="button">›</button>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body news-body" id="lingmianBody" data-page="0" data-per-page="3">
-                {# 第一頁初始顯示 (server render) #}
-                {% for item in news.lingmian[:3] %}
-                <div class="news-item">
-                    <a href="{{ item.url }}" target="_blank" rel="noopener" class="news-title">
-                        🔶 {{ item.title[:120] }}{% if item.title|length > 120 %}…{% endif %}
-                    </a>
-                    {% if item.summary %}
-                    <div class="news-summary">{{ item.summary[:280] }}{% if item.summary|length > 280 %}…{% endif %}</div>
-                    {% endif %}
-                    <div class="news-meta">
-                        {% if item.category %}<span class="badge bg-light text-dark">{{ item.category }}</span>{% endif %}
-                        {% if item.source %}<span class="ms-2">{{ item.source }}</span>{% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-                {% if not news.lingmian %}
-                <p class="text-muted text-center my-4">尚無今日新聞摘要</p>
-                {% endif %}
-            </div>
-        </div>
-
-        {# 下半: 懂王新聞摘要 #}
-        <div class="card news-card" id="trumpCard" data-source="trump">
+        {# 上半: 懂王新聞摘要 (30 秒輪播, primary driver) #}
+        <div class="card mb-3 news-card" id="trumpCard" data-source="trump">
             <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong>🇺🇸 懂王新聞摘要</strong>
                 <div class="d-flex align-items-center gap-3 ms-auto">
@@ -92,6 +51,7 @@
                 </div>
             </div>
             <div class="card-body news-body" id="trumpBody" data-page="0" data-per-page="3">
+                {# 第一頁初始顯示 (server render) #}
                 {% for item in news.trump[:3] %}
                 <div class="news-item">
                     <a href="{{ item.url }}" target="_blank" rel="noopener" class="news-title">
@@ -107,6 +67,46 @@
                 </div>
                 {% endfor %}
                 {% if not news.trump %}
+                <p class="text-muted text-center my-4">尚無今日新聞摘要</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# 下半: 靈覓今日新聞摘要 (延遲 5 秒切換輪播 - 等上半部轉完) #}
+        <div class="card news-card" id="lingmianCard" data-source="lingmian">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <strong>📰 靈覓今日新聞摘要</strong>
+                <div class="d-flex align-items-center gap-3 ms-auto">
+                    <small class="text-muted" id="lingmianMeta">
+                        {{ news.lingmian_date or '—' }}
+                        · {{ news.lingmian|length }} 則
+                    </small>
+                    <small class="text-muted">
+                        <span class="lingmian-page-indicator">1</span> / <span class="lingmian-total-pages">{{ (news.lingmian|length + 2) // 3 }}</span> 頁
+                        · 延遲 5 秒切換輪播
+                    </small>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-secondary lingmian-prev" type="button">‹</button>
+                        <button class="btn btn-outline-secondary lingmian-next" type="button">›</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body news-body" id="lingmianBody" data-page="0" data-per-page="3">
+                {% for item in news.lingmian[:3] %}
+                <div class="news-item">
+                    <a href="{{ item.url }}" target="_blank" rel="noopener" class="news-title">
+                        🔶 {{ item.title[:120] }}{% if item.title|length > 120 %}…{% endif %}
+                    </a>
+                    {% if item.summary %}
+                    <div class="news-summary">{{ item.summary[:280] }}{% if item.summary|length > 280 %}…{% endif %}</div>
+                    {% endif %}
+                    <div class="news-meta">
+                        {% if item.category %}<span class="badge bg-light text-dark">{{ item.category }}</span>{% endif %}
+                        {% if item.source %}<span class="ms-2">{{ item.source }}</span>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% if not news.lingmian %}
                 <p class="text-muted text-center my-4">尚無今日新聞摘要</p>
                 {% endif %}
             </div>

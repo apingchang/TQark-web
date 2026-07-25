@@ -1,7 +1,13 @@
 // =========================================================
-// 首頁新聞摘要輪播 (靈覓 / 懂王, 各 30 秒換頁)
+// 首頁新聞摘要輪播 (懂王/靈覓)
+// 【2026-07-26 William 改】
+// - 上半 (懂王): 30 秒輪播
+// - 下半 (靈覓): 等上半部 5 秒 才切換輪播的次頁
+//   → 5s initial delay, then 30s rotation (offset 5s from trump)
 // =========================================================
-const NEWS_ROTATE_MS = 30000;
+const TRUMP_ROTATE_MS = 30000;     // 上半 (懂王) 週期
+const LINGMIAN_DELAY_MS = 5000;    // 下半 (靈覓) 起始延遲
+const LINGMIAN_ROTATE_MS = 30000;  // 下半 (靈覓) 週期 (跟 trump 同步, 只是 offset 5s)
 const NEWS_PER_PAGE = 3;
 
 // 從 server 注入的 JSON data 拿 news
@@ -48,7 +54,8 @@ function renderNewsItems(items) {
     `).join('');
 }
 
-function setupSource(sourceId) {
+function setupSource(sourceId, rotateMs, initialDelayMs) {
+    initialDelayMs = initialDelayMs || 0;
     const body = document.getElementById(sourceId + 'Body');
     if (!body) return;
     const allItems = newsData[sourceId] || [];
@@ -79,12 +86,21 @@ function setupSource(sourceId) {
     if (nextBtn) nextBtn.addEventListener('click', next);
     if (prevBtn) prevBtn.addEventListener('click', prev);
 
-    // 30 秒自動輪播
-    setInterval(next, NEWS_ROTATE_MS);
+    // 自動輪播: 起始延遲後啟動週期
+    function startRotation() {
+        setInterval(next, rotateMs);
+    }
+    if (initialDelayMs > 0) {
+        setTimeout(startRotation, initialDelayMs);
+    } else {
+        startRotation();
+    }
 }
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-    setupSource('lingmian');
-    setupSource('trump');
+    // 上半 (懂王): 30 秒輪播, 立即啟動
+    setupSource('trump', TRUMP_ROTATE_MS, 0);
+    // 下半 (靈覓): 30 秒週期, 起始延遲 5 秒
+    setupSource('lingmian', LINGMIAN_ROTATE_MS, LINGMIAN_DELAY_MS);
 });
