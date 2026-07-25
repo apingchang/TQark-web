@@ -204,9 +204,12 @@ async def landing(
     # 5 類 PDF 計數 (cached)
     stats.update(_get_cached_archive_counts())
 
+    # 【2026-07-25 新】讀靈覓/懂王今日新聞 docx → 拆成 entries
+    news = _get_cached_news_summaries()
+
     return templates.TemplateResponse(
         "landing.html",
-        {**_common_ctx(user), "request": request, "stats": stats},
+        {**_common_ctx(user), "request": request, "stats": stats, "news": news},
     )
 
 
@@ -322,6 +325,185 @@ def _scan_archive_counts() -> dict:
         count_elementary + count_junior + count_senior + count_cap + count_ceec
     )
     return result
+
+
+# === News summaries (2026-07-25) =============================
+# 讀靈覓/懂王每日 docx → 拆成 entries (title, summary, url, source, category)
+# Cache 10 分鐘 (docx 每天只生一次, 不用太頻繁 refresh)
+
+_news_cache: dict = {"data": None, "ts": 0.0}
+_news_lock = threading.Lock()
+_NEWS_TTL = 600  # 10 minutes
+
+_NEWS_DIR = Path("/home/aping/.openclaw/workspace/靈覓")
+LINGMIAN_DIR = _NEWS_DIR / "每日新聞文件"
+TRUMP_DIR = _NEWS_DIR / "懂王新聞摘要"
+
+
+def _parse_news_docx(path: Path) -> list[dict]:
+    """讀 docx → 拆成 list of news entries.
+
+    docx 格式 (靈覓 / 懂王都類似):
+      <標題>
+      🔶 <title>
+      摘要：<summary>...
+      連結：<url>
+      來源：<source>
+      標籤：...影響等級：...
+      🔶 <next entry>
+    """
+    import zipfile
+    import re as _re
+
+    if not path.exists():
+        return []
+
+    try:
+        with zipfile.ZipFile(path) as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+    except Exception:
+        return []
+
+    texts = _re.findall(r"<w:t[^>]*>([^<]*)</w:t>", xml)
+    full = "".join(texts)
+
+    # Category: emoji (1-4 codepoints) + space + short text + 下一個 🔶 之前的標題
+    cat_re = _re.compile(
+        r"((?:[\U0001F000-\U0001FFFF\u2600-\u27BF][\U0001F000-\U0001FFFF\u2600-\u27BF\uFE00-\uFE0F]*)\s+[^\n🔶]{2,30})🔶"
+    )
+    cat_positions = [(m.start(), m.group(1).strip()) for m in cat_re.finditer(full)]
+
+    # Entry 切割
+    entry_starts = [m.start() for m in _re.finditer(r"🔶 ", full)]
+    entries = []
+    current_category = "其他"
+    cat_idx = 0
+
+    for i, start in enumerate(entry_starts):
+        end = entry_starts[i + 1] if i + 1 < len(entry_starts) else len(full)
+        chunk = full[start:end]
+
+        # Update category
+        while cat_idx < len(cat_positions) and cat_positions[cat_idx][0] < start:
+            current_category = cat_positions[cat_idx][1]
+            cat_idx += 1
+
+        # Title: between 🔶 and 摘要：
+        parts = _re.split(r"摘要：", chunk, maxsplit=1)
+        if len(parts) < 2:
+            continue
+        title_full = parts[0][len("🔶 "):].strip()
+        for sep in ["標籤：", "影響等級："]:
+            idx = title_full.find(sep)
+            if idx > 0:
+                title_full = title_full[:idx].strip()
+        title = title_full
+        if not title:
+            continue
+
+        rest = parts[1]
+
+        # Summary: between 摘要：(consumed) and 連結：
+        sum_parts = _re.split(r"連結：", rest, maxsplit=1)
+        summary = sum_parts[0].strip()
+        # Strip trailing 來源： / 標籤：
+        for sep in ["來源：", "標籤：", "影響等級："]:
+            idx = summary.find(sep)
+            if idx > 0:
+                summary = summary[:idx].strip()
+        summary = summary[:200]
+
+        if len(sum_parts) < 2:
+            continue
+        after_url = sum_parts[1]
+
+        # URL: until 來源 / 標籤 / 影響等級
+        url_end = _re.search(r"(?:來源|標籤|影響等級)", after_url)
+        if url_end:
+            url = after_url[:url_end.start()].strip()
+        else:
+            url = after_url.strip()
+        if not url:
+            continue
+
+        # Source: between 來源： and 標籤/影響等級
+        source = ""
+        src_parts = _re.split(r"來源：", after_url, maxsplit=1)
+        if len(src_parts) >= 2:
+            after_src = src_parts[1]
+            src_end = _re.search(r"(?:標籤|影響等級|$)", after_src)
+            source = after_src[:src_end.start()].strip() if src_end else after_src.strip()
+
+        entries.append({
+            "category": current_category,
+            "title": title,
+            "summary": summary,
+            "url": url,
+            "source": source,
+        })
+
+    return entries
+
+
+def _get_cached_news_summaries() -> dict:
+    """讀靈覓 / 懂王 今日 docx, 回傳 {lingmian: [...], trump: [...], dates: {...}}.
+
+    Cache 10 分鐘 (docx 每天生成, 太頻繁 refresh 沒意義)
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    tz_taipei = ZoneInfo("Asia/Taipei")
+    today = datetime.now(tz_taipei).strftime("%Y-%m-%d")
+
+    now = _time.time()
+    with _news_lock:
+        if _news_cache["data"] is not None and now - _news_cache["ts"] < _NEWS_TTL:
+            return _news_cache["data"]
+
+    # 靈覓今日 file (取 LINGMIAN_DIR 最新的一個 docx, 命名不一定當天)
+    lingmian_path = None
+    if LINGMIAN_DIR.exists():
+        candidates = sorted(LINGMIAN_DIR.glob("每日新聞摘要_*.docx"), reverse=True)
+        if candidates:
+            lingmian_path = candidates[0]
+    lingmian_entries = _parse_news_docx(lingmian_path) if lingmian_path else []
+
+    # 懂王今日 file
+    trump_path = None
+    if TRUMP_DIR.exists():
+        candidates = sorted(TRUMP_DIR.glob("*_懂王新聞每日摘要.docx"), reverse=True)
+        if candidates:
+            trump_path = candidates[0]
+    trump_entries = _parse_news_docx(trump_path) if trump_path else []
+
+    # 用查到的 file date (從 filename) 作為顯示日期
+    import re as _re_date
+    lingmian_date = today
+    if lingmian_path:
+        m = _re_date.search(r'(\d{4}-\d{2}-\d{2})', lingmian_path.name)
+        if m:
+            lingmian_date = m.group(1)
+    trump_date = today
+    if trump_path:
+        m = _re_date.search(r'(\d{4}-\d{2}-\d{2})', trump_path.name)
+        if m:
+            trump_date = m.group(1)
+
+    data = {
+        "lingmian": lingmian_entries,
+        "trump": trump_entries,
+        "lingmian_date": lingmian_date,
+        "trump_date": trump_date,
+        "lingmian_path": str(lingmian_path) if lingmian_path else None,
+        "trump_path": str(trump_path) if trump_path else None,
+    }
+
+    with _news_lock:
+        _news_cache["data"] = data
+        _news_cache["ts"] = now
+
+    return data
 
 
 @router.get("/dashboard", response_class=HTMLResponse)

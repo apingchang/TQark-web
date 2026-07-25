@@ -1,19 +1,12 @@
 {% extends "base.html" %}
 
 {# 【2026-07-24 改】站名: 三好學習平台 #}
+{# 【2026-07-25 改】中央 console 分上下 2 部: 靈覓今日新聞 + 懂王新聞, 30 秒輪播 #}
 {% block title %}三好學習平台{% endblock %}
 
 {% block content %}
-{# Landing page layout (2026-07-24 重構):
-   - 上方 banner
-   - 左側: 功能 (只有「考題搜尋」)
-   - 中央: 空白 placeholder (之後填公告/活動)
-   - 右側: 平台資訊 (5 類 PDF 計數)
-   - 下方 banner: AdSense placeholder
-#}
 <div class="banner-top text-center py-4 mb-3">
     <h1 class="banner-title m-0">🎓 三好學習平台</h1>
-    {# 【2026-07-24 改】副標題拿掉,只留站名 #}
 </div>
 
 <div class="row g-3 main-grid">
@@ -24,7 +17,6 @@
                 <strong>🧰 功能</strong>
             </div>
             <div class="list-group list-group-flush">
-                {# 【2026-07-24 改】只留「考題搜尋」,歷屆會考 & 大學考移到 search page 篩選 #}
                 <a href="/dashboard"
                    class="list-group-item list-group-item-action {% if user and user.permission and user.permission > 7 %}disabled{% endif %}"
                    {% if user and user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
@@ -37,18 +29,91 @@
         </div>
     </aside>
 
-    {# 中央: 空白 placeholder console #}
-    {# 【2026-07-24 改】所有登入/申請/status 文字和按鈕都拿掉,登入按鈕只留右上角 navbar #}
+    {# 中央: console 分上下 2 部 + 30 秒輪播 #}
     <section class="col-12 col-md-6 center-console">
-        <div class="card">
-            <div class="card-body p-4">
-                {# 空卡片, 之後放公告/活動/消息 #}
+        {# 上半: 靈覓今日新聞摘要 #}
+        <div class="card mb-3 news-card" id="lingmianCard" data-source="lingmian">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <strong>📰 靈覓今日新聞摘要</strong>
+                <small class="text-muted" id="lingmianMeta">
+                    {{ news.lingmian_date or '—' }}
+                    · {{ news.lingmian|length }} 則
+                </small>
+            </div>
+            <div class="card-body news-body" id="lingmianBody" data-page="0" data-per-page="3">
+                {# 第一頁初始顯示 (server render) #}
+                {% for item in news.lingmian[:3] %}
+                <div class="news-item">
+                    <a href="{{ item.url }}" target="_blank" rel="noopener" class="news-title">
+                        🔶 {{ item.title[:80] }}{% if item.title|length > 80 %}…{% endif %}
+                    </a>
+                    {% if item.summary %}
+                    <div class="news-summary">{{ item.summary[:160] }}{% if item.summary|length > 160 %}…{% endif %}</div>
+                    {% endif %}
+                    <div class="news-meta">
+                        {% if item.category %}<span class="badge bg-light text-dark">{{ item.category }}</span>{% endif %}
+                        {% if item.source %}<span class="ms-2">{{ item.source }}</span>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% if not news.lingmian %}
+                <p class="text-muted text-center my-4">尚無今日新聞摘要</p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    <span class="lingmian-page-indicator">1</span> / <span class="lingmian-total-pages">{{ (news.lingmian|length + 2) // 3 }}</span> 頁
+                    · 每 30 秒自動換頁
+                </small>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary lingmian-prev" type="button">‹</button>
+                    <button class="btn btn-sm btn-outline-secondary lingmian-next" type="button">›</button>
+                </div>
+            </div>
+        </div>
+
+        {# 下半: 懂王新聞摘要 #}
+        <div class="card news-card" id="trumpCard" data-source="trump">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <strong>🇺🇸 懂王新聞摘要</strong>
+                <small class="text-muted" id="trumpMeta">
+                    {{ news.trump_date or '—' }}
+                    · {{ news.trump|length }} 則
+                </small>
+            </div>
+            <div class="card-body news-body" id="trumpBody" data-page="0" data-per-page="3">
+                {% for item in news.trump[:3] %}
+                <div class="news-item">
+                    <a href="{{ item.url }}" target="_blank" rel="noopener" class="news-title">
+                        🔶 {{ item.title[:80] }}{% if item.title|length > 80 %}…{% endif %}
+                    </a>
+                    {% if item.summary %}
+                    <div class="news-summary">{{ item.summary[:160] }}{% if item.summary|length > 160 %}…{% endif %}</div>
+                    {% endif %}
+                    <div class="news-meta">
+                        {% if item.category %}<span class="badge bg-light text-dark">{{ item.category }}</span>{% endif %}
+                        {% if item.source %}<span class="ms-2">{{ item.source }}</span>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% if not news.trump %}
+                <p class="text-muted text-center my-4">尚無今日新聞摘要</p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    <span class="trump-page-indicator">1</span> / <span class="trump-total-pages">{{ (news.trump|length + 2) // 3 }}</span> 頁
+                    · 每 30 秒自動換頁
+                </small>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary trump-prev" type="button">‹</button>
+                    <button class="btn btn-sm btn-outline-secondary trump-next" type="button">›</button>
+                </div>
             </div>
         </div>
     </section>
 
     {# 右側: info panel #}
-    {# 【2026-07-24 改】只顯示 5 類 PDF 計數 #}
     <aside class="col-12 col-md-3 right-sidebar">
         <div class="card sidebar-card">
             <div class="card-header bg-white">
@@ -92,6 +157,14 @@
         📢 [AdSense 廣告位置] — 之後放 adsense code
     </small>
 </div>
+
+{# News data for JS (server inject to client) #}
+<script id="news-data" type="application/json">
+{
+    "lingmian": {{ news.lingmian | tojson }},
+    "trump": {{ news.trump | tojson }}
+}
+</script>
 {% endblock %}
 
 {% block scripts %}
@@ -116,5 +189,38 @@
         opacity: 0.6;
         pointer-events: none;
     }
+    .news-card .news-body {
+        min-height: 280px;
+    }
+    .news-item {
+        padding: 8px 0;
+        border-bottom: 1px dashed #eee;
+    }
+    .news-item:last-child {
+        border-bottom: none;
+    }
+    .news-item .news-title {
+        font-weight: 600;
+        color: #0d6efd;
+        text-decoration: none;
+    }
+    .news-item .news-title:hover {
+        text-decoration: underline;
+    }
+    .news-item .news-summary {
+        color: #555;
+        font-size: 0.875rem;
+        margin-top: 4px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .news-item .news-meta {
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 4px;
+    }
 </style>
+<script src="/static/landing_news.js?v=2026-07-25"></script>
 {% endblock %}
