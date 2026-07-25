@@ -1009,6 +1009,152 @@ async def ceec_exam_download(rel: str, user: User = Depends(require_login)):
     )
 
 
+# === Archive Batch Download (CAP / CEEC) =====================
+# 【2026-07-25 新】跟 StudyArk batch-download 一樣 UX, 但
+# - 來源是本地 archive (CAP_DIR / CEEC_DIR), 不用下載 StudyArk PDF
+# - 不用走 rate limit, 沒 10 秒/item 等待
+# - 限到 MAX_BATCH = 20 避免 zip 太大
+
+from pydantic import BaseModel as _BaseModel
+from app.core.db_helpers import hash_ip as _hash_ip
+
+class _ArchiveBatchItem(_BaseModel):
+    """CAP/CEEC archive batch item"""
+    source: str  # "CAP" or "CEEC"
+    rel: str  # relative path under CAP_DIR / CEEC_DIR
+    subject: str | None = None
+    grade: str | None = None
+    school_year: str | None = None
+    title: str | None = None
+
+
+class _ArchiveBatchRequest(_BaseModel):
+    items: list[_ArchiveBatchItem]
+
+
+@router.post("/api/batch-download-archive")
+async def batch_download_archive(
+    req: _ArchiveBatchRequest,
+    request: Request,
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    批次下載 CAP / CEEC archive PDF → 回傳 .zip。
+
+    跟 StudyArk batch-download 的 UX 一樣, 但:
+    - 來源: 本地 archive (CAP_DIR / CEEC_DIR), 檔案已下載在 disk
+    - 不撞 StudyArk 限流
+    - 限 MAX_BATCH = 20 個 items (防 zip 太大)
+    """
+    import io
+    import zipfile
+    import hashlib
+
+    MAX_BATCH = 20
+    items = req.items
+
+    if not items:
+        raise HTTPException(400, "至少要 1 個 item")
+    if len(items) > MAX_BATCH:
+        raise HTTPException(
+            400,
+            f"單批最多 {MAX_BATCH} 個, 你選了 {len(items)} 個。請減少後再試。"
+        )
+
+    buffer = io.BytesIO()
+    downloaded = []  # (filename, item, pdf_bytes)
+    errors = []
+
+    for idx, item in enumerate(items):
+        if item.source not in ("CAP", "CEEC"):
+            errors.append({"rel": item.rel, "error": f"Unknown source: {item.source}"})
+            continue
+        if ".." in item.rel or item.rel.startswith("/"):
+            errors.append({"rel": item.rel, "error": "Invalid path"})
+            continue
+        base = CAP_DIR if item.source == "CAP" else CEEC_DIR
+        file_path = base / item.rel
+        if not file_path.exists() or not file_path.is_file():
+            errors.append({"rel": item.rel, "error": "File not found"})
+            continue
+        if not file_path.suffix.lower() == ".pdf":
+            errors.append({"rel": item.rel, "error": "Not a PDF"})
+            continue
+        try:
+            pdf_bytes = file_path.read_bytes()
+            # 驗證 PDF magic bytes
+            if not pdf_bytes.startswith(b"%PDF"):
+                errors.append({"rel": item.rel, "error": "Invalid PDF content"})
+                continue
+            downloaded.append((file_path.name, item, pdf_bytes))
+        except Exception as e:
+            errors.append({"rel": item.rel, "error": str(e)})
+
+    if not downloaded and errors:
+        raise HTTPException(400, f"全部 {len(items)} 個 item 都失敗: {errors[0]['error']}")
+
+    # 寫 zip
+    used_names: dict[str, int] = {}
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fname, item, pdf_bytes in downloaded:
+            # 若同檔名加編號避免覆蓋
+            if fname in used_names:
+                used_names[fname] += 1
+                stem, ext = fname.rsplit(".", 1)
+                zip_fname = f"{stem}_{used_names[fname]}.{ext}"
+            else:
+                used_names[fname] = 0
+                zip_fname = fname
+            zf.writestr(zip_fname, pdf_bytes)
+
+    # 寫 DownloadHistory (每個 item)
+    # 重用 DownloadHistory model, classid="CAP"/"CEEC", fileid = SHA256(rel)[:12]
+    for fname, item, pdf_bytes in downloaded:
+        fileid_hash = hashlib.sha256(item.rel.encode("utf-8")).hexdigest()[:12]
+        dh = DownloadHistory(
+            user_id=user.id,
+            classid=item.source,  # "CAP" or "CEEC"
+            fileid=fileid_hash,
+            filetype="paper",
+            title=item.title or fname,
+            school_name=None,
+            grade=item.grade,
+            school_year=item.school_year,
+            school_term=None,
+            category=item.source,
+            subject=item.subject,
+            exam_type=None,
+            version=None,
+            download_filename=fname,
+            ip_hash=_hash_ip(request.client.host if request.client else None),
+            user_agent=request.headers.get("user-agent", "")[:512] or None,
+        )
+        db.add(dh)
+
+    await log_action(
+        db,
+        action="batch_download_archive",
+        user_id=user.id,
+        target=f"items={len(downloaded)}, errors={len(errors)}, sources={set(i.source for i in items)}",
+        ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent", ""),
+    )
+    await db.commit()
+
+    from fastapi.responses import Response
+    zip_name = f"tqark_archive_{len(downloaded)}_items.zip"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{zip_name}"',
+            "X-Downloaded-Count": str(len(downloaded)),
+            "X-Error-Count": str(len(errors)),
+        },
+    )
+
+
 @router.get("/me/downloads", response_class=HTMLResponse)
 async def me_downloads(
     request: Request,
