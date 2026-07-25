@@ -28,6 +28,18 @@
         /* 【2026-07-25 改】所有 page 全寬 (landing 用動態 grid, 其他 page 用 max-width 控制) */
         .container-narrow { max-width: 100%; }
         .card { border: 1px solid #dee2e6; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+
+        /* 【2026-07-25 改】Form label 不要黑體 (太搶眼), 用次要灰色區別就好 */
+        .form-label {
+            font-weight: normal;
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        /* 跟 input 視覺一致: label 偏小不重, input/select 是主體 */
+        .form-label.small {
+            font-size: 0.8125rem;
+            letter-spacing: 0.01em;
+        }
         .badge-status-pending { background: #ffc107; color: #212529; font-weight: 600; }
         .badge-status-approved { background: #198754; color: #fff; font-weight: 600; }
         .badge-status-rejected { background: #dc3545; color: #fff; font-weight: 600; }
