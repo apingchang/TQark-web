@@ -212,8 +212,10 @@
         grid-template-columns: 1fr;
         gap: 0.75rem;
         padding: 0 0.5rem;
-        /* 【2026-07-25】給 center-console 撐出高度 (banner ~80px + footer ~70px + gap) */
-        min-height: calc(100vh - 200px);
+        /* 【2026-07-25】fixed height 讓 center-console 的 1fr 1fr 真的平均分配
+           (min-height 會被內容撐大, grid rows 變成 content-size, 失效)
+           nav ~70px + banner ~80px + footer ~70px = ~220px offset */
+        height: calc(100vh - 220px);
     }
 
     @media (min-width: 768px) {
@@ -251,6 +253,8 @@
         grid-template-rows: 1fr 1fr;
         gap: 1rem;
         min-height: 0;
+        height: 100%;
+        overflow: hidden;
     }
     .news-card {
         display: flex;
