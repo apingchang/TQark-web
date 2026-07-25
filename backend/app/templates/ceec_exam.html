@@ -38,31 +38,6 @@
     </div>
   </div>
 
-  {% if all_exam_types or all_years %}
-  <div class="row mb-3">
-    <div class="col-md-12">
-      <strong>考試類型:</strong>
-      <div class="btn-group ms-2" role="group">
-        <a href="/ui/ceec-exam{% if selected_subject %}?subject={{ selected_subject }}{% endif %}" class="btn btn-sm {% if not selected_exam_type %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">全部</a>
-        {% for et in all_exam_types %}
-          <a href="/ui/ceec-exam?exam_type={{ et }}{% if selected_subject %}&subject={{ selected_subject }}{% endif %}" class="btn btn-sm {% if selected_exam_type == et %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">{{ et }}</a>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-  <div class="row mb-3">
-    <div class="col-md-12">
-      <strong>科目:</strong>
-      <div class="btn-group ms-2" role="group">
-        <a href="/ui/ceec-exam{% if selected_exam_type %}?exam_type={{ selected_exam_type }}{% endif %}" class="btn btn-sm {% if not selected_subject %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">全部科目</a>
-        {% for s in all_subjects %}
-          <a href="/ui/ceec-exam?subject={{ s }}{% if selected_exam_type %}&exam_type={{ selected_exam_type }}{% endif %}" class="btn btn-sm {% if selected_subject == s %}btn-tiffany{% else %}btn-outline-secondary{% endif %}">{{ s }}</a>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
   {% if items %}
     <div class="card">
       <div class="card-body p-0">
