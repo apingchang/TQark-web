@@ -389,6 +389,11 @@ async def admin_panel(
 CAP_DIR = Path("/mnt/my_book/考題收集/cap_exam")
 CEEC_DIR = Path("/mnt/my_book/考題收集/ceec")
 
+# 【2026-07-25 新】CAP/CEEC 結果每頁顯示數
+# 跟 StudyArk search_results.html 的 PAGINATION 一樣 (PAPERS_PER_PAGE=8 papers × 2 files = 16)
+# CAP/CEEC 是 1 file/paper, 所以 15 files/頁
+EXAM_ITEMS_PER_PAGE = 15
+
 
 # 【2026-07-24 新】CEEC filename parser helpers
 import re as _re_year_dir_module
@@ -763,17 +768,19 @@ async def cap_exam_browser(
     year: int | None = Query(None),
     subject: str | None = Query(None),
     filetype: str | None = Query(None),
+    page: int = Query(1, ge=1),
 ):
     """
     歷屆國中教育會考瀏覽頁面 (CAP / RCPET)。
     公開頁面,不需登入 (但下載連結在 archive 路徑,Web UI 只列出 metadata)。
 
     【2026-07-24 新】支援 subject / filetype 篩選 (從 dashboard form 送過來)
+    【2026-07-25 新】分頁: 每頁 EXAM_ITEMS_PER_PAGE (15) 個 items
     """
-    return _render_cap_exam_results(request, user, year, subject, filetype)
+    return _render_cap_exam_results(request, user, year, subject, filetype, page)
 
 
-def _render_cap_exam_results(request, user, year, subject, filetype):
+def _render_cap_exam_results(request, user, year, subject, filetype, page=1):
     """
     內部 helper: 渲染 cap_exam.html 結果。可由 cap_exam_browser 或 /ui/search (grade=會考) 呼。
     【2026-07-25 改】改成單一 flat list, 排序: 年度 DESC → 科目 → 類型 → 檔名
@@ -804,6 +811,27 @@ def _render_cap_exam_results(request, user, year, subject, filetype):
         )
     items = sorted(items, key=_sort_key)
 
+    # 【2026-07-25 新】分頁 (跟 StudyArk search_results.html 一樣)
+    total = len(items)
+    total_page = max(1, (total + EXAM_ITEMS_PER_PAGE - 1) // EXAM_ITEMS_PER_PAGE)
+    page = max(1, min(page, total_page))  # 越界保護
+    start = (page - 1) * EXAM_ITEMS_PER_PAGE
+    end = start + EXAM_ITEMS_PER_PAGE
+    items_page = items[start:end]
+
+    # qs_for_page helper (給分頁按鈕用)
+    from urllib.parse import urlencode
+    def qs_for_page(p: int) -> str:
+        params = {}
+        if year is not None:
+            params["year"] = year
+        if subject:
+            params["subject"] = subject
+        if filetype:
+            params["filetype"] = filetype
+        params["page"] = p
+        return urlencode(params)
+
     # Build year/subject lists (for filter UI) - 用未 filter 的 all_items
     all_years = sorted(set(i["year"] for i in all_items if i["year"] > 0), reverse=True)
     all_subjects = sorted(set(i["subject"] for i in all_items if i["subject"]))
@@ -813,14 +841,18 @@ def _render_cap_exam_results(request, user, year, subject, filetype):
         {
             **_common_ctx(user),
             "request": request,
-            "items": items,
+            "items": items_page,
             "all_years": all_years,
             "all_subjects": all_subjects,
             "selected_year": year,
             "selected_subject": subject,
             "selected_filetype": filetype,
-            "total_files": len(items),
+            "total_files": total,
             "total_size": sum(i["size"] for i in items),
+            "page": page,
+            "total_page": total_page,
+            "per_page": EXAM_ITEMS_PER_PAGE,
+            "qs_for_page": qs_for_page,
         },
     )
 
@@ -859,17 +891,19 @@ async def ceec_exam_browser(
     year: int | None = Query(None),
     subject: str | None = Query(None),
     filetype: str | None = Query(None),
+    page: int = Query(1, ge=1),
 ):
     """
     歷屆大學入學考試瀏覽頁面 (CEEC)。
     公開頁面 (metadata),下載要登入。
 
     【2026-07-24 新】支援 subject / filetype 篩選 (從 dashboard form 送過來)
+    【2026-07-25 新】分頁: 每頁 EXAM_ITEMS_PER_PAGE (15) 個 items
     """
-    return _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
+    return _render_ceec_exam_results(request, user, exam_type, year, subject, filetype, page)
 
 
-def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype):
+def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype, page=1):
     """
     內部 helper: 渲染 ceec_exam.html 結果。可由 ceec_exam_browser 或 /ui/search (grade=大學入學考) 呼。
     【2026-07-25 改】改成單一 flat list, 排序: 年度 DESC → 考試類型 → 科目 → 類型 → 檔名
@@ -902,6 +936,29 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
         )
     items = sorted(items, key=_sort_key_ceec)
 
+    # 【2026-07-25 新】分頁 (跟 StudyArk search_results.html 一樣)
+    total = len(items)
+    total_page = max(1, (total + EXAM_ITEMS_PER_PAGE - 1) // EXAM_ITEMS_PER_PAGE)
+    page = max(1, min(page, total_page))  # 越界保護
+    start = (page - 1) * EXAM_ITEMS_PER_PAGE
+    end = start + EXAM_ITEMS_PER_PAGE
+    items_page = items[start:end]
+
+    # qs_for_page helper (給分頁按鈕用)
+    from urllib.parse import urlencode
+    def qs_for_page(p: int) -> str:
+        params = {}
+        if exam_type:
+            params["exam_type"] = exam_type
+        if year is not None:
+            params["year"] = year
+        if subject:
+            params["subject"] = subject
+        if filetype:
+            params["filetype"] = filetype
+        params["page"] = p
+        return urlencode(params)
+
     # Build filter lists (from all_items, 不受 subject filter 影響)
     all_exam_types = sorted(set(i["exam_type"] for i in all_items if i["exam_type"]))
     all_years = sorted(set(i["year"] for i in all_items if i["year"] > 0), reverse=True)
@@ -912,7 +969,7 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
         {
             **_common_ctx(user),
             "request": request,
-            "items": items,
+            "items": items_page,
             "all_exam_types": all_exam_types,
             "all_years": all_years,
             "all_subjects": all_subjects,
@@ -920,8 +977,12 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype)
             "selected_year": year,
             "selected_subject": subject,
             "selected_filetype": filetype,
-            "total_files": len(items),
+            "total_files": total,
             "total_size": sum(i["size"] for i in items),
+            "page": page,
+            "total_page": total_page,
+            "per_page": EXAM_ITEMS_PER_PAGE,
+            "qs_for_page": qs_for_page,
         },
     )
 
@@ -1281,11 +1342,11 @@ async def ui_search_post(
     if grade == "會考":
         year = int(school_year) if school_year and school_year.isdigit() else None
         filetype = daan if daan and daan in ("yes", "no") else None  # 沒意義但保留 URL
-        return _render_cap_exam_results(request, user, year, subject, filetype)
+        return _render_cap_exam_results(request, user, year, subject, filetype, page)
     if grade == "大學入學考":
         year = int(school_year) if school_year and school_year.isdigit() else None
         filetype = daan if daan and daan in ("yes", "no") else None
-        return _render_ceec_exam_results(request, user, None, year, subject, filetype)
+        return _render_ceec_exam_results(request, user, None, year, subject, filetype, page)
 
     return await _render_search_results(
         request, user, db,
@@ -1316,11 +1377,11 @@ async def ui_search_get(
     if grade == "會考":
         year = int(school_year) if school_year and school_year.isdigit() else None
         filetype = daan if daan and daan in ("yes", "no") else None
-        return _render_cap_exam_results(request, user, year, subject, filetype)
+        return _render_cap_exam_results(request, user, year, subject, filetype, page)
     if grade == "大學入學考":
         year = int(school_year) if school_year and school_year.isdigit() else None
         filetype = daan if daan and daan in ("yes", "no") else None
-        return _render_ceec_exam_results(request, user, None, year, subject, filetype)
+        return _render_ceec_exam_results(request, user, None, year, subject, filetype, page)
 
     return await _render_search_results(
         request, user, db,

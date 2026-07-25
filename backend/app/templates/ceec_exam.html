@@ -39,6 +39,9 @@
   </div>
 
   {% if items %}
+    <p class="text-muted small mb-2">
+      目前第 <strong>{{ page }}</strong> / <strong>{{ total_page }}</strong> 頁 (每頁 {{ per_page }} 個檔案)
+    </p>
     <div class="card">
       <div class="card-body p-0">
         <table class="table table-hover mb-0">
@@ -76,6 +79,61 @@
         </table>
       </div>
     </div>
+
+    {# === 分頁 (跟 StudyArk search_results.html 一樣) === #}
+    {% if total_page > 1 %}
+    <nav class="mt-4">
+      <ul class="pagination justify-content-center">
+        {# 上一頁 #}
+        {% if page > 1 %}
+          <li class="page-item">
+            <a class="page-link" href="/ui/ceec-exam?{{ qs_for_page(page-1) }}">‹ 上一頁</a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">‹ 上一頁</span></li>
+        {% endif %}
+
+        {% set window_start = page - 5 if page > 6 else 1 %}
+        {% set window_end = page + 5 if page < total_page - 5 else total_page %}
+
+        {% if window_start > 1 %}
+          <li class="page-item">
+            <a class="page-link" href="/ui/ceec-exam?{{ qs_for_page(1) }}">1</a>
+          </li>
+          {% if window_start > 2 %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+          {% endif %}
+        {% endif %}
+
+        {% for p in range(window_start, window_end + 1) %}
+          <li class="page-item {% if p == page %}active{% endif %}">
+            {% if p == page %}
+              <span class="page-link">{{ p }}</span>
+            {% else %}
+              <a class="page-link" href="/ui/ceec-exam?{{ qs_for_page(p) }}">{{ p }}</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+
+        {% if window_end < total_page %}
+          {% if window_end < total_page - 1 %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+          {% endif %}
+          <li class="page-item">
+            <a class="page-link" href="/ui/ceec-exam?{{ qs_for_page(total_page) }}">{{ total_page }}</a>
+          </li>
+        {% endif %}
+
+        {% if page < total_page %}
+          <li class="page-item">
+            <a class="page-link" href="/ui/ceec-exam?{{ qs_for_page(page+1) }}">下一頁 ›</a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">下一頁 ›</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
   {% else %}
     <div class="alert alert-warning">
       <strong>還沒有檔案</strong>
