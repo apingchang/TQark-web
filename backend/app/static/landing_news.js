@@ -37,9 +37,9 @@ function renderNewsItems(items) {
     return items.map(item => `
         <div class="news-item">
             <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="news-title">
-                🔶 ${escapeHtml(truncate(item.title, 80))}
+                🔶 ${escapeHtml(truncate(item.title, 120))}
             </a>
-            ${item.summary ? `<div class="news-summary">${escapeHtml(truncate(item.summary, 160))}</div>` : ''}
+            ${item.summary ? `<div class="news-summary">${escapeHtml(truncate(item.summary, 280))}</div>` : ''}
             <div class="news-meta">
                 ${item.category ? `<span class="badge bg-light text-dark">${escapeHtml(item.category)}</span>` : ''}
                 ${item.source ? `<span class="ms-2">${escapeHtml(item.source)}</span>` : ''}

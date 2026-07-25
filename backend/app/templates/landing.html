@@ -9,9 +9,9 @@
     <h1 class="banner-title m-0">🎓 三好學習平台</h1>
 </div>
 
-<div class="row g-3 main-grid">
+<div class="main-grid">
     {# 左側: 功能 #}
-    <aside class="col-12 col-md-3 left-sidebar">
+    <aside class="left-sidebar">
         <div class="card sidebar-card">
             <div class="card-header bg-white">
                 <strong>🧰 功能</strong>
@@ -30,7 +30,7 @@
     </aside>
 
     {# 中央: console 分上下 2 部 + 30 秒輪播 #}
-    <section class="col-12 col-md-6 center-console">
+    <section class="center-console">
         {# 上半: 靈覓今日新聞摘要 #}
         <div class="card mb-3 news-card" id="lingmianCard" data-source="lingmian">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
@@ -45,10 +45,10 @@
                 {% for item in news.lingmian[:3] %}
                 <div class="news-item">
                     <a href="{{ item.url }}" target="_blank" rel="noopener" class="news-title">
-                        🔶 {{ item.title[:80] }}{% if item.title|length > 80 %}…{% endif %}
+                        🔶 {{ item.title[:120] }}{% if item.title|length > 120 %}…{% endif %}
                     </a>
                     {% if item.summary %}
-                    <div class="news-summary">{{ item.summary[:160] }}{% if item.summary|length > 160 %}…{% endif %}</div>
+                    <div class="news-summary">{{ item.summary[:280] }}{% if item.summary|length > 280 %}…{% endif %}</div>
                     {% endif %}
                     <div class="news-meta">
                         {% if item.category %}<span class="badge bg-light text-dark">{{ item.category }}</span>{% endif %}
@@ -85,10 +85,10 @@
                 {% for item in news.trump[:3] %}
                 <div class="news-item">
                     <a href="{{ item.url }}" target="_blank" rel="noopener" class="news-title">
-                        🔶 {{ item.title[:80] }}{% if item.title|length > 80 %}…{% endif %}
+                        🔶 {{ item.title[:120] }}{% if item.title|length > 120 %}…{% endif %}
                     </a>
                     {% if item.summary %}
-                    <div class="news-summary">{{ item.summary[:160] }}{% if item.summary|length > 160 %}…{% endif %}</div>
+                    <div class="news-summary">{{ item.summary[:280] }}{% if item.summary|length > 280 %}…{% endif %}</div>
                     {% endif %}
                     <div class="news-meta">
                         {% if item.category %}<span class="badge bg-light text-dark">{{ item.category }}</span>{% endif %}
@@ -114,7 +114,7 @@
     </section>
 
     {# 右側: info panel #}
-    <aside class="col-12 col-md-3 right-sidebar">
+    <aside class="right-sidebar">
         <div class="card sidebar-card">
             <div class="card-header bg-white">
                 <strong>ℹ️ 平台考題數量</strong>
@@ -181,6 +181,39 @@
         border-radius: 0.5rem;
         min-height: 60px;
     }
+
+    /* 【2026-07-25 改】Dynamic CSS Grid layout
+       - 大螢幕 (≥ 1400px): 左 200px / 中 1fr / 右 240px
+       - 中大螢幕 (≥ 992px): 左 180px / 中 1fr / 右 220px
+       - 中螢幕 (768-991px): 左 160px / 中 1fr / 右 200px
+       - 小螢幕 (< 768px): 垂直堆疊 (mobile) */
+    .main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 0 0.5rem;
+    }
+
+    @media (min-width: 768px) {
+        .main-grid {
+            grid-template-columns: 160px 1fr 200px;
+        }
+    }
+
+    @media (min-width: 992px) {
+        .main-grid {
+            grid-template-columns: 180px 1fr 220px;
+        }
+    }
+
+    @media (min-width: 1400px) {
+        .main-grid {
+            grid-template-columns: 200px 1fr 240px;
+        }
+    }
+
     .sidebar-card {
         position: sticky;
         top: 1rem;
@@ -212,7 +245,7 @@
         font-size: 0.875rem;
         margin-top: 4px;
         display: -webkit-box;
-        -webkit-line-clamp: 2;
+        -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
