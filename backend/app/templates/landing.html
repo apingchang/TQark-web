@@ -33,12 +33,22 @@
     <section class="center-console">
         {# 上半: 靈覓今日新聞摘要 #}
         <div class="card mb-3 news-card" id="lingmianCard" data-source="lingmian">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong>📰 靈覓今日新聞摘要</strong>
-                <small class="text-muted" id="lingmianMeta">
-                    {{ news.lingmian_date or '—' }}
-                    · {{ news.lingmian|length }} 則
-                </small>
+                <div class="d-flex align-items-center gap-3 ms-auto">
+                    <small class="text-muted" id="lingmianMeta">
+                        {{ news.lingmian_date or '—' }}
+                        · {{ news.lingmian|length }} 則
+                    </small>
+                    <small class="text-muted">
+                        <span class="lingmian-page-indicator">1</span> / <span class="lingmian-total-pages">{{ (news.lingmian|length + 2) // 3 }}</span> 頁
+                        · 每 30 秒自動換頁
+                    </small>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-secondary lingmian-prev" type="button">‹</button>
+                        <button class="btn btn-outline-secondary lingmian-next" type="button">›</button>
+                    </div>
+                </div>
             </div>
             <div class="card-body news-body" id="lingmianBody" data-page="0" data-per-page="3">
                 {# 第一頁初始顯示 (server render) #}
@@ -60,26 +70,26 @@
                 <p class="text-muted text-center my-4">尚無今日新聞摘要</p>
                 {% endif %}
             </div>
-            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
-                <small class="text-muted">
-                    <span class="lingmian-page-indicator">1</span> / <span class="lingmian-total-pages">{{ (news.lingmian|length + 2) // 3 }}</span> 頁
-                    · 每 30 秒自動換頁
-                </small>
-                <div>
-                    <button class="btn btn-sm btn-outline-secondary lingmian-prev" type="button">‹</button>
-                    <button class="btn btn-sm btn-outline-secondary lingmian-next" type="button">›</button>
-                </div>
-            </div>
         </div>
 
         {# 下半: 懂王新聞摘要 #}
         <div class="card news-card" id="trumpCard" data-source="trump">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong>🇺🇸 懂王新聞摘要</strong>
-                <small class="text-muted" id="trumpMeta">
-                    {{ news.trump_date or '—' }}
-                    · {{ news.trump|length }} 則
-                </small>
+                <div class="d-flex align-items-center gap-3 ms-auto">
+                    <small class="text-muted" id="trumpMeta">
+                        {{ news.trump_date or '—' }}
+                        · {{ news.trump|length }} 則
+                    </small>
+                    <small class="text-muted">
+                        <span class="trump-page-indicator">1</span> / <span class="trump-total-pages">{{ (news.trump|length + 2) // 3 }}</span> 頁
+                        · 每 30 秒自動換頁
+                    </small>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-secondary trump-prev" type="button">‹</button>
+                        <button class="btn btn-outline-secondary trump-next" type="button">›</button>
+                    </div>
+                </div>
             </div>
             <div class="card-body news-body" id="trumpBody" data-page="0" data-per-page="3">
                 {% for item in news.trump[:3] %}
@@ -99,16 +109,6 @@
                 {% if not news.trump %}
                 <p class="text-muted text-center my-4">尚無今日新聞摘要</p>
                 {% endif %}
-            </div>
-            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
-                <small class="text-muted">
-                    <span class="trump-page-indicator">1</span> / <span class="trump-total-pages">{{ (news.trump|length + 2) // 3 }}</span> 頁
-                    · 每 30 秒自動換頁
-                </small>
-                <div>
-                    <button class="btn btn-sm btn-outline-secondary trump-prev" type="button">‹</button>
-                    <button class="btn btn-sm btn-outline-secondary trump-next" type="button">›</button>
-                </div>
             </div>
         </div>
     </section>
