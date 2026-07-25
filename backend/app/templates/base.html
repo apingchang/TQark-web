@@ -29,15 +29,19 @@
         .container-narrow { max-width: 100%; }
         .card { border: 1px solid #dee2e6; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
 
-        /* 【2026-07-25 改】Form label 不要黑體 (太搶眼), 用次要灰色區別就好 */
+        /* 【2026-07-25 再改 William 21:48】Label 要看得見但不搶眼:
+           - 字大一號 (0.8125rem → 1rem, 跟 input 一樣高)
+           - Bold weight (視覺上有 anchor)
+           - Gray 6c757d (不會跟 input 黑字搶)
+           整體: input 是黑字主體, label 是粗體灰字輔助 */
         .form-label {
-            font-weight: normal;
+            font-weight: bold;
             color: #6c757d;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.4rem;
         }
-        /* 跟 input 視覺一致: label 偏小不重, input/select 是主體 */
+        /* .small override: 字大一號 */
         .form-label.small {
-            font-size: 0.8125rem;
+            font-size: 1rem;
             letter-spacing: 0.01em;
         }
         .badge-status-pending { background: #ffc107; color: #212529; font-weight: 600; }
