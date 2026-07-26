@@ -488,6 +488,16 @@ async def main():
         log.info(f"  Reset account_status (new day: {today})")
         account_status = {"date": today, "cooldown": {}}
         save_account_status(account_status)
+        # 【2026-07-26 新】跨天也重置 retried_fileids (明天重試今天跳過的)
+        if STATUS_FILE.exists():
+            try:
+                st = json.loads(STATUS_FILE.read_text())
+                if "retried_fileids" in st:
+                    st.pop("retried_fileids", None)
+                    STATUS_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=2))
+                    log.info(f"  Cleared retried_fileids (cross-day reset)")
+            except Exception:
+                pass
     elif "exhausted" in account_status:
         # 【2026-07-22 改】舊格式 (exhausted: [...]) 自動轉成新格式 (cooldown: {})
         # 並把轉換後的寫回 disk
@@ -562,6 +572,11 @@ async def main():
 
     saved_count = 0
     all_exhausted_break = False  # 【2026-07-24 新】一旦所有帳號都 exhausted, break outer batch loop
+    
+    # 【2026-07-26 新】retried_fileids 跨 batch 跨天:追蹤「已走過完整 retry 還是 fail」的 fileid
+    # 從 archive_status.json 讀取歷史 retry record
+    retried_fileids = set(status.get("retried_fileids", []))
+    
     for idx, item in enumerate(pending):
         if all_exhausted_break:
             break
@@ -569,15 +584,22 @@ async def main():
             log.info(f"  delay {ITEM_DELAY}s before next item...")
             await asyncio.sleep(ITEM_DELAY)
 
-        max_retries = len(accounts)  # 每個 fileid 最多試所有帳號
+        # 【2026-07-26 改】智慧 retry: 
+        # 只給每個 fileid 一次機會 (被 rate-limit 立即跳下個 fileid)
+        # 因為 studyark rate-limit 是 account-level, retry 同一 fileid 也會一檨踩到同一個 account
+        # 4 個帳號都別的 cooldown 才該重試
+        max_retries = 1  # 第一個 account fail 就跳下一個 fileid
         for attempt in range(max_retries):
             try:
                 fid = await collect_one(item, current_account, log)
                 if fid:
                     collected_set.add(fid)
                     saved_count += 1
+                    # 如果之前 retry 過,清除記號
+                    retried_fileids.discard(fid)
                 break  # 成功,離開 retry loop
             except StudyArkRateLimit as e:
+                fid_str = str(item.get('id'))
                 log.warning(f"  ✗ {current_account['name']} rate-limited: {e.message[:60]} (cooldown {e.retry_after_minutes}min)")
                 mark_account_exhausted(current_account["name"], account_status, retry_after_minutes=e.retry_after_minutes)
                 save_account_status(account_status)
@@ -586,8 +608,15 @@ async def main():
                 if next_acc and switch_to_account(next_acc, log):
                     reset_studyark_module()
                     current_account = next_acc
-                    log.info(f"  Retry fileid={item.get('id')} with new account")
-                    continue
+                    # 第一次遇到 rate-limit: retry 一次
+                    if fid_str not in retried_fileids:
+                        log.info(f"  Retry fileid={fid_str} once with next account")
+                        retried_fileids.add(fid_str)
+                        continue
+                    else:
+                        # 第二次還 fail: 跳下個 fileid
+                        log.info(f"  ✗ fileid={fid_str} already retried once, skip")
+                        break
                 else:
                     log.warning(f"  All accounts exhausted, skip this fileid + break batch loop")
                     all_exhausted_break = True  # 【2026-07-24 新】跳過剩餘 fileid
@@ -595,6 +624,7 @@ async def main():
 
     status["collected_fileids"] = sorted(collected_set)
     status["total_collected"] = len(collected_set)
+    status["retried_fileids"] = sorted(retried_fileids)  # 【2026-07-26 新】跨 batch 追蹤 retry 過的 fileid
     status["last_run"] = datetime.now(TZ_TAIPEI).isoformat()
     status["last_run_result"] = "ok" if saved_count > 0 else "all_failed"
     STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
