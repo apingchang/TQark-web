@@ -530,6 +530,75 @@ async def dashboard(
     )
 
 
+@router.get("/ui/school-sources", response_class=HTMLResponse)
+async def school_sources(
+    request: Request,
+    user: User | None = Depends(get_current_user_from_token),
+):
+    """
+    【2026-07-26 新】各校考古題外部連結聚合
+    - 來源: tcool.cc (https://www.tcool.cc/)
+    - 110 個學校 (國中 71 + 高中 23 + 國小 16)
+    - 公開頁面,不需登入 (也是「推廣入口」)
+    - 資料來自: backend/data/external_sources.json
+    """
+    import json as _json
+    # pages.py 在 backend/app/api/, 所以 .parent.parent.parent = backend/
+    sources_path = Path(__file__).parent.parent.parent / "data" / "external_sources.json"
+    sources = []
+    last_scraped = None
+    if sources_path.exists():
+        try:
+            data = _json.loads(sources_path.read_text(encoding="utf-8"))
+            sources = data.get("schools", [])
+            last_scraped = data.get("last_scraped")
+        except Exception:
+            pass
+
+    # 群組: {category: {county: [schools]}}
+    grouped: dict[str, dict[str, list]] = {
+        "junior": {}, "senior": {}, "elementary": {},
+    }
+    category_labels = {
+        "junior": "🎒 國中段考考古題",
+        "senior": "🎓 高中段考考古題",
+        "elementary": "📒 國小段考考古題",
+    }
+    link_type_badges = {
+        "drive": ("🗂️ Google Drive", "bg-primary"),
+        "school_web": ("🌐 校網", "bg-secondary"),
+        "sites": ("📂 Google Sites", "bg-info"),
+        "nas": ("💾 NAS", "bg-warning"),
+        "sharepoint": ("🔗 SharePoint", "bg-dark"),
+        "other": ("🔗 其他", "bg-light text-dark"),
+    }
+    for s in sources:
+        cat = s["category"]
+        county = s["county"] or "未註明"
+        grouped.setdefault(cat, {}).setdefault(county, []).append(s)
+
+    # Sort county by name (稳定)
+    sorted_grouped = {}
+    cat_totals = {}
+    for cat, counties in grouped.items():
+        sorted_grouped[cat] = sorted(counties.items(), key=lambda x: x[0])
+        cat_totals[cat] = sum(len(schools) for schools in counties.values())
+
+    return templates.TemplateResponse(
+        "school_sources.html",
+        {
+            **_common_ctx(user),
+            "request": request,
+            "grouped": sorted_grouped,
+            "category_labels": category_labels,
+            "link_type_badges": link_type_badges,
+            "total_count": len(sources),
+            "cat_totals": cat_totals,
+            "last_scraped": last_scraped,
+        },
+    )
+
+
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel(
     request: Request,
