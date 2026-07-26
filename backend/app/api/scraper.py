@@ -77,6 +77,71 @@ class SearchRequest(BaseModel):
     page: int = 1
 
 
+async def _archive_pdf_background(
+    grade: str,
+    subject: str,
+    filetype: str,
+    fileid: str,
+    pdf_bytes: bytes,
+    school_year: str = "",
+    school_term: str = "",
+    exam_type: str = "",
+    version: str = "",
+    school_name: str = "",
+) -> None:
+    """【2026-07-26 新】背景 archive user 下載的 PDF 到 /mnt/my_book/考題收集/
+
+    跟 /ui/download 的 cache 不同:
+    - /ui/download: 1 個 PDF, 完整 OCR + county folder logic (用 cache 讀取時的 county)
+    - batch download: 多個 PDF 一次進來, background archive (不 OCR, 用 fileid 命名)
+
+    儲存結構:
+        /mnt/my_book/考題收集/<grade>/<subject>/<filetype>/_tmp_<fileid>_<filetype>.pdf
+
+    用 _tmp_<fileid> 命名跟 archive_task.py 統一 (可以讓 archive_task 看檔名知道哪些是 user 下載的)
+    之後 archive_task 可以在 idle time OCR + rename 到正式 county folder。
+
+    Args:
+        grade: e.g. "四年級"
+        subject: e.g. "自然"
+        filetype: "paper" / "daan"
+        fileid: StudyArk fileid
+        pdf_bytes: 完整 PDF bytes
+        其他: 保留 metadata 以後 OCR 用
+    """
+    import logging
+    _bg_logger = logging.getLogger("tqark.bg_archive")
+    try:
+        if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
+            _bg_logger.info(f"[BG-ARCHIVE] {fileid}/{filetype}: not PDF, skip")
+            return
+
+        from app.scraper.archive_path import (
+            build_archive_path, ensure_archive_dirs, _safe_dirname,
+        )
+
+        tmp_target = build_archive_path(
+            grade, subject, filetype,
+            f"_tmp_{fileid}_{filetype}",
+            county=None,
+        )
+        ensure_archive_dirs(grade, subject, filetype, county=None)
+        tmp_target.write_bytes(pdf_bytes)
+
+        # 同時 update cache meta (LRU tracking)
+        try:
+            _update_cache_meta(fileid, tmp_target)
+        except Exception:
+            pass
+
+        _bg_logger.info(f"[BG-ARCHIVE SAVED] {fileid}/{filetype} → {tmp_target} ({len(pdf_bytes)} bytes)")
+    except OSError as e:
+        # CIFS 離線 / 磁碟滿都不影響 user 下載
+        _bg_logger.warning(f"[BG-ARCHIVE ERROR] {fileid}/{filetype}: {e}")
+    except Exception as e:
+        _bg_logger.warning(f"[BG-ARCHIVE ERROR] {fileid}/{filetype}: {e}")
+
+
 @router.post("/search")
 async def search(
     req: SearchRequest,
@@ -200,6 +265,25 @@ async def download(
         raise HTTPException(503, str(e))
     except Exception as e:
         raise HTTPException(502, f"下載失敗: {e}")
+
+    # 【2026-07-26 新 Phase 2】背景 archive 到 /mnt/my_book/考題收集/
+    # /ui/download 會在 user 下載前 OCR county + 存正式檔名
+    # /api/download 是內部 API (例如 search_results 直接下載), 背景 archive 到 _tmp_ 讓 archive_task 之後處理
+    if pdf_bytes and pdf_bytes.startswith(b"%PDF") and grade and subject and filetype in ("paper", "daan"):
+        asyncio.create_task(
+            _archive_pdf_background(
+                grade=grade,
+                subject=subject,
+                filetype=filetype,
+                fileid=fileid,
+                pdf_bytes=pdf_bytes,
+                school_year=school_year or "",
+                school_term=school_term or "",
+                exam_type=exam_type or "",
+                version=version or "",
+                school_name=school_name or "",
+            )
+        )
 
     # 寫 DownloadHistory
     db_record = DownloadHistory(
@@ -371,6 +455,27 @@ async def batch_download(
         for fname, item, pdf_bytes in downloaded:
             # 若同檔名加編號避免覆蓋
             zf.writestr(fname, pdf_bytes)
+
+    # 【2026-07-26 新】背景 archive 到 /mnt/my_book/考題收集/ (Phase 2)
+    # batch download 每個 item 背景寫到 archive, 不攔 user zip download
+    # 跟 /ui/download 的 cache 邏輯類似, 但這邊 batch 是 zip 不需要 OCR county
+    # (用 classid + fileid 命名就好, 之後 /ui/download 訪問時再 OCR + rename)
+    for fname, item, pdf_bytes in downloaded:
+        if item.grade and item.subject and item.filetype in ("paper", "daan"):
+            asyncio.create_task(
+                _archive_pdf_background(
+                    grade=item.grade,
+                    subject=item.subject,
+                    filetype=item.filetype,
+                    fileid=item.fileid,
+                    pdf_bytes=pdf_bytes,
+                    school_year=item.school_year,
+                    school_term=item.school_term,
+                    exam_type=item.exam_type,
+                    version=item.version,
+                    school_name=item.school_name,
+                )
+            )
 
     # 寫 DownloadHistory (每個 item)
     for fname, item, pdf_bytes in downloaded:
