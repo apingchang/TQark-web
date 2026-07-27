@@ -251,7 +251,18 @@ def _refresh_archive_counts_bg():
 def _scan_archive_counts() -> dict:
     """Walk /mnt/my_book/考題收集 and count PDFs by category.
 
-    Return keys: count_elementary, count_junior, count_senior, count_cap, count_ceec, total_all
+    【2026-07-28 擴充】返回更多檔案資訊:
+      - 原本 5 類計數 (count_elementary/junior/senior/cap/ceec, total_all)
+      - count_tcool (tcool 學校來源)
+      - by_county: 各縣市 file 數 dict
+      - by_school: 各學校 file 數 dict (top 20)
+      - by_subject: 科目 file 數 dict (top 15)
+      - latest_files: 最新 15 個 file (name, path, county, level, grade, subject, mtime)
+      - archive_size_mb: 總 MB 數
+      - total_files: 全部 file 數 (含非 PDF)
+
+    Return keys: count_elementary, count_junior, count_senior, count_cap, count_ceec, total_all,
+                  count_tcool, by_county, by_school, by_subject, latest_files, archive_size_mb, total_files
     """
     import os
     from pathlib import Path
@@ -264,7 +275,21 @@ def _scan_archive_counts() -> dict:
         "count_cap": 0,
         "count_ceec": 0,
         "total_all": 0,
+        "count_tcool": 0,
+        "by_county": {},
+        "by_school": {},
+        "by_subject": {},
+        "latest_files": [],
+        "archive_size_mb": 0,
+        "total_files": 0,
     }
+    # 【2026-07-28】CIFS 可能暫時掛掉 (Host is down), 不該讓整個 landing 500
+    try:
+        archive_root.exists()
+    except OSError as e:
+        # Host is down 等 CIFS 問題 — 返回 zeros,不要 raise
+        return result
+
     if not archive_root.exists():
         return result
 
@@ -275,6 +300,13 @@ def _scan_archive_counts() -> dict:
     count_senior = 0
     count_cap = 0
     count_ceec = 0
+    count_tcool = 0
+    by_county = {}
+    by_school = {}
+    by_subject = {}
+    all_files_with_mtime = []  # for latest_files
+    archive_size = 0
+    total_files = 0
 
     try:
         # 用 os.walk 比 Path.rglob 在 CIFS 上快 (local readdir 不再 server roundtrip)
@@ -287,32 +319,76 @@ def _scan_archive_counts() -> dict:
                 dirnames[:] = []  # don't recurse
                 continue
             for fname in filenames:
-                if not fname.endswith(".pdf"):
+                # Calculate size for all known extensions
+                if not fname.endswith((".pdf", ".docx", ".doc", ".xlsx", ".xls", ".zip")):
                     continue
                 full = os.path.join(dirpath, fname)
                 rel = os.path.relpath(full, archive_root)
                 parts = rel.split(os.sep)
+                is_pdf = fname.endswith(".pdf")
+                total_files += 1
+                try:
+                    size = os.path.getsize(full)
+                    archive_size += size
+                    mtime = os.path.getmtime(full)
+                except OSError:
+                    size = 0
+                    mtime = 0
 
-                # Top-level dirs: cap_exam, ceec
-                if parts and parts[0] == "cap_exam":
-                    count_cap += 1
-                    continue
-                if parts and parts[0] == "ceec":
-                    count_ceec += 1
-                    continue
-                # 其他縣市路徑檢查 "國小"/"國中"/"高中"
-                # 格式: <county>/<level>/<grade>/<subject>/<filetype>/file.pdf
-                # 或: <level>/<grade>/<subject>/<filetype>/file.pdf (未分 county)
-                for p in parts[:-1]:
-                    if p == "國小":
-                        count_elementary += 1
-                        break
-                    elif p == "國中":
-                        count_junior += 1
-                        break
-                    elif p == "高中":
-                        count_senior += 1
-                        break
+                # Only count PDFs toward 5 類計數
+                if is_pdf:
+                    # Top-level dirs: cap_exam, ceec
+                    if parts and parts[0] == "cap_exam":
+                        count_cap += 1
+                        continue
+                    if parts and parts[0] == "ceec":
+                        count_ceec += 1
+                        continue
+                    # 其他縣市路徑檢查 "國小"/"國中"/"高中"
+                    # 格式: <county>/<level>/<grade>/<subject>/<filetype>/file.pdf
+                    county = parts[0] if parts else "其他"
+                    for p in parts[:-1]:
+                        if p == "國小":
+                            count_elementary += 1
+                            break
+                        elif p == "國中":
+                            count_junior += 1
+                            break
+                        elif p == "高中":
+                            count_senior += 1
+                            break
+                    # 由 county/level/grade/subject/filetype 結構抓細節
+                    if len(parts) >= 5 and parts[1] in ("國小", "國中", "高中"):
+                        level = parts[1]
+                        grade = parts[2]
+                        subject = parts[3]
+                        filetype = parts[4]
+                        by_county[county] = by_county.get(county, 0) + 1
+                        by_subject[subject] = by_subject.get(subject, 0) + 1
+                        # tcool schools: tcool 學校被記在 <county>/<school>_<別名> 的 folder
+                        # 但現在 migration 已改, 學校名藏在 filename 而不在 path
+                        # 所以 count_tcool 以 subject "其他" 或某些 pattern 推論會偏, 改用 total_files > 0 計算的 fallback
+                        # 簡化: 預設所有非 cap/ceec 為 StudyArk (含 tcool)
+                        # 但看學期目錄存在與否推論 — 跳過
+                        latest_entry = {
+                            "name": fname,
+                            "path": rel,
+                            "county": county,
+                            "level": level,
+                            "grade": grade,
+                            "subject": subject,
+                            "filetype": filetype,
+                            "mtime": mtime,
+                            "size_kb": size // 1024,
+                        }
+                        all_files_with_mtime.append(latest_entry)
+                    # Track school name (from filename pattern: <county>_<year>_..._<school>_<grade>_<subject>.pdf)
+                    m = None
+                    import re
+                    m = re.match(rf'{re.escape(county)}_(\d{{3}})_第\d學期_\w+_(.+?)_(\w+)_(\w+)(?:_解答)?\.pdf$', fname)
+                    if m:
+                        school = m.group(2)
+                        by_school[school] = by_school.get(school, 0) + 1
     except OSError:
         pass
 
@@ -320,7 +396,28 @@ def _scan_archive_counts() -> dict:
     result["count_junior"] = count_junior
     result["count_senior"] = count_senior
     result["count_cap"] = count_cap
-    result["count_ceec"] = count_ceec
+    result["count_count_ceec" if False else "count_ceec"] = count_ceec
+    result["count_tcool"] = count_tcool  # placeholder — tcool schools now in StudyArk structure
+    # Override: count_tcool = sum of all StudyArk non-cap/ceec files (since migration)
+    # 但這樣會跟 count_junior/senior 重複。改用 by_school 有幾個 (>= 1) 作為 tcool 來源評估
+    # Actually: tcool migration put 國中/year/subject into same path as StudyArk. So count_tcool = 0 here,
+    # but we track via "schools with manual archive" in by_school (e.g., 高雄市五福國中).
+    # Simplest: count_tcool = total school entries from by_school.
+    result["count_tcool"] = sum(by_school.values())
+    result["by_county"] = dict(sorted(by_county.items(), key=lambda x: -x[1])[:20])
+    result["by_school"] = dict(sorted(by_school.items(), key=lambda x: -x[1])[:20])
+    result["by_subject"] = dict(sorted(by_subject.items(), key=lambda x: -x[1])[:15])
+    # Latest 15 files by mtime
+    result["latest_files"] = sorted(all_files_with_mtime, key=lambda x: -x["mtime"])[:15]
+    # Format mtime as ISO string for JSON
+    import datetime
+    for entry in result["latest_files"]:
+        try:
+            entry["mtime_str"] = datetime.datetime.fromtimestamp(entry["mtime"]).strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            entry["mtime_str"] = "?"
+    result["archive_size_mb"] = round(archive_size / 1024 / 1024, 1)
+    result["total_files"] = total_files
     result["total_all"] = (
         count_elementary + count_junior + count_senior + count_cap + count_ceec
     )
