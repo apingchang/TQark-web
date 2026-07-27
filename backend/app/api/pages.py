@@ -382,12 +382,34 @@ def _scan_archive_counts() -> dict:
                             "size_kb": size // 1024,
                         }
                         all_files_with_mtime.append(latest_entry)
-                    # Track school name (from filename pattern: <county>_<year>_..._<school>_<grade>_<subject>.pdf)
-                    m = None
+                    # Track school name (from filename)
+                    # Two formats:
+                    # 1. Migrated tcool: <county>_<year>_第N學期_<exam-type>_<school>_<grade>_<subject>[_解答].<ext>
+                    #    e.g., 高雄市_110_第2學期_補考_高雄市五福國中_一年級_公民.pdf
+                    # 2. StudyArk: <county>_<year>_<exam-type>_<paper-id>_<school>_<publisher>.<ext>
+                    #    e.g., 高雄市_109_期中考_34585_高雄市立大樹國民中學_南一.pdf
                     import re
-                    m = re.match(rf'{re.escape(county)}_(\d{{3}})_第\d學期_\w+_(.+?)_(\w+)_(\w+)(?:_解答)?\.pdf$', fname)
+                    school = None
+                    # Format 1: 補考/段考 (migrated tcool)
+                    m = re.match(rf'{re.escape(county)}_(\d{{3}})_第\d學期_\w+_(.+?)_(.+?)_(.+?)(?:_解答)?\.(?:pdf|docx|doc)$', fname)
                     if m:
                         school = m.group(2)
+                    else:
+                        # Format 2: StudyArk pattern (no 第N學期)
+                        m = re.match(rf'{re.escape(county)}_(\d{{3}})_(?:期中考|期末考|段考|考試)_\d+_(.+?)_(康軒|南一|翰林|育成|奇鼎|全華|何嘉仁|\w{{1,4}})\.(?:pdf|docx|doc)$', fname)
+                        if m:
+                            school = m.group(2)
+                        else:
+                            # Format 3: 下/上學期 (e.g., 臺東縣_108下學期_期末考_28550_臺東縣立新生國小_何嘉仁.pdf)
+                            m = re.match(rf'{re.escape(county)}_(\d{{3}})[下上]學期_(?:期中考|期末考|段考|考試)_\d+_(.+?)_(康軒|南一|翰林|育成|奇鼎|全華|何嘉仁|\w{{1,4}})\.(?:pdf|docx|doc)$', fname)
+                            if m:
+                                school = m.group(2)
+                            else:
+                                # Format 4: simpler fallback - try to grab the school after first 3 segments
+                                m = re.match(rf'{re.escape(county)}_(\d{{3}})_\w+_(?:\d+_)?(.+?)_(?:康軒|南一|翰林|育成|奇鼎|全華|何嘉仁|\w{{1,4}})(?:_解答)?\.(?:pdf|docx|doc)$', fname)
+                                if m:
+                                    school = m.group(2)
+                    if school and school not in ("一年級", "二年級", "三年級", "七年級", "八年級", "九年級"):
                         by_school[school] = by_school.get(school, 0) + 1
     except OSError:
         pass
@@ -404,6 +426,7 @@ def _scan_archive_counts() -> dict:
     # but we track via "schools with manual archive" in by_school (e.g., 高雄市五福國中).
     # Simplest: count_tcool = total school entries from by_school.
     result["count_tcool"] = sum(by_school.values())
+    result["school_count"] = len(by_school)
     result["by_county"] = dict(sorted(by_county.items(), key=lambda x: -x[1])[:20])
     result["by_school"] = dict(sorted(by_school.items(), key=lambda x: -x[1])[:20])
     result["by_subject"] = dict(sorted(by_subject.items(), key=lambda x: -x[1])[:15])
