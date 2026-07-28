@@ -638,6 +638,9 @@ async def dashboard(
     cap_subjects = sorted({i["subject"] for i in cap_items if i["subject"]})
     ceec_subjects = sorted({i["subject"] for i in ceec_items if i["subject"]})
 
+    # 【2026-07-28 移】平台資訊搬到 dashboard.html
+    stats = _get_cached_archive_counts()
+
     return templates.TemplateResponse(
         "dashboard.html",
         {
@@ -646,6 +649,7 @@ async def dashboard(
             "user_full": user,  # 完整 User object 給 template 用 datetime 等
             "cap_subjects_json": json.dumps(cap_subjects, ensure_ascii=False),
             "ceec_subjects_json": json.dumps(ceec_subjects, ensure_ascii=False),
+            "stats": stats,
         },
     )
 
