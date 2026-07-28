@@ -221,11 +221,42 @@ _archive_counts_lock = threading.Lock()
 _ARCHIVE_COUNTS_TTL = 600  # 10 minutes
 
 
+def _has_recent_archive_activity() -> bool:
+    """【2026-07-28】檢查 archive log / state file 是否近期修改
+    (代表有 archive 在跑). 如果是, 自動 invalidate cache,
+    以免看到 stale 資料。
+    """
+    import os
+    from pathlib import Path
+    archive_root = Path(os.environ.get("TQARK_ARCHIVE_DIR", "/mnt/my_book/考題收集"))
+    log_dir = archive_root / "logs"
+    if not log_dir.exists():
+        return False
+    now = _time.time()
+    # 检查最近 5 分鐘內有動的 archive-related 文件
+    patterns = [
+        "tcool_schools.log", "exambank.log",
+        "exambank_*.log", "tcool_*.log",
+        "exambank_status.json", "tcool_schools_status.json",
+    ]
+    for pattern in patterns:
+        for log_file in log_dir.glob(pattern):
+            try:
+                mtime = log_file.stat().st_mtime
+                if (now - mtime) < 300:  # 5 分鐘內有動
+                    return True
+            except OSError:
+                continue
+    return False
+
+
 def _get_cached_archive_counts() -> dict:
     """Get cached PDF counts. Returns previous cache if still fresh."""
     now = _time.time()
+    # 【2026-07-28】如果 archive 正在跑 (log 5 分鐘內改過), 視為 stale
+    recent_activity = _has_recent_archive_activity()
     with _archive_counts_lock:
-        if _archive_counts_cache["data"] is not None and now - _archive_counts_cache["ts"] < _ARCHIVE_COUNTS_TTL:
+        if _archive_counts_cache["data"] is not None and now - _archive_counts_cache["ts"] < _ARCHIVE_COUNTS_TTL and not recent_activity:
             return _archive_counts_cache["data"]
         if _archive_counts_cache["data"] is not None:
             # Stale — trigger background refresh (non-blocking), return stale
