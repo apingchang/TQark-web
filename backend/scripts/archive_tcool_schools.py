@@ -102,6 +102,110 @@ def safe_filename(name):
     return name.strip()
 
 
+def extract_zip_to_studyark_structure(zip_path: Path, county: str, school_name: str, log) -> int:
+    """
+    【2026-07-28 新】解壓 .zip 到 StudyArk 結構。
+    假設 .zip 內檔名也是 <year>_<term>_<exam>_<school>_<grade>_<subject>.<ext> 之類。
+    解壓後,對每個檔案重新跑 parse_filename → 放到正確 folder。
+    解壓成功後刪除 .zip 本身。
+    Returns 解壓出的檔案數量。
+    """
+    import zipfile
+    if not zipfile.is_zipfile(zip_path):
+        log.warning(f"  [not-a-zip] {zip_path.name}")
+        return 0
+
+    extracted_count = 0
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            for member in zf.namelist():
+                # Skip 目錄 or hidden
+                if member.endswith('/') or member.startswith('.'):
+                    continue
+                inner_fname = Path(member).name
+                if not inner_fname:
+                    continue
+                inner_ext = Path(inner_fname).suffix.lower()
+                if inner_ext not in ('.pdf', '.docx', '.doc', '.xlsx', '.xls'):
+                    continue
+
+                # Read content
+                with zf.open(member) as src:
+                    content = src.read()
+
+                # Validate PDF magic bytes
+                if inner_fname.lower().endswith('.pdf') and not content.startswith(b'%PDF'):
+                    log.warning(f"  [skip-inner-not-PDF] {inner_fname}")
+                    continue
+
+                # Parse inner filename → target path
+                info = parse_filename(inner_fname)
+                if not info:
+                    # Fallback: 解壓到 county/school/ 原始位置
+                    log.warning(f"  [inner-parse-fail] {inner_fname} → 保留到 {county}/{school_name}/")
+                    fallback_dir = ARCHIVE_ROOT / county / school_name
+                    fallback_dir.mkdir(parents=True, exist_ok=True)
+                    target = fallback_dir / safe_filename(inner_fname)
+                else:
+                    level = SCHOOL_LEVELS.get(school_name, "其他")
+                    if level == "其他":
+                        grade = info["grade"]
+                        if grade in ("四年級", "五年級", "六年級"):
+                            level = "國小"
+                        elif grade in ("七年級", "八年級", "九年級"):
+                            level = "國中"
+                        elif grade in ("一年級", "二年級", "三年級"):
+                            level = "高中"
+                        else:
+                            level = "其他"
+
+                    if level == "其他":
+                        log.warning(f"  [inner-level-unknown] {inner_fname}, 保留到 {county}/{school_name}/")
+                        fallback_dir = ARCHIVE_ROOT / county / school_name
+                        fallback_dir.mkdir(parents=True, exist_ok=True)
+                        target = fallback_dir / safe_filename(inner_fname)
+                    else:
+                        grade = info["grade"]
+                        subject = info["subject"] or "其他"
+                        filetype = "daan" if info["has_answer"] else "paper"
+
+                        new_name_parts = [
+                            county,
+                            f"{info['year']:03d}",
+                            f"第{info['term']}學期",
+                            info['exam_type'],
+                            school_name,
+                            grade,
+                            subject,
+                        ]
+                        if info['has_answer']:
+                            new_name_parts.append("解答")
+                        ext = Path(inner_fname).suffix
+                        new_name = "_".join(new_name_parts) + ext
+                        target = ARCHIVE_ROOT / county / level / grade / subject / filetype / new_name
+
+                # Write (skip if exists)
+                if target.exists():
+                    log.info(f"  [zip-skip] {target.name} (already exists)")
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(content)
+                extracted_count += 1
+                log.info(f"  [zip-extracted] {target.relative_to(ARCHIVE_ROOT)} ({len(content)} bytes)")
+
+        # 刪除 zip 本身
+        zip_path.unlink()
+        log.info(f"  [zip-removed] {zip_path.name}")
+        return extracted_count
+
+    except zipfile.BadZipFile as e:
+        log.warning(f"  [bad-zip] {zip_path.name}: {e}")
+        return 0
+    except Exception as e:
+        log.warning(f"  [zip-error] {zip_path.name}: {e}")
+        return 0
+
+
 async def archive_school(browser, school, dry_run=False):
     """對單一學校 archive"""
     from playwright.async_api import async_playwright
@@ -285,6 +389,12 @@ async def archive_kh_school(page, school_name, county, school_url_level, url, al
                         target.write_bytes(content)
                         log.info(f"  [✓] {target.relative_to(ARCHIVE_ROOT)} ({len(content)} bytes)")
                         count += 1
+
+                        # 【2026-07-28】如果是 .zip, 解壓到 StudyArk 結構后刪除 zip
+                        if fname_safe.lower().endswith('.zip'):
+                            log.info(f"  [zip-detected] {fname_safe}, 開始解壓...")
+                            extracted = extract_zip_to_studyark_structure(target, county, school_name, log)
+                            count += extracted - 1  # zip 本身不算 1 file, 被解壓的才是
                     else:
                         log.warning(f"  [fail {resp.status_code}] {fname_safe}")
             except Exception as e:
@@ -395,6 +505,12 @@ async def archive_edu_school(page, school_name, county, url, already_downloaded,
                     target.write_bytes(resp.content)
                     log.info(f"  [✓] {target.relative_to(ARCHIVE_ROOT)} ({len(resp.content)} bytes)")
                     count += 1
+
+                    # 【2026-07-28】如果是 .zip, 解壓到 StudyArk 結構后刪除 zip
+                    if fname_safe.lower().endswith('.zip'):
+                        log.info(f"  [zip-detected] {fname_safe}, 開始解壓...")
+                        extracted = extract_zip_to_studyark_structure(target, county, school_name, log)
+                        count += extracted - 1  # zip 本身不算,被解壓的才是
             except Exception as e:
                 log.warning(f"  [error] {fname_safe}: {e}")
 
