@@ -280,16 +280,25 @@ def fetch_sitemap(log) -> list[str]:
 
 
 # ============================================================
-# Filter: skip 全國性會考/大考 (CAP/CEEC 官方來源已 archive)
-# 【2026-07-28 17:02】William: 會考和大考不用抓, 官方來源已 archive
+# Filter: skip 全國性大考 (CAP/CEEC 官方來源已 archive)
+# 【2026-07-28 17:07】William:
+#   - 會考 = 「國中數學會考」是學校自辦模擬考 (歸在 mock category, 不排除)
+#   - 學測/指考/分科/統測/英聽 是全國性大考 (官方來源已 archive, 排除)
 # ============================================================
-NATIONAL_EXAM_KEYWORDS = ["會考", "學測", "指考", "分科測驗", "統測", "英聽"]
+NATIONAL_EXAM_KEYWORDS = ["學測", "指考", "分科測驗", "統測", "英聽"]
+MOCK_EXAM_KEYWORDS = ["會考", "模擬考"]  # 學校自辦模擬考 (歸為 mock category)
 
 
 def is_national_exam_paper(info: dict) -> bool:
     """判斷是否是全國性考試 (CAP/CEEC) — 不抓"""
     title = info.get("title", "")
     return any(kw in title for kw in NATIONAL_EXAM_KEYWORDS)
+
+
+def is_mock_exam_paper(info: dict) -> bool:
+    """判斷是否是學校自辦模擬考 (歸為 mock category, 不是 paper)"""
+    title = info.get("title", "")
+    return any(kw in title for kw in MOCK_EXAM_KEYWORDS)
 
 
 # ============================================================
@@ -343,6 +352,21 @@ def parse_paper_url(url: str) -> dict | None:
             "grade": grade,
             "subject": subject.strip(),
             "exam_term": exam_term,
+            "level": "junior",
+            "title": title,
+            "hash": hash_id,
+        }
+
+    # 【2026-07-28 17:07】特殊 pattern: 「109年國中數學會考」 (學校自辦模擬考, 沒學校沒年級)
+    m_mock = re.search(r'^\d+年(.+?)(?:會考|模擬考)', title)
+    if m_mock:
+        subject = m_mock.group(1).strip()
+        return {
+            "year": int(year),
+            "school": "(模擬考)",  # placeholder
+            "grade": "九年級",  # 預設九年級 (模擬考都是為會考準備)
+            "subject": subject,
+            "exam_term": "模擬",  # 標記為模擬考
             "level": "junior",
             "title": title,
             "hash": hash_id,
@@ -499,6 +523,14 @@ async def archive_paper(
     # 對應 county
     county = guess_county(info["school"])
     if not county:
+        # 【2026-07-28 17:07】學校自辦模擬考 (如「國中數學會考」) → 直接到 mock/
+        if is_mock_exam_paper(info):
+            log.info(f"  [mock-exam] {info['title']} → 待分類/ExamBank/mock/")
+            state[paper_url] = {"status": "mock_exam", "info": info}
+            if not dry_run:
+                await _download_to_uncategorized(page, paper_url, "mock", log)
+            return False
+
         log.warning(f"  [no-county] school='{info['school']}' → 待分類")
         state[paper_url] = {"status": "no_county", "info": info}
         # 【2026-07-28】仍然下載 PDF 到 「待分類」目錄讓 William 手動看
@@ -534,7 +566,10 @@ async def archive_paper(
 
             # 決定 target path
             level_zh = "高中" if info["level"] == "senior" else "國中"
-            target_dir = ARCHIVE_ROOT / county / level_zh / info["grade"] / info["subject"] / "paper"
+            # 【2026-07-28 17:07】模擬考 (學校自辦會考/模擬考) → mock/
+            # 一般段考 → paper/
+            filetype = "mock" if is_mock_exam_paper(info) else "paper"
+            target_dir = ARCHIVE_ROOT / county / level_zh / info["grade"] / info["subject"] / filetype
             target_dir.mkdir(parents=True, exist_ok=True)
 
             # New filename: {county}_{year:03d}_第{exam}段考_{school}_{grade}_{subject}.pdf
@@ -542,7 +577,7 @@ async def archive_paper(
             fname_parts = [
                 county,
                 f"{info['year']:03d}",
-                f"第{info['exam_term']}段考",
+                f"第{info['exam_term']}段考" if not is_mock_exam_paper(info) else "模擬考",
                 info["school"],
                 info["grade"],
                 info["subject"],
