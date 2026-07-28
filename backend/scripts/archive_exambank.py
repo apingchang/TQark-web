@@ -382,6 +382,52 @@ async def get_r2_url(page, paper_url: str, log) -> str | None:
 
 
 # ============================================================
+# Uncategorized downloader (for parse-fail / no-county)
+# ============================================================
+UNCATEGORIZED_DIR = ARCHIVE_ROOT / "_待分類" / "ExamBank"
+
+
+async def _download_to_uncategorized(page, paper_url: str, reason: str, log):
+    """
+    【2026-07-28】無法分辨的 paper 下載到 <ARCHIVE>/_待分類/ExamBank/<reason>/<hash>.pdf
+    William 之後手動打開看是哪個縣市學校,再移到正確位置。
+    """
+    import httpx
+    # 拿 R2 URL
+    r2_url = await get_r2_url(page, paper_url, log)
+    if not r2_url:
+        log.warning(f"  [uncat-fetch-fail] {paper_url}")
+        return False
+
+    # 下載 PDF
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(r2_url)
+            if resp.status_code != 200 or not resp.content.startswith(b'%PDF'):
+                log.warning(f"  [uncat-not-pdf] {paper_url}")
+                return False
+
+            # 從 URL 抓 hash 作為 filename
+            m = re.search(r'-([a-f0-9]{8})$', paper_url)
+            hash_id = m.group(1) if m else "unknown"
+
+            target_dir = UNCATEGORIZED_DIR / reason
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target = target_dir / f"{hash_id}.pdf"
+
+            if target.exists():
+                log.info(f"  [uncat-skip] {target.relative_to(ARCHIVE_ROOT)}")
+                return True
+
+            target.write_bytes(resp.content)
+            log.info(f"  [uncat-✓] {target.relative_to(ARCHIVE_ROOT)} ({len(resp.content)} bytes)")
+            return True
+    except Exception as e:
+        log.warning(f"  [uncat-error] {paper_url}: {str(e)[:100]}")
+        return False
+
+
+# ============================================================
 # Main pipeline
 # ============================================================
 async def archive_paper(
@@ -401,13 +447,19 @@ async def archive_paper(
     if not info:
         log.warning(f"  [parse-fail] {paper_url}")
         state[paper_url] = {"status": "parse_fail"}
+        # 【2026-07-28】仍然下載 PDF 到 「待分類」目錄讓 William 手動看
+        if not dry_run:
+            await _download_to_uncategorized(page, paper_url, "parse_fail", log)
         return False
 
     # 對應 county
     county = guess_county(info["school"])
     if not county:
-        log.warning(f"  [no-county] school='{info['school']}' → 未分類")
+        log.warning(f"  [no-county] school='{info['school']}' → 待分類")
         state[paper_url] = {"status": "no_county", "info": info}
+        # 【2026-07-28】仍然下載 PDF 到 「待分類」目錄讓 William 手動看
+        if not dry_run:
+            await _download_to_uncategorized(page, paper_url, f"no_county_{info['school']}", log)
         return False
 
     if dry_run:
