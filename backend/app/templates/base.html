@@ -26,6 +26,19 @@
         @media (min-width: 1400px) {
             .main-grid { grid-template-columns: 200px 1fr 240px; }
         }
+        /* 【2026-07-28 新】dashboard 用 2 欄 layout: 主內容 1fr + 右側 240px */
+        .main-grid-2col {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+            padding: 0 0.5rem;
+        }
+        @media (min-width: 992px) {
+            .main-grid-2col { grid-template-columns: 1fr 220px; }
+        }
+        @media (min-width: 1400px) {
+            .main-grid-2col { grid-template-columns: 1fr 240px; }
+        }
         .sidebar-card {
             position: sticky;
             top: 1rem;

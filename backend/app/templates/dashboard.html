@@ -3,7 +3,8 @@
 {% block title %}考卷搜尋 — TQark-web{% endblock %}
 
 {% block content %}
-<div class="main-grid">
+{# 【2026-07-28 改】dashboard 用 .main-grid-2col (主 1fr + 右側 240px) #}
+<div class="main-grid-2col">
     {# 左側: 主內容 #}
     <div class="dashboard-main">
 {% if request.query_params.get('error') == 'rate_limited' %}
