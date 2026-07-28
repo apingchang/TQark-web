@@ -254,9 +254,47 @@ def fetch_sitemap(log) -> list[str]:
 
     urls = re.findall(r'<loc>(https?://exambank\.darrenlu\.com/paper/[^<]+)</loc>', xml)
     log.info(f"  sitemap: {len(urls)} paper URLs")
-    return urls
+
+    # 【2026-07-28 17:02】William: 會考/大考不用抓 (CAP/CEEC 官方來源已 archive)
+    # 先 parse + filter, parse-fail 也看 keyword (「會考」「學測」...)
+    before = len(urls)
+    filtered = []
+    skipped_national = 0
+    for u in urls:
+        info = parse_paper_url(u)
+        if info and is_national_exam_paper(info):
+            skipped_national += 1
+            continue
+        # parse-fail 但 title 含 national keyword — 跳過
+        m = re.match(r'https?://exambank\.darrenlu\.com/paper/(\d+)-(.+)-([a-f0-9]{8})$', u)
+        if not m:
+            filtered.append(u)
+            continue
+        title = m.group(2)
+        if any(kw in title for kw in NATIONAL_EXAM_KEYWORDS):
+            skipped_national += 1
+            continue
+        filtered.append(u)
+    log.info(f"  filtered: {skipped_national} national exam papers skipped")
+    return filtered
 
 
+# ============================================================
+# Filter: skip 全國性會考/大考 (CAP/CEEC 官方來源已 archive)
+# 【2026-07-28 17:02】William: 會考和大考不用抓, 官方來源已 archive
+# ============================================================
+NATIONAL_EXAM_KEYWORDS = ["會考", "學測", "指考", "分科測驗", "統測", "英聽"]
+
+
+def is_national_exam_paper(info: dict) -> bool:
+    """判斷是否是全國性考試 (CAP/CEEC) — 不抓"""
+    title = info.get("title", "")
+    return any(kw in title for kw in NATIONAL_EXAM_KEYWORDS)
+
+
+# ============================================================
+# Sitemap + URL parsing
+# ============================================================
 def parse_paper_url(url: str) -> dict | None:
     """
     Parse paper URL → metadata
@@ -450,6 +488,12 @@ async def archive_paper(
         # 【2026-07-28】仍然下載 PDF 到 「待分類」目錄讓 William 手動看
         if not dry_run:
             await _download_to_uncategorized(page, paper_url, "parse_fail", log)
+        return False
+
+    # 【2026-07-28 17:02】skip 全國性會考/大考 (官方來源已 archive)
+    if is_national_exam_paper(info):
+        log.info(f"  [skip-national] {info['title']}")
+        state[paper_url] = {"status": "national_exam_skip", "info": info}
         return False
 
     # 對應 county
