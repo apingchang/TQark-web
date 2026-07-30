@@ -147,17 +147,21 @@ def is_exam_file(name: str, mime_type: str = "", parent_path: str = "") -> bool:
 
 
 def target_path_for(school: dict, filename: str, sub_path: str = "") -> Path:
-    """Map filename to StudyArk structure based on school record.
+    """Map to flat uncategorized structure.
 
-    sub_path is the breadcrumb of subfolder names e.g. "114學年_第2學期_段考"
+    【2026-07-30 William 指示】先抓回來全部放在 _未分類/DriveFolder/, 不做分類
+    之後手動 review,再決定分類邏輯。
+
+    Layout:
+        /mnt/my_book/考題收集/_未分類/DriveFolder/<county>/<school>/<filename>
+
+    sub_path (Drive sub-folder breadcrumb) 也保留作為 path component, 但 collision 加 suffix.
     """
     county = school.get("county", "未分類")
-    # 2026-07-30: category is "junior"/"senior"/"elementary" - map to 中文
-    cat = school.get("category", "junior")
-    level_map = {"junior": "國中", "senior": "高中", "elementary": "國小"}
-    level = level_map.get(cat, cat)
-    base = ARCHIVE_ROOT / county / level / "_DriveFolder" / school["name"]
+    school_name = school["name"]
+    base = ARCHIVE_ROOT / "_未分類" / "DriveFolder" / county / school_name
     if sub_path:
+        # 加入 sub_path 作為子資料夾 (保留 Google Drive 原始結構供 review)
         return base / sub_path / filename
     return base / filename
 
