@@ -255,8 +255,9 @@
       "county": "高雄市",
       "category": "junior",
       "url": "https://www.kcjh.kh.edu.tw/view/index.php?WebID=190&MainType=0&SubType=104&MainMenuId=34732&SubMenuId=34764",
-      "link_type": "school_web",
-      "has_answer": true
+      "link_type": "kh_web",
+      "has_answer": true,
+      "verified": true
     },
     {
       "name": "高雄市左營國中",
@@ -331,14 +332,6 @@
       "has_answer": true
     },
     {
-      "name": "高雄市鹽埕國中",
-      "county": "高雄市",
-      "category": "junior",
-      "url": "https://affairs.kh.edu.tw/5555",
-      "link_type": "school_web",
-      "has_answer": true
-    },
-    {
       "name": "高雄市大社國中",
       "county": "高雄市",
       "category": "junior",
@@ -375,16 +368,9 @@
       "county": "高雄市",
       "category": "junior",
       "url": "https://www.dwm.kh.edu.tw/view/index.php?WebID=344&MainType=0&SubType=104&MainMenuId=64182&SubMenuId=64184",
-      "link_type": "school_web",
-      "has_answer": true
-    },
-    {
-      "name": "高雄市燕巢國中",
-      "county": "高雄市",
-      "category": "junior",
-      "url": "https://affairs.kh.edu.tw/5483/fpage/view/1",
-      "link_type": "school_web",
-      "has_answer": true
+      "link_type": "kh_web",
+      "has_answer": true,
+      "verified": true
     },
     {
       "name": "桃園市桃園國中",
@@ -847,14 +833,6 @@
       "county": "高雄市",
       "category": "elementary",
       "url": "https://www.yap.kh.edu.tw/view/index.php?WebID=33&MainType=104&SubType=0&MainMenuId=44061&SubMenuId=0",
-      "link_type": "school_web",
-      "has_answer": false
-    },
-    {
-      "name": "高雄市崇德國小",
-      "county": "高雄市",
-      "category": "elementary",
-      "url": "https://affairs.kh.edu.tw/2483/upload/file_list/47",
       "link_type": "school_web",
       "has_answer": false
     },
@@ -1656,16 +1634,6 @@
       "source": "exambank.darrenlu.com/school-links"
     },
     {
-      "name": "中正高中(國中部)",
-      "county": "高雄市",
-      "category": "junior",
-      "url": "https://www.cchs.kh.edu.tw/ischool/publish_page/3/?cid=558",
-      "link_type": "school_web",
-      "verified": true,
-      "subjects": [],
-      "source": "exambank.darrenlu.com/school-links"
-    },
-    {
       "name": "後勁國中",
       "county": "高雄市",
       "category": "junior",
@@ -1784,6 +1752,15 @@
       "verified": true,
       "subjects": [],
       "source": "ntjh.kh.edu.tw (學校重要資訊)"
+    },
+    {
+      "name": "高雄市鼓山高中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://www.kusjh.kh.edu.tw/side_content/1014",
+      "link_type": "school_web",
+      "verified": true,
+      "source": "web_search (鼓山高中段考)"
     }
   ]
 }
