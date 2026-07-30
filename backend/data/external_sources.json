@@ -1,0 +1,1789 @@
+{
+  "last_scraped": "2026-07-30T22:53:00+08:00",
+  "source_url": "https://www.tcool.cc/ + exambank.darrenlu.com/school-links",
+  "schools": [
+    {
+      "name": "台北市仁愛國中",
+      "county": "台北市",
+      "category": "junior",
+      "url": "https://sites.google.com/jajh.tp.edu.tw/teaching/%E8%80%83%E8%A9%A6%E8%B3%87%E8%A8%8A/%E6%AD%B7%E5%B1%86%E8%A9%A6%E9%A1%8C",
+      "link_type": "sites",
+      "has_answer": true
+    },
+    {
+      "name": "台北市誠正國中",
+      "county": "台北市",
+      "category": "junior",
+      "url": "https://www.ccjh.tp.edu.tw/nss/p/546421",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市土城國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1M2rPpBNoSnqwGg_Nx9yMsWPWu5wh32tH",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市永和國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1hcJh6StDal_wXcRSnNNkG6__g6QKv2wU",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市中平國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/12_U35JdeDmkHQJ8Zt6CGUnyM49nfzEWY",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市海山國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "http://120.102.232.21/nss/p/218",
+      "link_type": "other",
+      "has_answer": true
+    },
+    {
+      "name": "新北市新莊國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.hcjh.ntpc.edu.tw/p/403-1000-167-1.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市崇林國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1DaCpFk7XBFKHSUwx1oPHYuMRjfwFVgip",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市江翠國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://web.ctjh.ntpc.edu.tw:5001/sharing/vXBeo2HXe",
+      "link_type": "nas",
+      "has_answer": true
+    },
+    {
+      "name": "新北市中正國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www2.ccjhs.ntpc.edu.tw/p/403-1000-114.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市福和國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.fhjh.ntpc.edu.tw/p/403-1000-78-1.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市板橋國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.pcjh.ntpc.edu.tw/p/412-1000-163.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市五峰國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.wfjh.ntpc.edu.tw/p/403-1000-77.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市桃子腳國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.tykjh.ntpc.edu.tw/p/426-1000-56.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市新泰國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1TGpK-GEbSrQN4SDCyiDLDMpLN1EIteMi",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市忠孝國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.chjs.ntpc.edu.tw/p/406-1000-2544.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市三多國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.sdjh.ntpc.edu.tw/p/412-1000-837.php?Lang=zh-tw",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市鷺江國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.ljjh.ntpc.edu.tw/p/403-1000-107.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市錦和國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1mVL91Rf0uaM0j2NP8reoGM4YRMe7cGH0",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市三和國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://nas20.shjh.ntpc.edu.tw:5001/fsdownload/KZnEAy4Ro/%E6%AD%B7%E5%B1%86%E6%AE%B5%E8%80%83%E8%A9%A6%E9%A1%8C",
+      "link_type": "nas",
+      "has_answer": true
+    },
+    {
+      "name": "新北市丹鳳國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1BkxnCnfJimZxK4FgjRT5Ct1MlvmZKZek",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市光榮國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.grjh.ntpc.edu.tw/p/412-1000-800.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市蘆洲國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.lcjh.ntpc.edu.tw/p/412-1000-873.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市五福國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/5365/upload/upload_list/2",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市七賢國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/4338",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市陽明國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "http://163.16.246.199/s11/board_exam/",
+      "link_type": "other",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市英明國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1ldk6MtVSNgQi6pVODaQB0-XL3m0HkvZn",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市龍華國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/3850/upload/upload_list/16",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市三民國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/5251/upload/upload_list/13",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市正興國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/3725/upload/upload_list/6",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市翠屏國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://www.tpjh.kh.edu.tw/view/index.php?WebID=43&MainType=0&SubType=101&MainMenuId=20265&SubMenuId=89439",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市國昌國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://www.kcjh.kh.edu.tw/view/index.php?WebID=190&MainType=0&SubType=104&MainMenuId=34732&SubMenuId=34764",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市左營國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1Exu4tufSHJHHEXqFu3I6jCkT85_YHDGs",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市楠梓國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1wuIMfqESretEACt5ZRoKlOHoANbBa4_o",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市五甲國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1cwAEj_uJc39KqLMP89yb9scMXRCtIBma",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市文府國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/1126/upload/upload_list/9",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市光華國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://sites.google.com/khjh.kh.edu.tw/khjhexam",
+      "link_type": "sites",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市鳳甲國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/41",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市右昌國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/824/upload/upload_list/11",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市苓雅國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1cx8qrUxgUxLYHp7hthUzpVQ_lLkAZzPE",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市獅甲國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/0B_RSy7tryT_oUTU5dnhZVEs2VE0?resourcekey=0-UB6WbypCrM1T_ioqo1lfSA",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市鹽埕國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/5555",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市大社國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://www.dam.kh.edu.tw/view/index.php?WebID=68&MainType=0&SubType=101&MainMenuId=51167&SubMenuId=28414&NowMainId=51167&NowSubId=28414",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市鼎金國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://class.kh.edu.tw/20267",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市立德國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/4567",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市民族國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://hakka.mtjh.kh.edu.tw/exam/exam-section.htm",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市大灣國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://www.dwm.kh.edu.tw/view/index.php?WebID=344&MainType=0&SubType=104&MainMenuId=64182&SubMenuId=64184",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市燕巢國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/5483/fpage/view/1",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "桃園市桃園國中",
+      "county": "桃園市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1tDXaKyEiP0qTIxWPaROcoR_QjfdCLjO-",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "桃園市大有國中",
+      "county": "桃園市",
+      "category": "junior",
+      "url": "https://www.dyjhs.tyc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=3",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "桃園市自強國中",
+      "county": "桃園市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1BQFNJxFEFHDd76cIHCe0FjmXRJ2Cg7oD",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "台中市居仁國中",
+      "county": "台中市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1Txwt35rSN7-43jzCQi-QH8hjkA5sr1d0",
+      "link_type": "drive",
+      "has_answer": false
+    },
+    {
+      "name": "台中市大業國中",
+      "county": "台中市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1-FQ00lD4Q7jDy0vWiUxjyq2ovdLWQO5g",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "台中市向上國中",
+      "county": "台中市",
+      "category": "junior",
+      "url": "https://hsjh.tc.edu.tw/p/412-1103-8469.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "台中市四育國中",
+      "county": "台中市",
+      "category": "junior",
+      "url": "https://sites.google.com/syjhs.tc.edu.tw/2020test/%E9%A6%96%E9%A0%81",
+      "link_type": "sites",
+      "has_answer": true
+    },
+    {
+      "name": "台中市五權國中",
+      "county": "台中市",
+      "category": "junior",
+      "url": "https://wcjh.tc.edu.tw/p/412-1106-9280.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "台中市崇德國中",
+      "county": "台中市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1vK7V7tfRNuo_QtpN25txC1pqFmuupIo3",
+      "link_type": "drive",
+      "has_answer": false
+    },
+    {
+      "name": "南投縣草屯國中",
+      "county": "南投縣",
+      "category": "junior",
+      "url": "https://ttjhs.ntct.edu.tw/p/403-1009-1480-1.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "台南市復興國中",
+      "county": "台南市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1SUtrO3bJpsWezXHvtkfNsfygtXQrg2ne",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "台南市中山國中",
+      "county": "台南市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/0BwluI5zcaUjrV0lxVWJwNERQUFU",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "台南市民德國中",
+      "county": "台南市",
+      "category": "junior",
+      "url": "https://sites.google.com/mtjh.tn.edu.tw/exam107/%E9%A6%96%E9%A0%81",
+      "link_type": "sites",
+      "has_answer": true
+    },
+    {
+      "name": "嘉義市嘉義國中",
+      "county": "嘉義市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1bU7APaZl4fzrrXrUu6av2sOOnKowvFXR",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "嘉義市玉山國中",
+      "county": "嘉義市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1HYhyZ_Aq6thgyV8KHpv8wHjzv1YVkERN",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "嘉義縣太保國中",
+      "county": "嘉義縣",
+      "category": "junior",
+      "url": "https://www.tpjh.cyc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=36",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "屏東縣中正國中",
+      "county": "屏東縣",
+      "category": "junior",
+      "url": "https://www.ccjh.ptc.edu.tw/nss/p/35",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "屏東縣明正國中",
+      "county": "屏東縣",
+      "category": "junior",
+      "url": "https://www.mcjh.ptc.edu.tw/nss/p/test2023",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "花蓮縣宜昌國中",
+      "county": "花蓮縣",
+      "category": "junior",
+      "url": "https://www.ycjh.hlc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=18",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "花蓮縣美崙國中",
+      "county": "花蓮縣",
+      "category": "junior",
+      "url": "https://www.mljh.hlc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=77",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "台東縣卑南國中",
+      "county": "台東縣",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/0B6fZpTFkjuvJZWUyOGY2YjktOGNkMC00OGJlLTk5NmEtZDlkZWRhMzM4ODRh",
+      "link_type": "drive",
+      "has_answer": false
+    },
+    {
+      "name": "宜蘭縣中華國中",
+      "county": "宜蘭縣",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/u/0/folders/0B-2YnWjsnzalMm84ck9yRUtPTG8",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "基隆市銘傳國中",
+      "county": "基隆市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1VW_cuRpIlvggu4R6ceJ8hN77ivJTNsVS",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "台北市明倫高中",
+      "county": "台北市",
+      "category": "senior",
+      "url": "https://www.mlsh.tp.edu.tw/nss/s/education/te",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市新店高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://www.htsh.ntpc.edu.tw/p/412-1000-858.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市新北高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://www.ntsh.ntpc.edu.tw/p/412-1000-152.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市安康高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://drive.google.com/drive/folders/1NcgK4SVnLEQGjMMKpMQxz2curaY-oDET",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市私立南山高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://igt.nssh.ntpc.edu.tw/podcasts/328?locale=zh_tw",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新竹女中",
+      "county": "新竹市",
+      "category": "senior",
+      "url": "https://www.hgsh.hc.edu.tw/home?cid=2355",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市鼓山高中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://www.kusjh.kh.edu.tw/sidelist/67",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄市小港高中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://drive.google.com/drive/folders/1DnzdivDM2wWw3ghP2mihX9osyTubQIKQ",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "台南二中",
+      "county": "台南市",
+      "category": "senior",
+      "url": "https://drive.google.com/drive/folders/1DEOXnOoXMIUR-EcPoUZ2R_jnMWJ6yo-a",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "基隆高中",
+      "county": "基隆市",
+      "category": "senior",
+      "url": "https://o365oid-my.sharepoint.com/:f:/g/personal/prettyfish220_ms_edu_tw/EiTKK1O4f9lKr4gTF9puV68BE0tqGEA-qhdCRuC9CPtuOw",
+      "link_type": "sharepoint",
+      "has_answer": true
+    },
+    {
+      "name": "彰化高中",
+      "county": "彰化縣",
+      "category": "senior",
+      "url": "https://www.chsh.chc.edu.tw/p/412-1009-194-1.php?Lang=zh-tw",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "屏東高中",
+      "county": "屏東縣",
+      "category": "senior",
+      "url": "https://www.pths.ptc.edu.tw/ischool/publish_page/39/?cid=495",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "台東高中",
+      "county": "台東縣",
+      "category": "senior",
+      "url": "https://www.pttsh.ttct.edu.tw/resource/show.php?aid=716&view=1",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "彰化縣溪湖高中",
+      "county": "彰化縣",
+      "category": "senior",
+      "url": "https://drive.google.com/drive/folders/1xi9ngcQMfWSMzByXY7soS9s4cOsKwXgr",
+      "link_type": "drive",
+      "has_answer": false
+    },
+    {
+      "name": "金門高中",
+      "county": "金門縣",
+      "category": "senior",
+      "url": "https://www.kmsh.km.edu.tw/ischool/publish_page/4/?cid=2001",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "建中數學科",
+      "county": "台北市",
+      "category": "senior",
+      "url": "https://sites.google.com/gl.ck.tp.edu.tw/ckmath/%E8%80%83%E5%8F%A4%E9%A1%8C",
+      "link_type": "sites",
+      "has_answer": false
+    },
+    {
+      "name": "北一女數學科",
+      "county": "台北市",
+      "category": "senior",
+      "url": "https://sites.google.com/a/gapps.fg.tp.edu.tw/math/exam",
+      "link_type": "sites",
+      "has_answer": true
+    },
+    {
+      "name": "雄中數學科",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "http://math.kshs.kh.edu.tw/exam.htm",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "桃園市武陵高中數學科",
+      "county": "桃園市",
+      "category": "senior",
+      "url": "https://www.wlsh.tyc.edu.tw/p/405-1000-1526.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "高雄師大附中數學科",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://sites.google.com/tea.nknush.kh.edu.tw/math/%E8%A9%A6%E9%A1%8C%E5%88%86%E4%BA%AB/%E9%AB%98%E4%B8%AD%E6%AE%B5%E8%80%83%E8%A9%A6%E9%A1%8C",
+      "link_type": "sites",
+      "has_answer": true
+    },
+    {
+      "name": "興大附中數學科",
+      "county": "台中市",
+      "category": "senior",
+      "url": "https://shchmath.github.io/shchmath/usual/",
+      "link_type": "other",
+      "has_answer": true
+    },
+    {
+      "name": "蘭陽女中數學科",
+      "county": "宜蘭縣",
+      "category": "senior",
+      "url": "https://sites.google.com/a/lygsh.ilc.edu.tw/math/%E6%AE%B5%E8%80%83%E8%A9%A6%E9%A1%8C/%E9%AB%98%E4%B8%89%E7%AC%AC%E4%B8%80%E5%AD%B8%E6%9C%9F",
+      "link_type": "sites",
+      "has_answer": true
+    },
+    {
+      "name": "新竹高中英文科",
+      "county": "新竹市",
+      "category": "senior",
+      "url": "https://www.hchs.hc.edu.tw/ischool/publish_page/15/",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市安和國小",
+      "county": "新北市",
+      "category": "elementary",
+      "url": "https://drive.google.com/drive/folders/11orkSjAS9RdXMOVQkrvf39qbaDUXYWKU",
+      "link_type": "drive",
+      "has_answer": true
+    },
+    {
+      "name": "新北市桃子腳國小",
+      "county": "新北市",
+      "category": "elementary",
+      "url": "https://www.tykjh.ntpc.edu.tw/p/426-1000-57.php",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "新北市福營國小",
+      "county": "新北市",
+      "category": "elementary",
+      "url": "https://www.fyjh.ntpc.edu.tw/p/412-1000-751.php?Lang=zh-tw",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "台南市和順國小",
+      "county": "台南市",
+      "category": "elementary",
+      "url": "https://www.hses.tn.edu.tw/modules/tad_uploader/index.php?of_cat_sn=1",
+      "link_type": "school_web",
+      "has_answer": true
+    },
+    {
+      "name": "台北市民權國小",
+      "county": "台北市",
+      "category": "elementary",
+      "url": "https://drive.google.com/drive/folders/0B4kPcM0nBpdsLTFsaTUxWDdMMGc?resourcekey=0-4wgPVEE8cjktI51jC7_56Q",
+      "link_type": "drive",
+      "has_answer": false
+    },
+    {
+      "name": "台北市內湖國小",
+      "county": "台北市",
+      "category": "elementary",
+      "url": "https://sites.google.com/a/nhes.tp.edu.tw/zhu-ce-zu/%E9%A6%96%E9%A0%81",
+      "link_type": "sites",
+      "has_answer": false
+    },
+    {
+      "name": "桃園市大華國小",
+      "county": "桃園市",
+      "category": "elementary",
+      "url": "https://www.thps.tyc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=5",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "桃園市建德國小",
+      "county": "桃園市",
+      "category": "elementary",
+      "url": "https://www.jdps.tyc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=86",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "桃園市普仁國小",
+      "county": "桃園市",
+      "category": "elementary",
+      "url": "https://sites.google.com/pzps.tyc.edu.tw/9958/%E9%A6%96%E9%A0%81/113%E5%AD%B8%E5%B9%B4",
+      "link_type": "sites",
+      "has_answer": false
+    },
+    {
+      "name": "台中市大墩國小",
+      "county": "台中市",
+      "category": "elementary",
+      "url": "https://sites.google.com/ddes.tc.edu.tw/testpaper",
+      "link_type": "sites",
+      "has_answer": false
+    },
+    {
+      "name": "高雄市獅湖國小",
+      "county": "高雄市",
+      "category": "elementary",
+      "url": "https://affairs.kh.edu.tw/1613/upload/upload_list/33?cat=11",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "高雄市永安國小",
+      "county": "高雄市",
+      "category": "elementary",
+      "url": "https://www.yap.kh.edu.tw/view/index.php?WebID=33&MainType=104&SubType=0&MainMenuId=44061&SubMenuId=0",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "高雄市崇德國小",
+      "county": "高雄市",
+      "category": "elementary",
+      "url": "https://affairs.kh.edu.tw/2483/upload/file_list/47",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "高雄市忠孝國小",
+      "county": "高雄市",
+      "category": "elementary",
+      "url": "https://drive.google.com/drive/folders/1peMGLUZDpZ58rWXByZLXb6WxOSvmnbmx",
+      "link_type": "drive",
+      "has_answer": false
+    },
+    {
+      "name": "基隆市東光國小",
+      "county": "基隆市",
+      "category": "elementary",
+      "url": "https://olddgps.kl.edu.tw/136",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "花蓮市明義國小",
+      "county": "花蓮縣",
+      "category": "elementary",
+      "url": "https://www.myps.hlc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=252",
+      "link_type": "school_web",
+      "has_answer": false
+    },
+    {
+      "name": "成功高中",
+      "county": "臺北市",
+      "category": "senior",
+      "url": "https://www.cksh.tp.edu.tw/category/teaching/math/math01_desc/",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math",
+        "chinese"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "松山高中",
+      "county": "臺北市",
+      "category": "senior",
+      "url": "https://sssharchive.github.io/FileUp/96/tree/index.htm",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中山女高",
+      "county": "臺北市",
+      "category": "senior",
+      "url": "https://www.csghs.tp.edu.tw/sidebar_link/coursepage/",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "明倫高中",
+      "county": "臺北市",
+      "category": "senior",
+      "url": "https://www.mlsh.tp.edu.tw/nss/s/education/di111103",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math",
+        "chinese",
+        "english",
+        "physics",
+        "chemistry",
+        "biology",
+        "earth_science",
+        "history",
+        "geography",
+        "civics"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "金甌女中",
+      "county": "臺北市",
+      "category": "senior",
+      "url": "http://www.cogsh.tp.edu.tw/ischool/publish_page/78/",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "萬芳高中",
+      "county": "臺北市",
+      "category": "senior",
+      "url": "http://local.wfsh.tp.edu.tw/bteam/",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "內湖高中",
+      "county": "臺北市",
+      "category": "senior",
+      "url": "https://sites.google.com/site/nhshmath2014/",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "板橋高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://drive.google.com/drive/folders/10Y3OromfS6f9Urks74xB3hmK8cR0j1aN",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "新北高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://www.ntsh.ntpc.edu.tw/p/412-1000-152.php?Lang=zh-tw",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "南山高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://igt.nssh.ntpc.edu.tw/sections/2559/pages?locale=zh_tw",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "林口高中",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://sites.google.com/site/lkshmath/",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "鶯歌高職",
+      "county": "新北市",
+      "category": "senior",
+      "url": "https://www.ykvs.ntpc.edu.tw/p/403-1000-332.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "桃園高中",
+      "county": "桃園市",
+      "category": "senior",
+      "url": "https://www.tysh.tyc.edu.tw/ischool/publish_page/16/?cid=3405",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中壢高中",
+      "county": "桃園市",
+      "category": "senior",
+      "url": "https://www.clhs.tyc.edu.tw/ischool/publish_page/201/",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "內壢高中",
+      "county": "桃園市",
+      "category": "senior",
+      "url": "https://www.nlhs.tyc.edu.tw/ischool/publish_page/28/?cid=2514",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "平鎮高中",
+      "county": "桃園市",
+      "category": "senior",
+      "url": "http://dept.pjhs.tyc.edu.tw/DEPT/EAR5/",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "新竹高中",
+      "county": "新竹市",
+      "category": "senior",
+      "url": "https://www.hcvs.hc.edu.tw/ischool/publish_page/21/?cid=744",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math",
+        "chinese",
+        "english",
+        "physics",
+        "chemistry",
+        "biology",
+        "earth_science",
+        "history",
+        "geography",
+        "civics"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "竹北高中",
+      "county": "新竹縣",
+      "category": "senior",
+      "url": "https://sites.google.com/cpshs.hcc.edu.tw/math/",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "竹東高中",
+      "county": "新竹縣",
+      "category": "senior",
+      "url": "https://sites.google.com/site/ctshmath/",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "竹南高中",
+      "county": "苗栗縣",
+      "category": "senior",
+      "url": "https://www.cnsh.mlc.edu.tw/ischool/publish_page/60/?cid=1005",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "physics"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "台中一中",
+      "county": "臺中市",
+      "category": "senior",
+      "url": "https://tcfsh.tc.edu.tw/p/412-1076-20840.php",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [
+        "math",
+        "physics",
+        "chemistry"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "台中二中",
+      "county": "臺中市",
+      "category": "senior",
+      "url": "https://sites.google.com/cloud.tcssh.tc.edu.tw/exam/",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "台中女中",
+      "county": "臺中市",
+      "category": "senior",
+      "url": "https://itcgs.tcgs.tc.edu.tw/ischool/public/resource_view/show.php?aid=196",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "大里高中",
+      "county": "臺中市",
+      "category": "senior",
+      "url": "https://sites.google.com/a/dlsh.tc.edu.tw/tai-zhong-shi-li-da-li-gao-zhong-jiao-wu-chu/shi-wu-zu/kao-shi-gui-ze/li-jie-kao-ti",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "文華高中",
+      "county": "臺中市",
+      "category": "senior",
+      "url": "https://web.whsh.tc.edu.tw/ischool/publish_page/1013/?cid=39453",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "長億高中",
+      "county": "臺中市",
+      "category": "senior",
+      "url": "https://sites.google.com/a/cyhs.tcc.edu.tw/mathsenior/",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "田中高中",
+      "county": "彰化縣",
+      "category": "senior",
+      "url": "https://sites.google.com/site/tchsexam/",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "彰師附工",
+      "county": "彰化縣",
+      "category": "senior",
+      "url": "https://www.sivs.chc.edu.tw/files/15-1000-14175,c287-1.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "斗六高中",
+      "county": "雲林縣",
+      "category": "senior",
+      "url": "https://www.tlsh.ylc.edu.tw/affairs/aca-affairs/tlsh3/tlsh3-4/",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "正心高中",
+      "county": "雲林縣",
+      "category": "senior",
+      "url": "https://sites.google.com/a/shsh.ylc.edu.tw/",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "嘉義高中",
+      "county": "嘉義市",
+      "category": "senior",
+      "url": "https://www.cysh.cy.edu.tw/p/412-1008-436.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "台南大學附中",
+      "county": "臺南市",
+      "category": "senior",
+      "url": "https://drive.google.com/drive/folders/0B5q0OHyiiJf-UG5aNk1ubU1IM2s",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "瀛海高中",
+      "county": "臺南市",
+      "category": "senior",
+      "url": "https://sites.google.com/site/shuxueketikupingtai/",
+      "link_type": "sites",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "高雄女中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://www.hkhs.kh.edu.tw/ischool/publish_page/11/?cid=124",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "高雄師大附中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://sites.google.com/tea.nknush.kh.edu.tw/math/",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "正義高中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "http://www.cysh.khc.edu.tw/results_answer.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中正高中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://www.cchs.kh.edu.tw/ischool/publish_page/3/?cid=558",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "新興高中",
+      "county": "高雄市",
+      "category": "senior",
+      "url": "https://educase.kh.edu.tw/navigate/a/#/s/E51D4D8E663D477288CA032C047DBC63AUY",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "蘭陽女中",
+      "county": "宜蘭縣",
+      "category": "senior",
+      "url": "https://sites.google.com/a/lygsh.ilc.edu.tw/math/",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "台東高中",
+      "county": "臺東縣",
+      "category": "senior",
+      "url": "https://www.pttsh.ttct.edu.tw/paper/",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "基隆高中",
+      "county": "基隆市",
+      "category": "senior",
+      "url": "https://www.klsh.kl.edu.tw/gov/aca/klsh022/",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [
+        "math"
+      ],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "明湖國中",
+      "county": "臺北市",
+      "category": "junior",
+      "url": "https://drive.google.com/a/mhjh.tp.edu.tw/folderview?id=0B2QWd338K2s5dktrZ1NTN0RIWE0",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "景興國中",
+      "county": "臺北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1dm4UUboym2cWVWo1f4vvw_953JO8vziB",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "興雅國中",
+      "county": "臺北市",
+      "category": "junior",
+      "url": "http://www.syajh.tp.edu.tw/information.php?p_id=104",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "石牌國中",
+      "county": "臺北市",
+      "category": "junior",
+      "url": "https://www.spjh.tp.edu.tw/nss/p/Pastexam",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "南門國中",
+      "county": "臺北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/u/1/folders/1nYm8v6hwxGfnQJtuqjDWb977lnjtkqYB",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "興福國中",
+      "county": "臺北市",
+      "category": "junior",
+      "url": "https://sites.google.com/a/mail.hfjh.tp.edu.tw/teaching/duan-kao-ti-ku2",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "福和國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.fhjh.ntpc.edu.tw/p/403-1000-78.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "頭前國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/13UIEcdPn7BjXElny9-jMC2P0OcWEXzh9",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "新莊國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.hcjh.ntpc.edu.tw/p/403-1000-80.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "永和國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "http://www.jhjhs.ntpc.edu.tw/p/412-1000-175.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中正國中",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.ccjhs.ntpc.edu.tw/",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中和高中(國中部)",
+      "county": "新北市",
+      "category": "junior",
+      "url": "https://www.chshs.ntpc.edu.tw/p/412-1000-746.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "青溪國中",
+      "county": "桃園市",
+      "category": "junior",
+      "url": "https://www.chjh.tyc.edu.tw/",
+      "link_type": "school_web",
+      "verified": false,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "竹北國中",
+      "county": "新竹縣",
+      "category": "junior",
+      "url": "https://cbjh.hcc.edu.tw/p/412-1002-3502.php",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "五權國中",
+      "county": "臺中市",
+      "category": "junior",
+      "url": "https://wcjh.tc.edu.tw/p/412-1106-9280.php?Lang=zh-tw",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "順天國中",
+      "county": "臺中市",
+      "category": "junior",
+      "url": "https://sites.google.com/a/stjh.tc.edu.tw/duan-kao-ti-mu-guan-mo/",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "大華國中",
+      "county": "臺中市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1mmaFlV3YhkhrpE1MA8WfmIfB3zgHTJg5",
+      "link_type": "drive",
+      "verified": false,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "居仁國中",
+      "county": "臺中市",
+      "category": "junior",
+      "url": "https://sites.google.com/gm.cjjh.tc.edu.tw/cjjh1/%E8%A9%95%E9%87%8F%E8%88%87%E6%B8%AC%E9%A9%97/%E6%AE%B5%E8%80%83%E9%A1%8C%E5%BA%AB",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "員林國中",
+      "county": "彰化縣",
+      "category": "junior",
+      "url": "https://sites.google.com/a/ms.yljh.chc.edu.tw/yljh01-2/",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "南投國中",
+      "county": "南投縣",
+      "category": "junior",
+      "url": "https://ngjh.ntct.edu.tw/p/412-1003-4574.php?Lang=zh-tw",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "太保國中",
+      "county": "嘉義縣",
+      "category": "junior",
+      "url": "http://www.tpjh.cyc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=36",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "忠孝國中",
+      "county": "臺南市",
+      "category": "junior",
+      "url": "https://sites.google.com/chjh.tn.edu.tw/exam",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "民德國中",
+      "county": "臺南市",
+      "category": "junior",
+      "url": "https://sites.google.com/mtjh.tn.edu.tw/exam107/",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中山國中",
+      "county": "臺南市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1NclJ0rqRnNaxBSruJjFwhRVQ10UWEr1Y",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "後甲國中",
+      "county": "臺南市",
+      "category": "junior",
+      "url": "http://area.hcjh.tn.edu.tw/noise/bc/s2s.asp?field=3&#38;keyword=",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "獅甲國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://docs.google.com/folderview?id=0B_RSy7tryT_oUTU5dnhZVEs2VE0",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中正高中(國中部)",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://www.cchs.kh.edu.tw/ischool/publish_page/3/?cid=558",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "後勁國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "http://affairs.kh.edu.tw/932/upload/upload_list/13",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "三民國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://affairs.kh.edu.tw/5251",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "大義國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://class.kh.edu.tw/21037",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "明華國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "http://class.kh.edu.tw/12896",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "復華高中(國中部)",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://sites.google.com/fhhs.kh.edu.tw/jhs/%E6%AE%B5%E8%80%83%E8%A9%A6%E9%A1%8C",
+      "link_type": "sites",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "興仁國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://www.hjjh.kh.edu.tw/index.php?WebID=345",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "鳳山國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://www.fsm.kh.edu.tw/index.php?WebID=27",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "道明國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "http://163.32.59.40/~board/papers/",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中正國中",
+      "county": "屏東縣",
+      "category": "junior",
+      "url": "https://www.ccjh.ptc.edu.tw/nss/s/main/p/35",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "中華國中",
+      "county": "宜蘭縣",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/u/2/folders/0B-2YnWjsnzalMm84ck9yRUtPTG8",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "華仁國中",
+      "county": "花蓮縣",
+      "category": "junior",
+      "url": "http://www.hrjh.hlc.edu.tw/modules/tad_uploader/index.php?of_cat_sn=11",
+      "link_type": "school_web",
+      "verified": true,
+      "subjects": [],
+      "source": "exambank.darrenlu.com/school-links"
+    },
+    {
+      "name": "高雄市楠梓國中",
+      "county": "高雄市",
+      "category": "junior",
+      "url": "https://drive.google.com/drive/folders/1k0MfFJb49GTCImz8OACCH22FioH12Jpq?usp=sharing",
+      "link_type": "drive",
+      "verified": true,
+      "subjects": [],
+      "source": "ntjh.kh.edu.tw (學校重要資訊)"
+    }
+  ]
+}
