@@ -80,7 +80,7 @@ def list_folder_files(folder_id: str, page_token: str | None = None) -> tuple[li
     params = {
         "key": API_KEY,
         "q": f"'{folder_id}' in parents and trashed = false",
-        "fields": "nextPageToken,files(id,name,mimeType,size,createdTime,modifiedTime)",
+        "fields": "nextPageToken,files(id,name,mimeType,size,webContentLink)",
         "pageSize": 1000,
     }
     if page_token:
@@ -93,13 +93,18 @@ def list_folder_files(folder_id: str, page_token: str | None = None) -> tuple[li
     return data.get("files", []), data.get("nextPageToken")
 
 
-def download_file(file_id: str, target_path: Path, max_retries: int = 4) -> int:
-    """Download a Drive file via API and save to target. Returns bytes."""
-    params = {"key": API_KEY, "alt": "media"}
+def download_file(web_url: str, target_path: Path, max_retries: int = 3) -> int:
+    """Download a public Drive file via webContentLink (no API key needed).
+    
+    2026-07-30: switched from files.get?alt=media (which 403-rate-limited)
+    to public webContentLink path `drive.google.com/uc?id=...&export=download`.
+    This bypasses API quota limits for public files entirely.
+    """
+    headers = {"User-Agent": "TQark-web/1.0"}
     last_err = None
     for attempt in range(max_retries):
         try:
-            response = requests.get(f"{DRIVE_API}/{file_id}", params=params, timeout=120, stream=True)
+            response = requests.get(web_url, headers=headers, timeout=120, stream=True, allow_redirects=True)
             if response.status_code == 200:
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 size = 0
@@ -109,13 +114,12 @@ def download_file(file_id: str, target_path: Path, max_retries: int = 4) -> int:
                         size += len(chunk)
                 return size
             if response.status_code == 403:
-                # Rate-limited: pause and retry
-                wait = 20 * (attempt + 1)
-                logger.info("  [rate-limit 403] sleeping %ds (attempt %d/%d)...",
+                wait = 5 * (attempt + 1)
+                logger.info("  [web 403, sleeping %ds, attempt %d/%d]",
                             wait, attempt + 1, max_retries)
                 time.sleep(wait)
                 continue
-            raise RuntimeError(f"Download failed: {response.status_code} {response.text[:120]}")
+            raise RuntimeError(f"Download failed: {response.status_code} {response.headers.get('content-type','?')[:60]}")
         except (requests.RequestException, IOError) as exc:
             last_err = exc
             time.sleep(2)
@@ -211,11 +215,16 @@ def walk_folder(school: dict, folder_id: str, path_segments: list[str],
                 continue
 
             try:
-                size = download_file(f["id"], target)
+                # 【2026-07-30】Use webContentLink (public URL, no API quota)
+                web = f.get("webContentLink")
+                if not web:
+                    # Fallback: build URL manually
+                    web = f"https://drive.google.com/uc?id={f['id']}&export=download"
+                size = download_file(web, target)
                 stats["downloaded"] += 1
                 logger.info("  [downloaded] %s (%d KB)",
                             target.relative_to(ARCHIVE_ROOT), size // 1024)
-                time.sleep(0.5)  # rate-limit pacing
+                time.sleep(0.5)  # gentle pacing
             except Exception as exc:
                 stats["errors"] += 1
                 stats["error_msgs"].append(f"{fname}: {exc}")
