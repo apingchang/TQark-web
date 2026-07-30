@@ -76,11 +76,11 @@ NON_EXAM_FILE_KEYWORDS = (
     "行事曆",
     "教科書",
 )
-USER_AGENT = "TQark-web-school-archiver/1.0 (+https://github.com/apingchang)"
+USER_AGENT = "TQark-web/1.0"
 REQUEST_TIMEOUT = 30
 PARSER_TIMEOUT_MS = 10_000
-MAX_CRAWL_PAGES = 30
-MAX_CRAWL_DEPTH = 2
+MAX_CRAWL_PAGES = 60
+MAX_CRAWL_DEPTH = 5
 PLAYWRIGHT_PAGES_PER_BROWSER = 8
 
 
@@ -256,13 +256,14 @@ def should_follow(
     if strategy == "kh_upload":
         return "/upload/file_list/" in path or "/upload/upload_list/" in path
     if strategy == "modules":
-        start_category = parse_qs(start.query).get("of_cat_sn")
-        candidate_category = parse_qs(candidate.query).get("of_cat_sn")
-        return (
-            path == start.path.lower()
-            and candidate_category == start_category
-            and ("g2p=" in candidate.query or candidate_url == start_url)
-        )
+        # 【2026-07-29 fix】follow 子類別 (e.g. 7/8/9 年級 不同的 of_cat_sn)
+        if path != start.path.lower():
+            return False
+        if not parse_qs(candidate.query).get("of_cat_sn"):
+            return False
+        return any(
+            keyword in f"{label} {candidate.query}" for keyword in NAVIGATION_KEYWORDS
+        ) or "tad_uploader" in path or "list_mode" in candidate.query
     if strategy == "nss":
         return path.startswith(start.path.rstrip("/") + "/") and any(
             keyword in label for keyword in NAVIGATION_KEYWORDS
@@ -326,6 +327,9 @@ def discover_static(
             logger.warning("  [page-error] %s: %s", page_url, exc)
             continue
 
+        # 【debug】print first page status
+        if depth == 0 and len(visited) == 1:
+            pass  # 2026-07-30: removed debug log
         files, navigation = extract_links(response.text, response.url)
         discovered.extend(files)
         if depth >= MAX_CRAWL_DEPTH:
@@ -511,6 +515,27 @@ def archive_links(
     written = 0
     completed_urls: list[str] = []
     errors: list[str] = []
+    # 【2026-07-29】.edu.tw tad_uploader download 需 session cookie
+    # 推導下載 URL 對應的 category page 拿 cookie
+    def warmup_for(link: "FileLink") -> None:
+        cat = parse_qs(urlparse(link.url).query).get("cat_sn")
+        if not cat:
+            return
+        base = urlparse(link.url)
+        category_page = (
+            f"{base.scheme}://{base.netloc}{base.path}"
+            f"?op=list_mode&list_mode=more&of_cat_sn={cat[0]}"
+        )
+        try:
+            session.get(category_page, timeout=REQUEST_TIMEOUT)
+            # 【2026-07-30】set Referer to category_page (ASCII only, no Chinese)
+            warmup_for.referer = category_page
+        except requests.RequestException:
+            pass
+    warmup_for.referer = None  # type: ignore[attr-defined]  # last warmup category URL
+
+
+
     for link in links:
         if link.url in downloaded_urls:
             continue
@@ -525,11 +550,20 @@ def archive_links(
             continue
 
         try:
-            response = session.get(link.url, timeout=REQUEST_TIMEOUT)
+            warmup_for(link)
+            # 【2026-07-30 bugfix】Referer 不可為中文 URL (requests 內部用 latin-1 encode header)
+            # Use last warmup category page (ASCII only) as Referer
+            referer = warmup_for.referer if warmup_for.referer else link.url  # type: ignore[attr-defined]
+            headers = {"Referer": referer}
+            # 【2026-07-30】加 pacing,避免 IP 被 rate-limit 退绠
+            time.sleep(0.5)
+            response = session.get(link.url, timeout=REQUEST_TIMEOUT, headers=headers)
             response.raise_for_status()
             extension = Path(filename).suffix.lower()
+            if not response.content:
+                raise ValueError(f"empty response (content-type={response.headers.get('content-type', '?')})")
             if not validate_download(response.content, extension):
-                raise ValueError(f"invalid {extension or 'file'} response")
+                raise ValueError(f"invalid {extension or 'file'} response (content-type={response.headers.get('content-type', '?')})")
             if extension == ".zip":
                 written += extract_zip(response.content, school, link, False, logger)
             else:
