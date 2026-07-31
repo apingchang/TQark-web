@@ -1949,7 +1949,84 @@ async def tools_credit_card(
     )
 
 
+
+
+# === 【2026-07-31 新】日文翻譯 API ===
+# - /api/tools/jp-inbox-files?folder=...  (GET, list .docx in folder)
+# - /api/tools/jp-done-files?folder=...   (GET, list .docx in folder)
+# - /api/tools/jp-start                   (POST, filename + engine → background)
+# - /api/tools/jp-status                  (GET, current status)
+# - /api/tools/jp-reset                   (POST, reset to idle)
+
+@router.get("/api/tools/jp-inbox-files")
+async def jp_inbox_files(
+    folder: str = Query(..., description="Absolute path to inbox folder"),
+    user: User = Depends(require_approved),
+):
+    """列出 inbox folder 內 .docx 檔 (限 perm 0/1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
+    from app.tools.jp_translator import list_docx
+    return {"ok": True, "folder": folder, "files": list_docx(folder)}
+
+
+@router.get("/api/tools/jp-done-files")
+async def jp_done_files(
+    folder: str = Query(..., description="Absolute path to outbox folder"),
+    user: User = Depends(require_approved),
+):
+    """列出 outbox folder 內 .docx 檔 (限 perm 0/1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
+    from app.tools.jp_translator import list_docx
+    return {"ok": True, "folder": folder, "files": list_docx(folder)}
+
+
+@router.post("/api/tools/jp-start")
+async def jp_start(
+    request: Request,
+    user: User = Depends(require_approved),
+):
+    """啟動日文翻譯 (背景 process, 限 perm 0/1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
+    body = await request.json()
+    filename = body.get("filename", "").strip()
+    engine = body.get("engine", "all").strip()
+    outbox = body.get("outbox", "").strip()
+    inbox = body.get("inbox", "").strip()
+    
+    if not filename:
+        raise HTTPException(400, "filename 必填")
+    if engine not in ("google", "minimax", "all"):
+        raise HTTPException(400, f"engine 必須是 google / minimax / all, 收到: {engine}")
+    
+    from app.tools.jp_translator import start_translation
+    result = start_translation(filename, engine, outbox, inbox)
+    return result
+
+
+@router.get("/api/tools/jp-status")
+async def jp_status(user: User = Depends(require_approved)):
+    """查詢日文翻譯目前 status (限 perm 0/1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
+    from app.tools.jp_translator import get_status
+    return get_status()
+
+
+@router.post("/api/tools/jp-reset")
+async def jp_reset(user: User = Depends(require_approved)):
+    """重置日文翻譯 status (限 perm 0/1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
+    from app.tools.jp_translator import reset_status
+    reset_status()
+    return {"ok": True, "state": "idle"}
+
+
 @router.post("/ui/search", response_class=HTMLResponse)
+
 async def ui_search_post(
     request: Request,
     grade: str = Form(""),
