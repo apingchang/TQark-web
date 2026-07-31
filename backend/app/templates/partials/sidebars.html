@@ -35,8 +35,8 @@
                 </a>
             {% endif %}
             
-            {# === 下載紀錄 (approved only) - 當前頁不顯示 === #}
-            {% if not request.url.path.startswith('/me/downloads') %}
+            {# === 下載紀錄 (approved only) - 只在 /dashboard 顯示 + 自己頁不顯示 === #}
+            {% if request.url.path == '/dashboard' %}
             <a href="/me/downloads"
                class="list-group-item list-group-item-action {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
                {% if not user or user.permission is none or user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
@@ -47,8 +47,8 @@
             </a>
             {% endif %}
             
-            {# === 各校考古題 (approved only) - 當前頁不顯示 === #}
-            {% if not request.url.path.startswith('/ui/school-sources') %}
+            {# === 各校考古題 (approved only) - 只在 /dashboard 顯示 + 自己頁不顯示 === #}
+            {% if request.url.path == '/dashboard' %}
             <a href="/ui/school-sources"
                class="list-group-item list-group-item-action {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
                {% if not user or user.permission is none or user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
