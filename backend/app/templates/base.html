@@ -183,8 +183,8 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
         <div class="container">
-            {# 【2026-07-23 改】左上角: 只留 🏠 圖示當 home link,不再顯示「考古題下載」品牌文字 #}
-            <a class="navbar-brand navbar-brand-icon" href="/" title="回首頁" style="font-size: 1.5rem; text-decoration: none;">🏠</a>
+            {# 【2026-07-31 改】左上角: 🏠 三好之家 (取代原本只顯示 🏠 圖示) #}
+            <a class="navbar-brand" href="/" title="回首頁" style="font-size: 1.25rem; text-decoration: none;">🏠 三好之家</a>
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
                 {# 【2026-07-23 改】用 user.id 判斷登入狀態 (placeholder dict id=None 為 guest) #}
                 {% if user and user.id %}
@@ -209,24 +209,8 @@
                             <span class="badge bg-danger admin-badge-big ms-1">Admin</span>
                         {% endif %}
                     </span>
-                    {# 在 Dashboard 頁本身時不顯示 Dashboard 連結 + 已登入且 approved 才顯示 #}
-                    {% if request.url.path != '/dashboard' and user and user.permission is not none and user.permission <= 7 %}
-                        {# 考卷搜尋: 🔍 icon + 填滿藍色 #}
-                        <a href="/dashboard" class="btn btn-sm btn-primary px-3 {% if request.url.path == '/dashboard' %}active{% endif %}">🔍 考卷搜尋</a>
-                    {% endif %}
-                    {# 在下載紀錄頁本身時不顯示下載紀錄連結 + 只 approved 才顯示 #}
-                    {% if not request.url.path.startswith('/me/downloads') and user and user.permission is not none and user.permission <= 7 %}
-                        {# 下載紀錄: 📥 icon + 填滿 cyan #}
-                        <a href="/me/downloads" class="btn btn-sm btn-info px-3 {% if request.url.path.startswith('/me/downloads') %}active{% endif %}">📥 下載紀錄</a>
-                    {% endif %}
-                    {# 【2026-07-25 拿掉】歷年會考/大學考改從 dashboard 搜尋進入, navbar 不再列快速連結 #}
-                    {% if user.role == 'admin' %}
-                        {# 在後台頁本身時不顯示後台連結 #}
-                        {% if request.url.path != '/admin' %}
-                            {# 後台: 🖥️ 終端機 icon + Tiffany blue (在登出左邊) #}
-                            <a href="/admin" class="btn btn-sm btn-tiffany px-3 {% if request.url.path == '/admin' %}active{% endif %}">🖥️ 後台</a>
-                        {% endif %}
-                    {% endif %}
+                    {# 【2026-07-31 改】移除 navbar 快速連結 (改放左欄 sidebar)
+                       只保留: user info (avatar+name) + 登出 #}
                     {# 登出: 🚪 門 icon + 填滿較深灰色 (在最右邊) #}
                     <form method="post" action="/auth/logout" class="d-inline">
                         <button type="submit" class="btn btn-sm btn-secondary px-3">🚪 登出</button>

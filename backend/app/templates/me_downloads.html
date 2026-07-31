@@ -3,6 +3,13 @@
 {% block title %}我的下載歷史 — TQark-web{% endblock %}
 
 {% block content %}
+<div class="main-grid">
+    {# 左側: 功能 (reusable partial) #}
+    {% from "partials/sidebars.html" import left_sidebar with context %}
+    {{ left_sidebar() }}
+
+    {# 中間: 下載紀錄 #}
+    <section class="dashboard-main">
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">📥 我的下載歷史</h3>
     <span class="badge bg-secondary fs-6">{{ total }} 筆紀錄</span>
@@ -220,4 +227,10 @@
 
 {% block scripts %}
 <script src="/static/me_downloads.js?v=delete-all-2"></script>
+    </section>
+
+    {# 右側: 平台資訊 (reusable partial) #}
+    {% from "partials/sidebars.html" import right_sidebar with context %}
+    {{ right_sidebar() }}
+</div>
 {% endblock %}

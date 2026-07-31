@@ -1,33 +1,19 @@
 {% extends "base.html" %}
 
-{# 【2026-07-24 改】站名: 三好學習平台 #}
+{# 【2026-07-31 改】站名: 三好之家 #}
 {# 【2026-07-25 改】中央 console 分上下 2 部: 靈覓今日新聞 + 懂王新聞, 30 秒輪播 #}
-{% block title %}三好學習平台{% endblock %}
+{% block title %}三好之家 — Sanhao Family{% endblock %}
 
 {% block content %}
 <div class="banner-top text-center py-4 mb-3">
-    <h1 class="banner-title m-0">🎓 三好學習平台</h1>
+    <h1 class="banner-title m-0">🏠 三好之家</h1>
+    <p class="text-muted small mb-0 mt-1">Sanhao Family · 私人平台 · 邀請制</p>
 </div>
 
 <div class="main-grid">
-    {# 左側: 功能 #}
-    <aside class="left-sidebar">
-        <div class="card sidebar-card">
-            <div class="card-header bg-white">
-                <strong>🧰 功能</strong>
-            </div>
-            <div class="list-group list-group-flush">
-                <a href="/dashboard"
-                   class="list-group-item list-group-item-action {% if user and user.permission and user.permission > 7 %}disabled{% endif %}"
-                   {% if user and user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    🔍 考題搜尋
-                    {% if user and user.permission > 7 %}
-                        <span class="badge bg-warning text-dark float-end">需審核</span>
-                    {% endif %}
-                </a>
-            </div>
-        </div>
-    </aside>
+    {# 左側: 功能 (reusable partial) #}
+    {% from "partials/sidebars.html" import left_sidebar with context %}
+    {{ left_sidebar() }}
 
     {# 中央: console 分上下 2 部 + 30 秒輪播 #}
     <section class="center-console">
@@ -113,17 +99,9 @@
         </div>
     </section>
 
-    {# 右側: info panel — 【2026-07-28 移】內容搬到 dashboard.html, 但保留 card 框 #}
-    <aside class="right-sidebar">
-        <div class="card sidebar-card">
-            <div class="card-header bg-white">
-                <strong>ℹ️ 平台資訊</strong>
-            </div>
-            <div class="card-body small text-muted text-center">
-                <em>(內容預留, 以後加)</em>
-            </div>
-        </div>
-    </aside>
+    {# 右側: 平台資訊 (reusable partial) #}
+    {% from "partials/sidebars.html" import right_sidebar with context %}
+    {{ right_sidebar() }}
 </div>
 
 {# 下方 banner: AdSense 廣告 #}

@@ -148,11 +148,31 @@ def _user_ctx(user: User | None) -> dict:
     }
 
 
+# 【2026-07-31 新】Permission 名稱 mapping (for template 顯示)
+PERMISSION_NAMES = {
+    0: "管理員 (Admin)",
+    1: "家人",
+    2: "親戚",
+    3: "朋友",
+    4: "同事",
+    8: "已註冊",
+    9: "待審核",
+    99: "訪客 (未登入)",
+}
+
+
 def _common_ctx(user: User | None) -> dict:
+    perm = user.permission if user else 99
     return {
         "user": _user_ctx(user),
+        "permission_name": _permission_name(perm),
         "version": "0.1.2",
     }
+
+
+def _permission_name(perm: int) -> str:
+    """Return human-readable permission name."""
+    return PERMISSION_NAMES.get(perm, f"未知 ({perm})")
 
 
 # ============================================================
@@ -1869,6 +1889,63 @@ async def _render_search_results(
             "qs_for_page": qs_for_page,
             "counties": __import__("app.data.tw_counties", fromlist=["COUNTIES"]).COUNTIES,
         },
+    )
+
+
+
+# === 【2026-07-31 新】三好工具 (Tools) ===
+# - 只允許 perm <= 1 (家人 + 管理員)
+# - 兩個工具: 日文翻譯 / 信用卡帳單
+# - 現在是 placeholder, 之後實作
+
+@router.get("/tools", response_class=HTMLResponse)
+async def tools_index(
+    request: Request,
+    user: User = Depends(require_approved),
+):
+    """三好工具首頁 (限 perm 0 or 1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(
+            status_code=403,
+            detail="🔒 三好工具僅限家人/管理員使用 (需權限 0 或 1)",
+        )
+    return templates.TemplateResponse(
+        "tools.html",
+        {**_common_ctx(user), "request": request},
+    )
+
+
+@router.get("/tools/jp-translate", response_class=HTMLResponse)
+async def tools_jp_translate(
+    request: Request,
+    user: User = Depends(require_approved),
+):
+    """日文翻譯工具 (限 perm 0 or 1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(
+            status_code=403,
+            detail="🔒 此功能僅限家人/管理員使用 (需權限 0 或 1)",
+        )
+    return templates.TemplateResponse(
+        "tools_jp_translate.html",
+        {**_common_ctx(user), "request": request},
+    )
+
+
+@router.get("/tools/credit-card", response_class=HTMLResponse)
+async def tools_credit_card(
+    request: Request,
+    user: User = Depends(require_approved),
+):
+    """信用卡帳單工具 (限 perm 0 or 1)"""
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(
+            status_code=403,
+            detail="🔒 此功能僅限家人/管理員使用 (需權限 0 或 1)",
+        )
+    return templates.TemplateResponse(
+        "tools_credit_card.html",
+        {**_common_ctx(user), "request": request},
     )
 
 

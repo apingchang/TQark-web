@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}三好工具 — 三好之家{% endblock %}
+
+{% block content %}
+<div class="banner-top text-center py-4 mb-3">
+    <h1 class="banner-title m-0">🛠️ 三好工具</h1>
+    <p class="text-muted small mb-0 mt-1">家人/管理員限定 · 實用小工具</p>
+</div>
+
+<div class="main-grid">
+    {# 左側: 功能 (reusable partial) #}
+    {% from "partials/sidebars.html" import left_sidebar with context %}
+    {{ left_sidebar() }}
+
+    {# 中間: 工具清單 #}
+    <section class="center-console">
+        <div class="row g-3">
+            {# === 日文翻譯 === #}
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">🌐 日文翻譯</h5>
+                        <p class="card-text small text-muted">
+                            從日文 PDF / Word 文件翻譯成繁體中文。支援多種翻譯引擎。
+                        </p>
+                        <p class="card-text small">
+                            <span class="badge bg-info text-dark">權限 0 / 1</span>
+                            <span class="badge bg-secondary">開發中</span>
+                        </p>
+                        <a href="/tools/jp-translate" class="btn btn-primary btn-sm">進入工具 →</a>
+                    </div>
+                </div>
+            </div>
+
+            {# === 信用卡帳單 === #}
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">💳 信用卡帳單</h5>
+                        <p class="card-text small text-muted">
+                            上傳信用卡帳單 (CSV / Excel) → 自動分類、統計、找出可省下的開銷。
+                        </p>
+                        <p class="card-text small">
+                            <span class="badge bg-info text-dark">權限 0 / 1</span>
+                            <span class="badge bg-secondary">開發中</span>
+                        </p>
+                        <a href="/tools/credit-card" class="btn btn-primary btn-sm">進入工具 →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# 右側: 平台資訊 (reusable partial) #}
+    {% from "partials/sidebars.html" import right_sidebar with context %}
+    {{ right_sidebar() }}
+</div>
+{% endblock %}
