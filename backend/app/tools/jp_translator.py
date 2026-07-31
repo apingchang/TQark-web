@@ -83,34 +83,57 @@ def reset_status():
         })
 
 
-def _run_translation(filename: str, engine: str, outbox: str, inbox: str):
-    """Background runner"""
+def _run_translation(staging_path: str, original_filename: str, engine: str):
+    """Background runner
+    Args:
+        staging_path: 絕對路徑到 staging .docx
+        original_filename: 原始檔名 (for output naming)
+        engine: google / minimax / all
+    """
     global _status
     task_id = f"task_{int(time.time())}"
     
     with _status_lock:
         _status["task_id"] = task_id
         _status["state"] = "running"
-        _status["filename"] = filename
+        _status["filename"] = original_filename
         _status["engine"] = engine
         _status["started_at"] = datetime.now().isoformat()
         _status["stdout"] = []
         _status["stderr"] = []
         _status["exit_code"] = None
         _status["output_files"] = []
+        _status["staging_path"] = staging_path
     
-    # Use translate_engines_v2.py (2026-07-26 紅字 only + 保留 XML)
-    # args: filename [engine|all]
+    # 為了讓 translate_engines_v2.py 能找到檔案, 我們把 staging 檔案 link 到 translation/inbox
+    inbox_dir = TRANSLATION_DIR / "inbox"
+    inbox_dir.mkdir(exist_ok=True)
+    inbox_filename = original_filename  # 用原檔名讓 v2 script 能找
+    inbox_path = inbox_dir / inbox_filename
+    
+    # 複製 (避免 link 跨裝置失敗)
+    try:
+        import shutil
+        shutil.copy(staging_path, inbox_path)
+    except Exception as e:
+        with _status_lock:
+            _status["state"] = "failed"
+            _status["stderr"].append(f"Failed to stage file: {e}")
+            _status["finished_at"] = datetime.now().isoformat()
+            _status["exit_code"] = -1
+        return
+    
+    # Use translate_engines_v2.py (用 venv python 確保 lxml 可用)
+    import sys as _sys
+    venv_python = _sys.executable  # 通常是 .venv/bin/python
     v2_script = TRANSLATION_DIR / "translate_engines_v2.py"
-    cmd = ["python3", str(v2_script), filename, engine if engine else "all"]
+    cmd = [venv_python, str(v2_script), inbox_filename, engine if engine else "all"]
     
-    # env: TRANSLATION_OUTBOX 可自訂
+    # venv 不 include system site-packages, lxml 在 user site-packages
+    # 加 PYTHONPATH 確保 subprocess 能 import lxml
     env = os.environ.copy()
-    if outbox:
-        env["TRANSLATION_OUTBOX"] = outbox
-    if inbox:
-        env["TRANSLATION_INBOX"] = inbox
-    
+    env["PYTHONPATH"] = "/home/aping/.local/lib/python3.12/site-packages:" + env.get("PYTHONPATH", "")
+
     try:
         proc = subprocess.Popen(
             cmd,
@@ -138,21 +161,17 @@ def _run_translation(filename: str, engine: str, outbox: str, inbox: str):
             _status["finished_at"] = datetime.now().isoformat()
             _status["state"] = "done" if exit_code == 0 else "failed"
             
-            # 找 output files (default done/ 一定檢查, user outbox 額外檢查)
-            basename = Path(filename).stem
-            search_dirs = [
-                TRANSLATION_DIR / "done",  # 預設 done (v2 寫這)
-            ]
-            if outbox:
-                search_dirs.append(Path(outbox))
+            # 找 output files (根據 user 選的 engine)
+            basename = Path(original_filename).stem
+            if engine == "all":
+                engines_to_find = ["google", "minimax"]
+            else:
+                engines_to_find = [engine]
             
-            for out_dir in search_dirs:
-                if not out_dir.exists():
-                    continue
-                for ext_pattern in [f"{basename}_google.docx", f"{basename}_minimax.docx", f"{basename}_google_FAILED.docx"]:
-                    candidate = out_dir / ext_pattern
-                    if candidate.exists() and str(candidate) not in _status["output_files"]:
-                        _status["output_files"].append(str(candidate))
+            for eng in engines_to_find:
+                candidate = TRANSLATION_DIR / "done" / f"{basename}_{eng}.docx"
+                if candidate.exists():
+                    _status["output_files"].append(str(candidate))
     
     except Exception as e:
         with _status_lock:
@@ -160,10 +179,22 @@ def _run_translation(filename: str, engine: str, outbox: str, inbox: str):
             _status["stderr"].append(f"Exception: {e}")
             _status["finished_at"] = datetime.now().isoformat()
             _status["exit_code"] = -1
+    finally:
+        # 清理 staging inbox (不要污染原本的 inbox)
+        try:
+            inbox_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
-def start_translation(filename: str, engine: str, outbox: str = "", inbox: str = "") -> dict:
-    """Start translation in background thread. Returns immediately."""
+def start_translation(staging_path: str, original_filename: str, engine: str) -> dict:
+    """Start translation in background thread. Returns immediately.
+    
+    Args:
+        staging_path: Absolute path to uploaded .docx in staging area
+        original_filename: Original filename (for display + output naming)
+        engine: google / minimax / all
+    """
     with _status_lock:
         if _status["state"] in ("queued", "running"):
             return {
@@ -177,7 +208,7 @@ def start_translation(filename: str, engine: str, outbox: str = "", inbox: str =
     # Start thread
     thread = threading.Thread(
         target=_run_translation,
-        args=(filename, engine, outbox, inbox),
+        args=(staging_path, original_filename, engine),
         daemon=True,
     )
     thread.start()
@@ -188,6 +219,49 @@ def start_translation(filename: str, engine: str, outbox: str = "", inbox: str =
     return {
         "ok": True,
         "task_id": _status["task_id"],
-        "filename": filename,
+        "filename": original_filename,
         "engine": engine,
     }
+
+# === Staging area for uploaded files ===
+STAGING_DIR = Path("/tmp/jp_staging")
+STAGING_DIR.mkdir(exist_ok=True)
+
+
+def save_uploaded_file(file_bytes: bytes, original_filename: str) -> Path:
+    """Save uploaded .docx to staging, return absolute path"""
+    import shutil
+    
+    # Sanitize filename (avoid path traversal)
+    safe_name = Path(original_filename).name  # strip dir components
+    if not safe_name.endswith(".docx"):
+        safe_name += ".docx"
+    
+    # Add timestamp to avoid collision
+    from datetime import datetime as _dt
+    ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+    name_parts = safe_name.rsplit(".", 1)
+    if len(name_parts) == 2:
+        unique_name = f"{name_parts[0]}_{ts}.{name_parts[1]}"
+    else:
+        unique_name = f"{safe_name}_{ts}"
+    
+    staging_path = STAGING_DIR / unique_name
+    staging_path.write_bytes(file_bytes)
+    return staging_path
+
+
+def get_output_path(original_filename: str, engine: str = "google") -> Path | None:
+    """Find translated output file.
+    Args:
+        original_filename: user uploaded filename (e.g. "260795.docx")
+        engine: google / minimax
+    Returns:
+        Path to output .docx or None
+    """
+    basename = Path(original_filename).stem
+    for ext_pattern in [f"{basename}_google.docx", f"{basename}_minimax.docx"]:
+        candidate = TRANSLATION_DIR / "done" / ext_pattern
+        if candidate.exists():
+            return candidate
+    return None

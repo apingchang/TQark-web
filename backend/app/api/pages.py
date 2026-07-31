@@ -1952,58 +1952,115 @@ async def tools_credit_card(
 
 
 # === 【2026-07-31 新】日文翻譯 API ===
-# - /api/tools/jp-inbox-files?folder=...  (GET, list .docx in folder)
-# - /api/tools/jp-done-files?folder=...   (GET, list .docx in folder)
-# - /api/tools/jp-start                   (POST, filename + engine → background)
-# - /api/tools/jp-status                  (GET, current status)
-# - /api/tools/jp-reset                   (POST, reset to idle)
+# - POST /api/tools/jp-upload               (multipart: file + engine → 背景)
+# - GET  /api/tools/jp-download?filename=... (下載翻譯結果, browser Save As)
+# - GET  /api/tools/jp-status                (查 status, 前端 1.5s poll)
+# - POST /api/tools/jp-reset                 (重置)
 
-@router.get("/api/tools/jp-inbox-files")
-async def jp_inbox_files(
-    folder: str = Query(..., description="Absolute path to inbox folder"),
-    user: User = Depends(require_approved),
-):
-    """列出 inbox folder 內 .docx 檔 (限 perm 0/1)"""
-    if not user or user.permission is None or user.permission > 1:
-        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
-    from app.tools.jp_translator import list_docx
-    return {"ok": True, "folder": folder, "files": list_docx(folder)}
-
-
-@router.get("/api/tools/jp-done-files")
-async def jp_done_files(
-    folder: str = Query(..., description="Absolute path to outbox folder"),
-    user: User = Depends(require_approved),
-):
-    """列出 outbox folder 內 .docx 檔 (限 perm 0/1)"""
-    if not user or user.permission is None or user.permission > 1:
-        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
-    from app.tools.jp_translator import list_docx
-    return {"ok": True, "folder": folder, "files": list_docx(folder)}
-
-
-@router.post("/api/tools/jp-start")
-async def jp_start(
+@router.post("/api/tools/jp-upload")
+async def jp_upload(
     request: Request,
     user: User = Depends(require_approved),
 ):
-    """啟動日文翻譯 (背景 process, 限 perm 0/1)"""
+    """【2026-08-01 新】接收上傳 .docx + 啟動翻譯 (multipart, 限 perm 0/1)
+    
+    Form fields:
+        file: .docx
+        engine: google | minimax | all
+    
+    Returns:
+        {ok, task_id, filename, engine, staging_path}
+    """
     if not user or user.permission is None or user.permission > 1:
         raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
-    body = await request.json()
-    filename = body.get("filename", "").strip()
-    engine = body.get("engine", "all").strip()
-    outbox = body.get("outbox", "").strip()
-    inbox = body.get("inbox", "").strip()
     
-    if not filename:
-        raise HTTPException(400, "filename 必填")
+    from fastapi import UploadFile, File, Form
+    from app.tools.jp_translator import save_uploaded_file, start_translation
+    
+    form = await request.form()
+    file = form.get("file")
+    engine = form.get("engine", "all")
+    
+    if not file or not hasattr(file, "filename"):
+        raise HTTPException(400, "file 必填 (multipart/form-data)")
+    
+    filename = file.filename
+    if not filename or not filename.endswith(".docx"):
+        raise HTTPException(400, f"只接受 .docx, 收到: {filename}")
+    
     if engine not in ("google", "minimax", "all"):
         raise HTTPException(400, f"engine 必須是 google / minimax / all, 收到: {engine}")
     
-    from app.tools.jp_translator import start_translation
-    result = start_translation(filename, engine, outbox, inbox)
+    # Read + save to staging
+    contents = await file.read()
+    if len(contents) == 0:
+        raise HTTPException(400, "file 是空的")
+    if len(contents) > 50 * 1024 * 1024:  # 50MB limit
+        raise HTTPException(400, f"file 太大 ({len(contents)/1024/1024:.1f}MB, 上限 50MB)")
+    
+    staging_path = save_uploaded_file(contents, filename)
+    
+    # Start translation (background)
+    result = start_translation(str(staging_path), filename, engine)
+    if not result.get("ok"):
+        # Cleanup staging
+        try:
+            staging_path.unlink()
+        except Exception:
+            pass
+        raise HTTPException(409, result.get("error", "啟動失敗"))
+    
+    result["staging_path"] = str(staging_path)
     return result
+
+
+@router.get("/api/tools/jp-download/{task_id}/{engine}")
+async def jp_download(
+    task_id: str,
+    engine: str,  # google or minimax
+    user: User = Depends(require_approved),
+):
+    """【2026-08-01 新】下載翻譯結果 .docx (限 perm 0/1)
+    
+    Args:
+        task_id: 任務 id (從 status 拿)
+        engine: google / minimax
+    
+    Returns:
+        FileResponse with Content-Disposition: attachment (browser 觸發 Save As)
+    """
+    if not user or user.permission is None or user.permission > 1:
+        raise HTTPException(403, "🔒 此 API 僅限家人/管理員使用")
+    
+    if engine not in ("google", "minimax"):
+        raise HTTPException(400, f"engine 必須是 google / minimax, 收到: {engine}")
+    
+    from fastapi.responses import FileResponse
+    from app.tools.jp_translator import get_status
+    
+    # Get status to find filename
+    status = get_status()
+    if status.get("task_id") != task_id:
+        raise HTTPException(404, f"Task {task_id} 不存在或已過期")
+    if status.get("state") != "done":
+        raise HTTPException(400, f"Task 還沒完成 (state={status.get('state')})")
+    
+    # Find output file by engine suffix
+    output_files = status.get("output_files", [])
+    target_file = None
+    for f in output_files:
+        if f.endswith(f"_{engine}.docx"):
+            target_file = f
+            break
+    
+    if not target_file or not Path(target_file).exists():
+        raise HTTPException(404, f"找不到 {engine} output file")
+    
+    return FileResponse(
+        path=target_file,
+        filename=Path(target_file).name,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
 
 
 @router.get("/api/tools/jp-status")

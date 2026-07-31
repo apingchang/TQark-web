@@ -33,82 +33,58 @@
     {# 中間: 對應的 tool UI #}
     <section class="center-console">
         {% if current_tool == 'jp' %}
-        {# === 日文翻譯 card (含 controls + status) === #}
+        {# === 日文翻譯 card (file input + engine + 開始翻譯) === #}
         <div class="card" id="jpCard">
-                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <strong>🌐 日文翻譯</strong>
-                        <span class="badge bg-info text-dark" id="jpStateBadge">閒置</span>
-                    </div>
-                    <div class="card-body">
-                        <p class="small text-muted">
-                            從 inbox folder 選 .docx → 翻譯引擎 (google / minimax / 全部) → 寫到 outbox folder。
-                        </p>
-                        
-                        {# === Inbox folder 選擇 === #}
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label small mb-1">📥 Inbox folder</label>
-                                <input type="text" id="jpInboxFolder" class="form-control form-control-sm"
-                                       value="/home/aping/.openclaw/workspace/translation/inbox">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small mb-1">📤 Outbox folder</label>
-                                <input type="text" id="jpOutboxFolder" class="form-control form-control-sm"
-                                       value="/home/aping/.openclaw/workspace/translation/done">
-                            </div>
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <strong>🌐 日文翻譯</strong>
+                <span class="badge bg-info text-dark" id="jpStateBadge">閒置</span>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    從本機選擇 .docx → 選引擎 → 翻譯完成自動觸發瀏覽器下載。
+                </p>
+                
+                {# === File input === #}
+                <div class="mb-3">
+                    <label class="form-label small mb-1">📄 選擇 .docx 檔案</label>
+                    <input type="file" id="jpFileInput" accept=".docx" class="form-control form-control-sm">
+                    <div id="jpSelectedFile" class="form-text small text-muted mt-1"></div>
+                </div>
+                
+                {# === Engine 選擇 === #}
+                <div class="mb-3">
+                    <label class="form-label small mb-1">⚙️ 翻譯引擎</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="jpEngine" id="jpEngineAll" value="all" checked>
+                            <label class="form-check-label small" for="jpEngineAll">全部 (Google + MiniMax)</label>
                         </div>
-                        
-                        {# === Inbox file 選擇 === #}
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-12">
-                                <label class="form-label small mb-1">📄 選擇要翻譯的 .docx 檔</label>
-                                <select id="jpFileSelect" class="form-select form-select-sm" disabled>
-                                    <option value="">請先輸入 inbox folder</option>
-                                </select>
-                            </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="jpEngine" id="jpEngineGoogle" value="google">
+                            <label class="form-check-label small" for="jpEngineGoogle">Google (快)</label>
                         </div>
-                        
-                        {# === Engine 選擇 === #}
-                        <div class="mb-3">
-                            <label class="form-label small mb-1">⚙️ 翻譯引擎</label>
-                            <div class="d-flex gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="jpEngine" id="jpEngineAll" value="all" checked>
-                                    <label class="form-check-label small" for="jpEngineAll">全部 (Google + MiniMax)</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="jpEngine" id="jpEngineGoogle" value="google">
-                                    <label class="form-check-label small" for="jpEngineGoogle">Google (快)</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="jpEngine" id="jpEngineMinimax" value="minimax">
-                                    <label class="form-check-label small" for="jpEngineMinimax">MiniMax (準)</label>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {# === 控制按鈕 === #}
-                        <div class="d-flex gap-2 mb-3">
-                            <button type="button" id="jpLoadFiles" class="btn btn-sm btn-outline-secondary">
-                                🔄 重新載入檔案
-                            </button>
-                            <button type="button" id="jpStartBtn" class="btn btn-sm btn-primary" disabled>
-                                ▶️ 開始翻譯
-                            </button>
-                            <button type="button" id="jpResetBtn" class="btn btn-sm btn-outline-warning">
-                                ⏹ 重置
-                            </button>
-                        </div>
-                        
-                        {# === Status 顯示區 === #}
-                        <div id="jpStatusArea">
-                            <div class="alert alert-secondary py-2 px-3 small mb-0">
-                                <em>📋 尚未啟動翻譯。請選擇檔案 + 引擎後按「開始翻譯」。</em>
-                            </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="jpEngine" id="jpEngineMinimax" value="minimax">
+                            <label class="form-check-label small" for="jpEngineMinimax">MiniMax (準)</label>
                         </div>
                     </div>
                 </div>
-            
+                
+                {# === 開始 button === #}
+                <div class="mb-3">
+                    <button type="button" id="jpStartBtn" class="btn btn-primary" disabled>
+                        ▶️ 開始翻譯
+                    </button>
+                </div>
+                
+                {# === Status 顯示區 === #}
+                <div id="jpStatusArea">
+                    <div class="alert alert-secondary py-2 px-3 small mb-0">
+                        <em>📋 請選擇 .docx 檔案 + 引擎,然後按「開始翻譯」。</em>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% else %}
         {# === 信用卡帳單 card === #}
         <div class="card">
@@ -136,224 +112,4 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script>
-// === 【2026-07-31 新】日文翻譯 UI logic ===
-const jpState = {
-    polling: null,
-    currentFile: "",
-};
-
-async function jpLoadFiles() {
-    const folder = document.getElementById("jpInboxFolder").value.trim();
-    const outbox = document.getElementById("jpOutboxFolder").value.trim();
-    const fileSelect = document.getElementById("jpFileSelect");
-    
-    if (!folder) {
-        alert("請輸入 inbox folder");
-        return;
-    }
-    
-    fileSelect.innerHTML = '<option value="">載入中...</option>';
-    fileSelect.disabled = true;
-    
-    try {
-        const r = await fetch(`/api/tools/jp-inbox-files?folder=${encodeURIComponent(folder)}`);
-        if (!r.ok) throw new Error(`API 失敗: ${r.status}`);
-        const data = await r.json();
-        if (!data.ok) throw new Error(data.error || "API 失敗");
-        
-        fileSelect.innerHTML = '<option value="">-- 選擇檔案 --</option>';
-        if (data.files.length === 0) {
-            fileSelect.innerHTML += '<option value="" disabled>(無 .docx 檔案)</option>';
-        } else {
-            data.files.forEach(f => {
-                const opt = document.createElement("option");
-                opt.value = f.name;
-                opt.textContent = `${f.name}  (${f.size_kb}KB, ${f.mtime})`;
-                fileSelect.appendChild(opt);
-            });
-        }
-        fileSelect.disabled = false;
-    } catch (e) {
-        fileSelect.innerHTML = '<option value="">載入失敗</option>';
-        console.error(e);
-        alert(`載入失敗: ${e.message}`);
-    }
-}
-
-function getEngine() {
-    const el = document.querySelector('input[name="jpEngine"]:checked');
-    return el ? el.value : "all";
-}
-
-function setJpUIState(state) {
-    const badge = document.getElementById("jpStateBadge");
-    const startBtn = document.getElementById("jpStartBtn");
-    const fileSelect = document.getElementById("jpFileSelect");
-    const engineInputs = document.querySelectorAll('input[name="jpEngine"]');
-    
-    if (state === "idle" || state === "done" || state === "failed") {
-        badge.className = "badge bg-secondary";
-        badge.textContent = state === "done" ? "✅ 完成" : state === "failed" ? "❌ 失敗" : "閒置";
-        startBtn.disabled = !fileSelect.value;
-    } else if (state === "queued" || state === "running") {
-        badge.className = "badge bg-warning text-dark";
-        badge.textContent = state === "running" ? "⏳ 翻譯中..." : "排隊中";
-        startBtn.disabled = true;
-    }
-}
-
-async function jpStart() {
-    const filename = document.getElementById("jpFileSelect").value;
-    const engine = getEngine();
-    const outbox = document.getElementById("jpOutboxFolder").value.trim();
-    const inbox = document.getElementById("jpInboxFolder").value.trim();
-    
-    if (!filename) {
-        alert("請先選擇要翻譯的檔案");
-        return;
-    }
-    
-    try {
-        const r = await fetch("/api/tools/jp-start", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({filename, engine, outbox, inbox}),
-        });
-        if (!r.ok) {
-            const err = await r.json();
-            throw new Error(err.detail || err.error || `HTTP ${r.status}`);
-        }
-        const data = await r.json();
-        if (!data.ok) throw new Error(data.error || "啟動失敗");
-        
-        jpState.currentFile = filename;
-        setJpUIState("running");
-        startPolling();
-    } catch (e) {
-        alert(`啟動失敗: ${e.message}`);
-        console.error(e);
-    }
-}
-
-async function jpReset() {
-    if (!confirm("確認重置? 進行中的 task 不會被 kill")) return;
-    try {
-        const r = await fetch("/api/tools/jp-reset", {method: "POST"});
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        stopPolling();
-        setJpUIState("idle");
-        renderStatus({state: "idle", filename: null, engine: null, stdout: [], stderr: []});
-    } catch (e) {
-        alert(`重置失敗: ${e.message}`);
-    }
-}
-
-function renderStatus(status) {
-    const area = document.getElementById("jpStatusArea");
-    if (!status || status.state === "idle") {
-        area.innerHTML = '<div class="alert alert-secondary py-2 px-3 small mb-0"><em>📋 尚未啟動翻譯。請選擇檔案 + 引擎後按「開始翻譯」。</em></div>';
-        return;
-    }
-    
-    const stateText = {
-        queued: "⏳ 排隊中",
-        running: "⏳ 翻譯中...",
-        done: "✅ 完成",
-        failed: "❌ 失敗",
-    }[status.state] || status.state;
-    
-    const engineText = {
-        google: "Google",
-        minimax: "MiniMax",
-        all: "Google + MiniMax",
-    }[status.engine] || status.engine;
-    
-    let html = `<div class="alert alert-${status.state === 'done' ? 'success' : status.state === 'failed' ? 'danger' : 'warning'} py-2 px-3 small mb-2">`;
-    html += `<strong>${stateText}</strong> — ${status.filename} (${engineText})`;
-    if (status.started_at) html += `<br><small>開始: ${status.started_at}</small>`;
-    if (status.finished_at) html += `<br><small>完成: ${status.finished_at}</small>`;
-    if (status.exit_code !== null) html += `<br><small>Exit code: ${status.exit_code}</small>`;
-    html += `</div>`;
-    
-    if (status.output_files && status.output_files.length > 0) {
-        html += `<div class="alert alert-info py-2 px-3 small mb-2"><strong>📤 輸出檔:</strong><ul class="mb-0">`;
-        status.output_files.forEach(f => {
-            html += `<li><code>${f}</code></li>`;
-        });
-        html += `</ul></div>`;
-    }
-    
-    if (status.stdout && status.stdout.length > 0) {
-        html += `<details class="small mb-1"><summary>📋 stdout (${status.stdout.length} 行)</summary><pre class="bg-light p-2 small mt-1" style="max-height: 200px; overflow-y: auto;">`;
-        html += status.stdout.slice(-50).map(l => escapeHtml(l)).join("\n");
-        html += `</pre></details>`;
-    }
-    
-    if (status.stderr && status.stderr.length > 0) {
-        html += `<details class="small mb-1"><summary>⚠️ stderr (${status.stderr.length} 行)</summary><pre class="bg-light p-2 small mt-1" style="max-height: 200px; overflow-y: auto;">`;
-        html += status.stderr.slice(-50).map(l => escapeHtml(l)).join("\n");
-        html += `</pre></details>`;
-    }
-    
-    area.innerHTML = html;
-}
-
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-    }[c]));
-}
-
-async function pollStatus() {
-    try {
-        const r = await fetch("/api/tools/jp-status");
-        if (!r.ok) return;
-        const status = await r.json();
-        setJpUIState(status.state);
-        renderStatus(status);
-        
-        // Stop polling if done
-        if (status.state === "done" || status.state === "failed" || status.state === "idle") {
-            stopPolling();
-        }
-    } catch (e) {
-        console.error("poll failed:", e);
-    }
-}
-
-function startPolling() {
-    if (jpState.polling) return;
-    jpState.polling = setInterval(pollStatus, 1500);
-}
-
-function stopPolling() {
-    if (jpState.polling) {
-        clearInterval(jpState.polling);
-        jpState.polling = null;
-    }
-}
-
-// === Event listeners ===
-document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("jpLoadFiles").addEventListener("click", jpLoadFiles);
-    document.getElementById("jpStartBtn").addEventListener("click", jpStart);
-    document.getElementById("jpResetBtn").addEventListener("click", jpReset);
-    
-    // 當 file 選擇變動 → enable start button
-    document.getElementById("jpFileSelect").addEventListener("change", (e) => {
-        document.getElementById("jpStartBtn").disabled = !e.target.value;
-    });
-    
-    // Inbox folder 變動時 自動 load
-    document.getElementById("jpInboxFolder").addEventListener("change", jpLoadFiles);
-    
-    // Auto-load on page load
-    jpLoadFiles();
-    
-    // Initial status check
-    pollStatus();
-});
-</script>
-{% endblock %}
+{% block scripts %}<script src="/static/tools_jp.js"></script>{% endblock %}
