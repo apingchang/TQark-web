@@ -17,6 +17,10 @@
             gap: 0.75rem;
             padding: 0 0.5rem;
         }
+        /* 【2026-07-31 修】grid item 預設 min-width: auto, 會被內容撐大
+           → 右欄掉下面。加 min-width:0 強制遵守 grid track 寬度 */
+        .main-grid > * { min-width: 0; }
+        .main-grid-2col > * { min-width: 0; }
         @media (min-width: 768px) {
             .main-grid { grid-template-columns: 160px 1fr 200px; }
         }
