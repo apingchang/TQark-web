@@ -2372,14 +2372,87 @@ def _scan_schools_from_disk() -> dict:
     return result
 
 
+# Snapshot file (比 disk scan 快 ~1000x)
+from pathlib import Path as _Path
+
+_SCHOOLS_SNAPSHOT_PATH = _Path("/tmp/tqark_schools_snapshot.json")
+_SNAPSHOT_TTL_SECONDS = 30 * 60  # 30 min
+_snapshot_lock_loading = False
+
+
+def _save_snapshot(data: dict):
+    """Save scan result to snapshot file."""
+    import json as _json
+    try:
+        _SCHOOLS_SNAPSHOT_PATH.write_text(
+            _json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
+    except OSError as e:
+        print(f"[WARN] Failed to save schools snapshot: {e}", flush=True)
+
+
+def _load_snapshot() -> dict | None:
+    """Load snapshot if exists and is fresh."""
+    import json as _json
+    import time as _time
+    try:
+        if not _SCHOOLS_SNAPSHOT_PATH.exists():
+            return None
+        mtime = _SCHOOLS_SNAPSHOT_PATH.stat().st_mtime
+        if _time.time() - mtime > _SNAPSHOT_TTL_SECONDS:
+            return None
+        return _json.loads(_SCHOOLS_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"[WARN] Failed to load schools snapshot: {e}", flush=True)
+        return None
+
+
+def _refresh_snapshot_async():
+    """Refresh snapshot in background (non-blocking)."""
+    global _snapshot_lock_loading
+    if _snapshot_lock_loading:
+        return
+    _snapshot_lock_loading = True
+    try:
+        data = _scan_schools_from_disk()
+        _save_snapshot(data)
+        _disk_schools_cache["data"] = data
+        _disk_schools_cache["ts"] = _time.time()
+    except Exception as e:
+        print(f"[WARN] Background snapshot refresh failed: {e}", flush=True)
+    finally:
+        _snapshot_lock_loading = False
+
+
 def _get_cached_schools() -> dict:
-    """Get cached school scan (1 min TTL)."""
+    """Get cached school scan (1 min in-memory + 30min snapshot).
+    
+    【2026-07-31 改】加 snapshot file cache:
+      - 啟動時若 snapshot 存在且 < 30min, 直接用 (避免 18s 第一次 scan)
+      - Background thread 重新 scan 寫 snapshot + in-memory cache
+      - User 體驗: < 100ms 即使 cold start
+    """
     import time as _time
     now = _time.time()
-    if now - _disk_schools_cache["ts"] > _SCHOOLS_CACHE_TTL:
-        _disk_schools_cache["data"] = _scan_schools_from_disk()
+    # In-memory cache valid
+    if _disk_schools_cache["data"] and now - _disk_schools_cache["ts"] < _SCHOOLS_CACHE_TTL:
+        return _disk_schools_cache["data"]
+    # Try snapshot file
+    snapshot = _load_snapshot()
+    if snapshot:
+        _disk_schools_cache["data"] = snapshot
         _disk_schools_cache["ts"] = now
-    return _disk_schools_cache["data"]
+        # Background refresh (in case scan is now stale)
+        import threading
+        threading.Thread(target=_refresh_snapshot_async, daemon=True).start()
+        return snapshot
+    # No snapshot → scan synchronously
+    data = _scan_schools_from_disk()
+    _save_snapshot(data)
+    _disk_schools_cache["data"] = data
+    _disk_schools_cache["ts"] = now
+    return data
 
 
 @router.get("/api/available-schools", response_class=JSONResponse)

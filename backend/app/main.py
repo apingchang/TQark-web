@@ -42,8 +42,22 @@ app.include_router(scraper_router)
 
 @app.on_event("startup")
 async def startup_event():
-    """啟動時建 DB table"""
+    """啟動時建 DB table + 預先 warmup schools cache"""
     await init_db()
+    # 【2026-07-31 新】Background warmup schools scan (避免 user 第一次 dropdown 慢 18s)
+    import threading
+    def _warmup():
+        from app.api.pages import _scan_schools_from_disk, _save_snapshot, _disk_schools_cache
+        import time
+        try:
+            data = _scan_schools_from_disk()
+            _save_snapshot(data)
+            _disk_schools_cache["data"] = data
+            _disk_schools_cache["ts"] = time.time()
+            print(f"[startup] schools cache warmed: {sum(len(v) for v in data.values())} schools, {sum(s['file_count'] for v in data.values() for s in v)} files", flush=True)
+        except Exception as e:
+            print(f"[startup] schools warmup failed: {e}", flush=True)
+    threading.Thread(target=_warmup, daemon=True).start()
 
 
 @app.get("/health")
