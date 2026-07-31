@@ -77,15 +77,6 @@
 {% elif user.permission <= 7 %}
 <div class="card">
     <div class="card-body">
-        <h5 class="card-title">搜尋考古題</h5>
-        <p class="card-text text-muted small mb-3 studyark-only">
-            從 <a href="https://www.studyark.org/" target="_blank" rel="noopener noreferrer">StudyArk</a> (全國中小學題庫網) 搜尋。可留空表示不限。
-        </p>
-        <div class="alert alert-warning py-2 px-3 small mb-3 studyark-only" role="alert">
-            ⚠️ <strong>StudyArk 限流警語</strong>:如果 StudyArk 限流中(下載太頻繁),會跳友善錯誤訊息請你等 <strong>25 分鐘</strong>。
-            <br>
-            <span class="text-muted">⏱ 提醒:批次下載 20 個檔案需要約 <strong>50 秒</strong>(每個間隔 2.5s,避免撞 StudyArk anti-bot)。</span>
-        </div>
         <form method="get" action="/ui/search">
             <div class="row g-2">
                 <div class="col-md-6">
