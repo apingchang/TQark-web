@@ -160,15 +160,13 @@
                     </select>
                 </div>
                 <div class="col-md-4 studyark-only">
-                    <label class="form-label small">學校(自動完成)</label>
-                    <input type="text" name="school_name" id="schoolNameInput"
-                           class="form-control form-control-sm"
-                           placeholder="隨意輸入關鍵字" autocomplete="off"
-                           list="schoolList">
-                    <datalist id="schoolList">
-                        {# 動態 JS 填入 #}
-                    </datalist>
-                    <small class="form-text text-muted">例:中山、台北、石門</small>
+                    <label class="form-label small">學校 (從 disk 自動列出)</label>
+                    {# 【2026-07-31 改】從 disk 自動列出有資料的學校 (dependent dropdown on 縣市) #}
+                    <select name="school_name" id="schoolNameSelect"
+                            class="form-select form-select-sm" disabled>
+                        <option value="">請先選縣市</option>
+                    </select>
+                    <small class="form-text text-muted" id="schoolCountHint"></small>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small">學年 (如: 110, 不限表示全部)</label>

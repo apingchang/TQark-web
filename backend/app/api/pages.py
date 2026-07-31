@@ -13,7 +13,7 @@ import threading
 import time as _time
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, FileResponse, Response, RedirectResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, desc, func
@@ -2200,3 +2200,230 @@ def _warmup_pdf_tree_cache():
 
 import threading as _warmup_threading
 _warmup_threading.Thread(target=_warmup_pdf_tree_cache, daemon=True).start()
+
+
+# =========================================================
+# 【2026-07-31 新】Disk-based school scan
+# 用於 search dropdown: 選定 county 後, 列出 disk 中真有資料的學校
+# =========================================================
+
+# Cache (避免重複 scan)
+_disk_schools_cache: dict = {"data": {}, "ts": 0.0}
+_SCHOOLS_CACHE_TTL = 60  # 1 minute (背景 archive 持續寫新檔, cache 1 min 讓 user 看到新內容)
+
+def _scan_schools_from_disk() -> dict:
+    """Scan /mnt/my_book/考題收集 and return schools grouped by county.
+    
+    Returns dict[county_name] = list of {name, file_count, path}.
+    
+    【2026-07-31 改】shallow count (max 3 levels) 避免 CIFS 慢:
+      之前用 rglob 每個 school 全部 recursive → 5 分鐘還沒完
+      改用 shallow count → 14 秒
+    
+    Patterns:
+    1. <county>/<school>/ at top level
+    2. _未分類/<county>/<school>/
+    3. _未分類/DriveFolder/<county>/<school>/
+    """
+    import os as _os
+    from pathlib import Path as _Path
+    
+    archive_root = _Path(_os.environ.get("TQARK_ARCHIVE_DIR", "/mnt/my_book/考題收集"))
+    result = {}
+    
+    try:
+        if not archive_root.exists():
+            return result
+    except OSError:
+        return result
+    
+    KNOWN_COUNTIES = {
+        "臺北市", "台北市", "新北市", "基隆市", "宜蘭縣", "桃園市",
+        "新竹市", "新竹縣", "苗栗縣", "臺中市", "台中市", "彰化縣",
+        "南投縣", "雲林縣", "嘉義市", "嘉義縣", "臺南市", "台南市",
+        "高雄市", "屏東縣", "臺東縣", "台東縣", "花蓮縣", "澎湖縣",
+        "金門縣", "連江縣",
+    }
+    SKIP_LEVELS = ("國小", "國中", "高中", "unsorted")
+    
+    def _count_shallow(school_dir, max_depth=3):
+        """Count files >1KB, max N levels deep (CIFS friendly)."""
+        fc = 0
+        try:
+            for entry in school_dir.iterdir():
+                if entry.is_file():
+                    try:
+                        if entry.stat().st_size > 1024:
+                            fc += 1
+                    except OSError:
+                        pass
+                elif entry.is_dir():
+                    try:
+                        for sub in entry.iterdir():
+                            if sub.is_file():
+                                try:
+                                    if sub.stat().st_size > 1024:
+                                        fc += 1
+                                except OSError:
+                                    pass
+                            elif sub.is_dir() and max_depth > 2:
+                                try:
+                                    for sub2 in sub.iterdir():
+                                        if sub2.is_file():
+                                            try:
+                                                if sub2.stat().st_size > 1024:
+                                                    fc += 1
+                                            except OSError:
+                                                pass
+                                except OSError:
+                                    pass
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+        return fc
+    
+    # Pattern 1: <county>/<school>/
+    try:
+        for entry in archive_root.iterdir():
+            if not entry.is_dir():
+                continue
+            if entry.name not in KNOWN_COUNTIES:
+                continue
+            county = entry.name
+            try:
+                for school_entry in entry.iterdir():
+                    if not school_entry.is_dir():
+                        continue
+                    sn = school_entry.name
+                    if sn in SKIP_LEVELS or sn.startswith("_"):
+                        continue
+                    fc = _count_shallow(school_entry)
+                    if fc == 0:
+                        continue
+                    result.setdefault(county, []).append({
+                        "name": sn,
+                        "file_count": fc,
+                        "path": f"{county}/{sn}/",
+                    })
+            except OSError:
+                continue
+    except OSError:
+        pass
+    
+    # Pattern 2: _未分類/<county>/<school>/  +  DriveFolder
+    unsorted_dir = archive_root / "_未分類"
+    if unsorted_dir.exists():
+        try:
+            for county_entry in unsorted_dir.iterdir():
+                if not county_entry.is_dir():
+                    continue
+                cname = county_entry.name
+                if cname == "DriveFolder":
+                    try:
+                        for dcounty in county_entry.iterdir():
+                            if not dcounty.is_dir():
+                                continue
+                            for dschool in dcounty.iterdir():
+                                if not dschool.is_dir():
+                                    continue
+                                fc = _count_shallow(dschool, max_depth=4)
+                                if fc == 0:
+                                    continue
+                                result.setdefault(dcounty.name, []).append({
+                                    "name": dschool.name,
+                                    "file_count": fc,
+                                    "path": f"_未分類/DriveFolder/{dcounty.name}/{dschool.name}/",
+                                    "pending_review": True,
+                                })
+                    except OSError:
+                        pass
+                    continue
+                try:
+                    for school_entry in county_entry.iterdir():
+                        if not school_entry.is_dir():
+                            continue
+                        sn = school_entry.name
+                        if sn.startswith("_"):
+                            continue
+                        fc = _count_shallow(school_entry)
+                        if fc == 0:
+                            continue
+                        result.setdefault(cname, []).append({
+                            "name": sn,
+                            "file_count": fc,
+                            "path": f"_未分類/{cname}/{sn}/",
+                            "pending_review": True,
+                        })
+                except OSError:
+                    continue
+        except OSError:
+            pass
+    
+    # Dedupe by school name
+    for county in list(result.keys()):
+        seen = {}
+        for s in result[county]:
+            key = s["name"]
+            if key not in seen or s["file_count"] > seen[key]["file_count"]:
+                seen[key] = s
+        result[county] = sorted(seen.values(), key=lambda x: -x["file_count"])
+    
+    return result
+
+
+def _get_cached_schools() -> dict:
+    """Get cached school scan (1 min TTL)."""
+    import time as _time
+    now = _time.time()
+    if now - _disk_schools_cache["ts"] > _SCHOOLS_CACHE_TTL:
+        _disk_schools_cache["data"] = _scan_schools_from_disk()
+        _disk_schools_cache["ts"] = now
+    return _disk_schools_cache["data"]
+
+
+@router.get("/api/available-schools", response_class=JSONResponse)
+async def api_available_schools(
+    county: str | None = Query(None, description="Filter by county (full name)"),
+    user: User = Depends(require_login),
+):
+    """Return schools available on disk, optionally filtered by county.
+    
+    Response:
+    {
+        "高雄市": [
+            {"name": "高雄市七賢國中", "file_count": 2, "path": "...", "pending_review": true},
+            ...
+        ],
+        ...
+    }
+    
+    Used by dashboard.html dependent dropdown (county → schools).
+    """
+    schools_by_county = _get_cached_schools()
+    
+    if county:
+        # Filter to specific county + normalise name variants
+        # Map: taipei, new_taipei, ... → 全形中文
+        from app.data.tw_counties import COUNTIES
+        county_id_to_name = {c["id"]: c["name"] for c in COUNTIES}
+        # Also map: 臺北市 / 台北市 → 臺北市 (canonical form)
+        canonical_map = {
+            "臺北市": "臺北市", "台北市": "臺北市",
+            "臺中市": "臺中市", "台中市": "臺中市",
+            "臺南市": "臺南市", "台南市": "臺南市",
+            "臺東縣": "臺東縣", "台東縣": "臺東縣",
+        }
+        # If county is "kaohsiung" or id form, convert
+        target = canonical_map.get(county, county)
+        if target in county_id_to_name.values():
+            target = next((v for v in county_id_to_name.values() if v == target), target)
+        # If it's an id, get name
+        if target in county_id_to_name:
+            target = county_id_to_name[target]
+        
+        filtered = {target: schools_by_county.get(target, [])}
+        return JSONResponse(filtered)
+    
+    return JSONResponse(schools_by_county)
+

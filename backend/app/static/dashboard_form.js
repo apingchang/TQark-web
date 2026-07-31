@@ -69,7 +69,7 @@ let savedValues = {
 function $id(id) { return document.getElementById(id); }
 function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
 
-let form, gradeSelect, subjectSelect, countySelect, schoolNameInput, submitBtn, cardTitle;
+let form, gradeSelect, subjectSelect, countySelect, schoolNameSelect, submitBtn, cardTitle;
 let countyCol, schoolCol, termCol, examTypeCol, versionCol, daanCol, yearCol;
 let studyarkOnlyEls;  // 【2026-07-24 新】所有 .studyark-only 元素 (text + filters)
 
@@ -80,7 +80,7 @@ function initDomRefs() {
     gradeSelect = $id("gradeSelect");
     subjectSelect = form.querySelector('select[name="subject"]');
     countySelect = $id("countySelect");
-    schoolNameInput = $id("schoolNameInput");
+    schoolNameSelect = $id("schoolNameSelect");
     submitBtn = form.querySelector('button[type="submit"]');
     cardTitle = document.querySelector('h5.card-title');
 
@@ -91,7 +91,7 @@ function initDomRefs() {
     }
 
     countyCol = findCol("county");
-    schoolCol = schoolNameInput ? schoolNameInput.closest('.col-md-2, .col-md-3, .col-md-4, .col-md-6') : null;
+    schoolCol = schoolNameSelect ? schoolNameSelect.closest('.col-md-2, .col-md-3, .col-md-4, .col-md-6') : null;
     yearCol = findCol("school_year");
     termCol = findCol("school_term");
     examTypeCol = findCol("exam_type");
@@ -217,10 +217,78 @@ function onGradeChange() {
 // =========================================================
 // Init
 // =========================================================
+// =========================================================
+// 【2026-07-31 新】County → Schools dependent dropdown
+// 從 disk 自動列出有資料的學校 (避免搜尋沒有的學校)
+// =========================================================
+async function fetchAvailableSchools(county) {
+    if (!county) {
+        clearChildren(schoolNameSelect);
+        addOption(schoolNameSelect, "", "請先選縣市");
+        schoolNameSelect.disabled = true;
+        const hint = $id("schoolCountHint");
+        if (hint) hint.textContent = "";
+        return;
+    }
+    try {
+        const resp = await fetch(`/api/available-schools?county=${encodeURIComponent(county)}`);
+        if (!resp.ok) throw new Error("API 失敗");
+        const data = await resp.json();
+        const schools = (data[county] || []);
+        clearChildren(schoolNameSelect);
+        addOption(schoolNameSelect, "", `不限 (${schools.length} 校)`);
+        schools.forEach(s => {
+            // s.name 是 "高雄市七賢國中", 顯示為 "高雄市七賢國中 (123 檔)"
+            addOption(schoolNameSelect, s.name, `${s.name} (${s.file_count} 檔)`);
+        });
+        schoolNameSelect.disabled = false;
+        const hint = $id("schoolCountHint");
+        if (hint) hint.textContent = `📁 ${schools.length} 校, ${schools.reduce((a, s) => a + s.file_count, 0)} 檔`;
+    } catch (err) {
+        console.error("fetchAvailableSchools:", err);
+        clearChildren(schoolNameSelect);
+        addOption(schoolNameSelect, "", "載入失敗,請重試");
+        schoolNameSelect.disabled = true;
+    }
+}
+
+function onCountyChange() {
+    if (!countySelect) return;
+    const county = countySelect.value;
+    // 縣市 id → 中文名 (matching backend tw_counties.py)
+    const id_to_name = {
+        "taipei": "臺北市",
+        "new_taipei": "新北市",
+        "keelung": "基隆市",
+        "yilan": "宜蘭縣",
+        "taoyuan": "桃園市",
+        "hsinchu_city": "新竹市",
+        "hsinchu_county": "新竹縣",
+        "miaoli": "苗栗縣",
+        "taichung": "臺中市",
+        "changhua": "彰化縣",
+        "nantou": "南投縣",
+        "yunlin": "雲林縣",
+        "chiayi_city": "嘉義市",
+        "chiayi_county": "嘉義縣",
+        "tainan": "臺南市",
+        "kaohsiung": "高雄市",
+        "pingtung": "屏東縣",
+        "taitung": "臺東縣",
+        "hualien": "花蓮縣",
+        "penghu": "澎湖縣",
+        "kinmen": "金門縣",
+        "lienchiang": "連江縣",
+    };
+    const countyName = id_to_name[county] || county;
+    fetchAvailableSchools(countyName);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initDomRefs();
     if (!form || !gradeSelect) return;
     gradeSelect.addEventListener("change", onGradeChange);
+    countySelect.addEventListener("change", onCountyChange);
 
     // 如果頁面載入時 grade 已經是會考/大考 (例如 user bookmarked), 觸發一次
     if (gradeSelect.value === "會考") {
