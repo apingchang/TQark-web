@@ -16,48 +16,52 @@
             <strong>🧰 功能</strong>
         </div>
         <div class="list-group list-group-flush">
-            {# === 考題搜尋 (approved only) === #}
+            {# === 考題搜尋 (approved only) - 當前頁不顯示 === #}
+            {% if request.url.path != '/dashboard' %}
             <a href="/dashboard"
-               class="list-group-item list-group-item-action {% if request.url.path == '/dashboard' %}active{% endif %} {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
+               class="list-group-item list-group-item-action {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
                {% if not user or user.permission is none or user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
                 🔍 考題搜尋
                 {% if not user or user.permission is none or user.permission > 7 %}
                     <span class="badge bg-warning text-dark float-end">需審核</span>
                 {% endif %}
             </a>
+            {% endif %}
             
-            {# === 三好工具 (perm 0 or 1 only) === #}
-            {% if user and user.permission is not none and user.permission <= 1 %}
-                <a href="/tools"
-                   class="list-group-item list-group-item-action {% if request.url.path.startswith('/tools') %}active{% endif %}">
+            {# === 三好工具 (perm 0 or 1 only) - 當前頁不顯示 === #}
+            {% if user and user.permission is not none and user.permission <= 1 and not request.url.path.startswith('/tools') %}
+                <a href="/tools" class="list-group-item list-group-item-action">
                     🛠️ 三好工具
                 </a>
             {% endif %}
             
-            {# === 下載紀錄 (approved only) === #}
+            {# === 下載紀錄 (approved only) - 當前頁不顯示 === #}
+            {% if not request.url.path.startswith('/me/downloads') %}
             <a href="/me/downloads"
-               class="list-group-item list-group-item-action {% if request.url.path.startswith('/me/downloads') %}active{% endif %} {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
+               class="list-group-item list-group-item-action {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
                {% if not user or user.permission is none or user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
                 📥 下載紀錄
                 {% if not user or user.permission is none or user.permission > 7 %}
                     <span class="badge bg-warning text-dark float-end">需審核</span>
                 {% endif %}
             </a>
+            {% endif %}
             
-            {# === 各校考古題 (approved only) === #}
+            {# === 各校考古題 (approved only) - 當前頁不顯示 === #}
+            {% if not request.url.path.startswith('/ui/school-sources') %}
             <a href="/ui/school-sources"
-               class="list-group-item list-group-item-action {% if request.url.path.startswith('/ui/school-sources') %}active{% endif %} {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
+               class="list-group-item list-group-item-action {% if not user or user.permission is none or user.permission > 7 %}disabled{% endif %}"
                {% if not user or user.permission is none or user.permission > 7 %}aria-disabled="true" tabindex="-1"{% endif %}>
                 📚 各校考古題
                 {% if not user or user.permission is none or user.permission > 7 %}
                     <span class="badge bg-warning text-dark float-end">需審核</span>
                 {% endif %}
             </a>
+            {% endif %}
             
-            {# === 後台 (admin only) === #}
-            {% if user and user.role == 'admin' %}
-                <a href="/admin"
-                   class="list-group-item list-group-item-action {% if request.url.path == '/admin' %}active{% endif %}">
+            {# === 後台 (admin only) - 當前頁不顯示 === #}
+            {% if user and user.role == 'admin' and request.url.path != '/admin' %}
+                <a href="/admin" class="list-group-item list-group-item-action">
                     🖥️ 後台
                 </a>
             {% endif %}
@@ -75,61 +79,51 @@
         </div>
         <div class="card-body small">
             {% if not user or not user.id %}
-                {# === 未登入: 顯示登入/註冊說明 === #}
+                {# === 未登入: 只顯示登入/註冊 SOP === #}
                 <h6 class="mb-2">🏠 三好之家</h6>
-                <p class="text-muted mb-2">William 私人平台, 邀請制不公開。</p>
-                <hr>
-                <h6 class="mb-2">📝 怎麼用</h6>
-                <ol class="small ps-3 mb-2">
+                <p class="text-muted small mb-2">邀請制, 需經 William 同意才能使用。</p>
+                <h6 class="mb-2 mt-3">📝 怎麼用</h6>
+                <ol class="small ps-3 mb-0">
                     <li>點右上「登入/註冊」</li>
                     <li>用 Google 帳號登入</li>
                     <li>自動建帳號 (權限 8)</li>
                 </ol>
-                <h6 class="mb-2">🔑 怎麼升權限</h6>
-                <p class="text-muted mb-2">聯絡 <strong>William</strong> 調整 (家人/親戚/朋友/同事/管理員)。</p>
-                <hr>
-                <h6 class="mb-2">📊 平台統計</h6>
-                {% if stats %}
-                <ul class="list-unstyled small mb-0">
-                    <li>📒 小學: {{ stats.primary|default(0) }}</li>
-                    <li>📗 國中: {{ stats.junior|default(0) }}</li>
-                    <li>📘 高中: {{ stats.senior|default(0) }}</li>
-                    <li>📙 會考: {{ stats.cap|default(0) }}</li>
-                    <li>📕 大考: {{ stats.ceec|default(0) }}</li>
-                </ul>
-                {% endif %}
             {% else %}
-                {# === 已登入: 顯示 user 資訊 === #}
+                {# === 已登入: 顯示 user 帳號資訊 (admin 才看權限詳情) === #}
                 <h6 class="mb-2">👤 帳號資訊</h6>
                 <p class="mb-1"><strong>{{ user.name or user.email }}</strong></p>
                 <p class="text-muted small mb-2">{{ user.email }}</p>
-                <hr>
-                <h6 class="mb-2">🔑 權限</h6>
-                <p class="mb-1">
-                    <span class="badge bg-info text-dark">權限 {{ user.permission }}</span>
-                    <strong>{{ permission_name }}</strong>
-                </p>
-                {% if user.permission == 0 %}
-                    <p class="text-muted small">✅ 全功能 (含後台 + 三好工具)</p>
-                {% elif user.permission == 1 %}
-                    <p class="text-muted small">✅ 全功能 (含三好工具)</p>
-                {% elif user.permission == 8 %}
-                    <p class="text-muted small">⏳ 已註冊, 待審核升權限</p>
-                {% else %}
-                    <p class="text-muted small">✅ 考題功能</p>
+                
+                {# === 權限詳情只 admin 看 === #}
+                {% if user.role == 'admin' %}
+                    <hr>
+                    <h6 class="mb-2">🔑 權限</h6>
+                    <p class="mb-1">
+                        <span class="badge bg-info text-dark">權限 {{ user.permission }}</span>
+                        <strong>{{ permission_name }}</strong>
+                    </p>
+                    {% if user.permission == 0 %}
+                        <p class="text-muted small">✅ 全功能 (含後台 + 三好工具)</p>
+                    {% elif user.permission == 1 %}
+                        <p class="text-muted small">✅ 全功能 (含三好工具)</p>
+                    {% elif user.permission == 8 %}
+                        <p class="text-muted small">⏳ 已註冊, 待審核升權限</p>
+                    {% else %}
+                        <p class="text-muted small">✅ 考題功能</p>
+                    {% endif %}
+                    <hr>
+                    <h6 class="mb-2">🔓 權限表</h6>
+                    <ul class="list-unstyled small mb-0">
+                        <li>0 = 管理員 (Admin)</li>
+                        <li>1 = 家人</li>
+                        <li>2 = 親戚</li>
+                        <li>3 = 朋友</li>
+                        <li>4 = 同事</li>
+                        <li>8 = 已註冊</li>
+                        <li>9 = 待審核</li>
+                    </ul>
+                    <p class="text-muted small mt-2 mb-0"><em>數字越小權限越高</em></p>
                 {% endif %}
-                <hr>
-                <h6 class="mb-2">🔓 權限表</h6>
-                <ul class="list-unstyled small mb-0">
-                    <li>0 = 管理員 (Admin)</li>
-                    <li>1 = 家人</li>
-                    <li>2 = 親戚</li>
-                    <li>3 = 朋友</li>
-                    <li>4 = 同事</li>
-                    <li>8 = 已註冊</li>
-                    <li>9 = 待審核</li>
-                </ul>
-                <p class="text-muted small mt-2 mb-0"><em>數字越小權限越高</em></p>
             {% endif %}
         </div>
     </div>
