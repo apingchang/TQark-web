@@ -28,8 +28,8 @@
             </a>
             {% endif %}
             
-            {# === 三好工具 (perm 0 or 1 only) - 當前頁不顯示 === #}
-            {% if user and user.permission is not none and user.permission <= 1 and not request.url.path.startswith('/tools') %}
+            {# === 三好工具 (perm 0 or 1 only) - 只在首頁 / 顯示 === #}
+            {% if user and user.permission is not none and user.permission <= 1 and request.url.path == '/' %}
                 <a href="/tools" class="list-group-item list-group-item-action">
                     🛠️ 三好工具
                 </a>
@@ -57,6 +57,13 @@
                     <span class="badge bg-warning text-dark float-end">需審核</span>
                 {% endif %}
             </a>
+            {% endif %}
+            
+            {# === 搜尋 (在 /dashboard 觸發 form submit) === #}
+            {% if request.url.path == '/dashboard' %}
+                <a href="#" id="searchSubmitLink" class="list-group-item list-group-item-action">
+                    🔍 搜尋
+                </a>
             {% endif %}
             
             {# === 後台 (admin only) - 當前頁不顯示 === #}

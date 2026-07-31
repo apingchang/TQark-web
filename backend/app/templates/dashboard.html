@@ -214,10 +214,7 @@
                     </select>
                 </div>
             </div>
-            <div class="d-flex justify-content-end align-items-center mt-3 flex-wrap gap-2">
-                {# 【2026-07-31 改】各校考古題 button 移到左欄 sidebar #}
-                <button type="submit" class="btn btn-primary">🔍 搜尋</button>
-            </div>
+            {# 【2026-07-31 改】submit button 搬到左欄 sidebar (搜尋 link) #}
         </form>
     </div>
 </div>
@@ -237,6 +234,24 @@ window.DASHBOARD_SUBJECTS = {
     cap: {{ cap_subjects_json | safe }},
     ceec: {{ ceec_subjects_json | safe }},
 };
+</script>
+{# 【2026-07-31 新】左欄「搜尋」link 觸發 form submit #}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const searchLink = document.getElementById("searchSubmitLink");
+    if (searchLink) {
+        searchLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            // 找 dashboard 的搜尋 form (action=/ui/search)
+            const form = document.querySelector('form[action="/ui/search"]');
+            if (form) {
+                form.submit();
+            } else {
+                console.warn("dashboard search form not found");
+            }
+        });
+    }
+});
 </script>
 <script src="/static/dashboard_form.js?v=2026-07-24"></script>
 {% endblock %}
