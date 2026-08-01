@@ -7,7 +7,7 @@
 {% set current_tool = request.query_params.get('tool', 'jp') %}
 <div class="banner-top text-center py-4 mb-3">
     <h1 class="banner-title m-0">🛠️ 三好工具</h1>
-    <p class="text-muted small mb-0 mt-1">家人/管理員限定 · 實用小工具</p>
+    <p class="text-muted small mb-0 mt-1">實用小工具</p>
 </div>
 
 <div class="main-grid">
@@ -18,13 +18,17 @@
                 <strong>🛠️ 工具</strong>
             </div>
             <div class="list-group list-group-flush">
-                <a href="/tools?tool=jp" 
+                <a href="/tools?tool=jp"
                    class="list-group-item list-group-item-action {% if current_tool == 'jp' %}active{% endif %}">
                     🌐 日文翻譯
                 </a>
-                <a href="/tools?tool=cc" 
+                <a href="/tools?tool=cc"
                    class="list-group-item list-group-item-action {% if current_tool == 'cc' %}active{% endif %}">
                     💳 信用卡帳單
+                </a>
+                {# 返回上一頁 (跟 partial 一樣的 handler) #}
+                <a href="#" class="list-group-item list-group-item-action js-back-link">
+                    ⬅️ 返回上一頁
                 </a>
             </div>
         </div>

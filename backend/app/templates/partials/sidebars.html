@@ -72,6 +72,11 @@
                     🖥️ 後台
                 </a>
             {% endif %}
+
+            {# === 返回上一頁 (任何頁都顯示, JS handler 在 /static/sidebars.js) === #}
+            <a href="#" class="list-group-item list-group-item-action js-back-link">
+                ⬅️ 返回上一頁
+            </a>
         </div>
     </div>
 </aside>
@@ -101,35 +106,45 @@
                 <p class="mb-1"><strong>{{ user.name or user.email }}</strong></p>
                 <p class="text-muted small mb-2">{{ user.email }}</p>
                 
-                {# === 權限詳情只 admin 看 === #}
+                {# === 權限詳情 (admin 看, 預設折收, 點 toggle 展開) === #}
                 {% if user.role == 'admin' %}
                     <hr>
-                    <h6 class="mb-2">🔑 權限</h6>
-                    <p class="mb-1">
-                        <span class="badge bg-info text-dark">權限 {{ user.permission }}</span>
-                        <strong>{{ permission_name }}</strong>
-                    </p>
-                    {% if user.permission == 0 %}
-                        <p class="text-muted small">✅ 全功能 (含後台 + 三好工具)</p>
-                    {% elif user.permission == 1 %}
-                        <p class="text-muted small">✅ 全功能 (含三好工具)</p>
-                    {% elif user.permission == 8 %}
-                        <p class="text-muted small">⏳ 已註冊, 待審核升權限</p>
-                    {% else %}
-                        <p class="text-muted small">✅ 考題功能</p>
-                    {% endif %}
-                    <hr>
-                    <h6 class="mb-2">🔓 權限表</h6>
-                    <ul class="list-unstyled small mb-0">
-                        <li>0 = 管理員 (Admin)</li>
-                        <li>1 = 家人</li>
-                        <li>2 = 親戚</li>
-                        <li>3 = 朋友</li>
-                        <li>4 = 同事</li>
-                        <li>8 = 已註冊</li>
-                        <li>9 = 待審核</li>
-                    </ul>
-                    <p class="text-muted small mt-2 mb-0"><em>數字越小權限越高</em></p>
+                    {# 預設折收: 只顯示「🔑 權限」button (點擊展開) #}
+                    <a class="d-inline-flex align-items-center text-decoration-none small mb-2"
+                       data-bs-toggle="collapse"
+                       href="#permissionDetails"
+                       role="button"
+                       aria-expanded="false"
+                       aria-controls="permissionDetails">
+                        🔑 權限 <span class="ms-1" id="permissionToggleIcon">▸</span>
+                    </a>
+                    <div class="collapse" id="permissionDetails">
+                        <p class="mb-1">
+                            <span class="badge bg-info text-dark">權限 {{ user.permission }}</span>
+                            <strong>{{ permission_name }}</strong>
+                        </p>
+                        {% if user.permission == 0 %}
+                            <p class="text-muted small">✅ 全功能 (含後台 + 三好工具)</p>
+                        {% elif user.permission == 1 %}
+                            <p class="text-muted small">✅ 全功能 (含三好工具)</p>
+                        {% elif user.permission == 8 %}
+                            <p class="text-muted small">⏳ 已註冊, 待審核升權限</p>
+                        {% else %}
+                            <p class="text-muted small">✅ 考題功能</p>
+                        {% endif %}
+                        <hr>
+                        <h6 class="mb-2">🔓 權限表</h6>
+                        <ul class="list-unstyled small mb-0">
+                            <li>0 = 管理員 (Admin)</li>
+                            <li>1 = 家人</li>
+                            <li>2 = 親戚</li>
+                            <li>3 = 朋友</li>
+                            <li>4 = 同事</li>
+                            <li>8 = 已註冊</li>
+                            <li>9 = 待審核</li>
+                        </ul>
+                        <p class="text-muted small mt-2 mb-0"><em>數字越小權限越高</em></p>
+                    </div>
                 {% endif %}
             {% endif %}
         </div>
