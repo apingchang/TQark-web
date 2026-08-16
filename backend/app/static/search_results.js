@@ -1,5 +1,6 @@
 // =========================================================
 // 勾選下載的 client-side 邏輯
+// 【2026-08-15 改】來源改 local archive, 用 paper-id 而非 classid/fileid
 // =========================================================
 const MAX_BATCH = 20;
 const STORAGE_KEY = 'tqark_selected_items';
@@ -15,7 +16,8 @@ function setSelected(items) {
 }
 
 function makeKey(it) {
-    return `${it.classid}_${it.fileid}_${it.filetype}`;
+    // 【2026-08-15 改】以 paper_id 為主、filetype 為次
+    return `${it.paper_id || (it.classid + '_' + it.fileid)}_${it.filetype}`;
 }
 
 function updateBatchBar() {
@@ -81,15 +83,13 @@ document.addEventListener('change', e => {
             return;
         }
         selected[k] = {
-            classid: e.target.dataset.classid,
-            fileid: e.target.dataset.fileid,
+            paper_id: e.target.dataset.paperId,
             filetype: e.target.dataset.filetype,
             title: e.target.dataset.title,
             school_name: e.target.dataset.school,
             grade: e.target.dataset.grade,
             school_year: e.target.dataset.year,
             school_term: e.target.dataset.term,
-            category: e.target.dataset.cat,
             subject: e.target.dataset.subject,
             exam_type: e.target.dataset.type,
             version: e.target.dataset.version,
@@ -119,15 +119,13 @@ document.getElementById('selectAllChk').addEventListener('change', e => {
             // 勾: 不能超過 MAX_BATCH
             if (!selected[k] && currentCount < MAX_BATCH) {
                 selected[k] = {
-                    classid: chk.dataset.classid,
-                    fileid: chk.dataset.fileid,
+                    paper_id: chk.dataset.paperId,
                     filetype: chk.dataset.filetype,
                     title: chk.dataset.title,
                     school_name: chk.dataset.school,
                     grade: chk.dataset.grade,
                     school_year: chk.dataset.year,
                     school_term: chk.dataset.term,
-                    category: chk.dataset.cat,
                     subject: chk.dataset.subject,
                     exam_type: chk.dataset.type,
                     version: chk.dataset.version,
@@ -206,12 +204,12 @@ document.getElementById('confirmDownloadBtn').addEventListener('click', async ()
     const progressText = document.getElementById('progressText');
     progressBar.style.width = '30%';
     progressBar.textContent = '30%';
-    progressText.textContent = `正在向 StudyArk 抓 ${items.length} 個檔案...`;
+    progressText.textContent = `正在打包 ${items.length} 個本地檔案...`;
     const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
     progressModal.show();
 
     try {
-        const resp = await fetch('/api/batch-download', {
+        const resp = await fetch('/api/batch-download-local', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({items: items}),
@@ -221,7 +219,6 @@ document.getElementById('confirmDownloadBtn').addEventListener('click', async ()
             let errText = await resp.text();
             let friendlyMsg = '';
             if (resp.status === 429) {
-                // StudyArk 限流 → 答合友善訊息
                 friendlyMsg = 'StudyArk 限流中(下載太頻繁、啟動 anti-bot)。請等 25 分鐘後再試。';
                 progressBar.classList.add('bg-warning');
             } else {

@@ -355,6 +355,16 @@ class BatchDownloadRequest(BaseModel):
     items: list[BatchItem]
 
 
+class LocalBatchItem(BaseModel):
+    """【2026-08-15 新】local archive batch item"""
+    paper_id: str
+    filetype: str = "paper"  # paper / daan
+
+
+class LocalBatchDownloadRequest(BaseModel):
+    items: list[LocalBatchItem]
+
+
 @router.post("/batch-download")
 async def batch_download(
     req: BatchDownloadRequest,
@@ -520,6 +530,137 @@ async def batch_download(
         "X-Batch-Errors": str(len(errors)),
     }
 
+    if errors:
+        headers["X-Batch-Error-Details"] = json.dumps(errors, ensure_ascii=False)[:1024]
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers=headers,
+    )
+
+
+@router.post("/batch-download-local")
+async def batch_download_local(
+    req: LocalBatchDownloadRequest,
+    request: Request,
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """【2026-08-15 新】批次下載 local archive PDF → 回傳 .zip。
+
+    使用 paper_id 查詢 local_index、從 disk 直接讀 PDF、不撞 StudyArk 限流。
+    """
+    from app.scraper import local_index
+
+    MAX_BATCH = 20
+    items = req.items
+
+    if not items:
+        raise HTTPException(400, "至少要 1 個 item")
+    if len(items) > MAX_BATCH:
+        raise HTTPException(400, f"單批最多 {MAX_BATCH} 個, 你選了 {len(items)} 個。請減少後再試。")
+
+    buffer = io.BytesIO()
+    downloaded: list[tuple[str, dict, bytes]] = []  # (zip_fname, item, pdf_bytes)
+    errors: list[dict] = []
+
+    for it in items:
+        if it.filetype not in ("paper", "daan"):
+            errors.append({"paper_id": it.paper_id, "error": f"Invalid filetype: {it.filetype}"})
+            continue
+
+        group = local_index.get_paired_by_id(it.paper_id)
+        if group is None:
+            errors.append({"paper_id": it.paper_id, "error": "paper_id not found in local index"})
+            continue
+
+        if it.filetype == "paper":
+            chosen_path = group["paper_path"]
+        else:
+            chosen_path = group["daan_path"]
+
+        if not chosen_path:
+            errors.append({"paper_id": it.paper_id, "error": f"no {it.filetype} file for this group"})
+            continue
+
+        p = _Path(chosen_path)
+        if not p.exists() or not p.is_file():
+            errors.append({"paper_id": it.paper_id, "error": f"file missing on disk: {chosen_path}"})
+            continue
+
+        try:
+            pdf_bytes = p.read_bytes()
+            if not pdf_bytes.startswith(b"%PDF"):
+                errors.append({"paper_id": it.paper_id, "error": "not a valid PDF"})
+                continue
+            # zip 內的檔名
+            title_parts = [group["school_name"], group["school_year"] + ("學年度" if group["school_year"] else ""),
+                           group["school_term"], group["exam_type"], group["grade"], group["subject"]]
+            if group["version"] and group["version"] not in ("未註明", ""):
+                title_parts.append(f"({group['version']})")
+            title_parts.append("答案" if it.filetype == "daan" else "試題")
+            zip_fname = "_".join([t for t in title_parts if t]).replace("/", "／").replace(":", "：") + ".pdf"
+            downloaded.append((zip_fname, {"paper_id": it.paper_id, "filetype": it.filetype, "group": group}, pdf_bytes))
+        except Exception as e:
+            errors.append({"paper_id": it.paper_id, "error": str(e)})
+
+    if not downloaded and errors:
+        raise HTTPException(400, f"全部 {len(items)} 個 item 都失敗: {errors[0]['error']}")
+
+    # 寫 zip (去重)
+    used: dict[str, int] = {}
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fname, item, pdf_bytes in downloaded:
+            if fname in used:
+                used[fname] += 1
+                stem, ext = fname.rsplit(".", 1)
+                actual = f"{stem}_{used[fname]}.{ext}"
+            else:
+                used[fname] = 0
+                actual = fname
+            zf.writestr(actual, pdf_bytes)
+
+    # 寫 DownloadHistory
+    for fname, item, pdf_bytes in downloaded:
+        group = item["group"]
+        dh = DownloadHistory(
+            user_id=user.id,
+            classid="LOCAL",
+            fileid=item["paper_id"],
+            filetype=item["filetype"],
+            title=group["title"] or fname,
+            school_name=group["school_name"] or None,
+            grade=group["grade"] or None,
+            school_year=group["school_year"] or None,
+            school_term=group["school_term"] or None,
+            category=None,
+            subject=group["subject"] or None,
+            exam_type=group["exam_type"] or None,
+            version=group["version"] or None,
+            download_filename=fname,
+            ip_hash=hash_ip(request.client.host if request.client else None),
+            user_agent=request.headers.get("user-agent", "")[:512] or None,
+        )
+        db.add(dh)
+
+    await log_action(
+        db,
+        action="batch_download_local",
+        user_id=user.id,
+        target=f"{len(downloaded)} items",
+        detail=f"requested={len(items)}, downloaded={len(downloaded)}, errors={len(errors)}",
+        ip=str(request.client.host) if request.client else None,
+    )
+    await db.commit()
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_filename = f"tqark_local_exams_{timestamp}.zip"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{zip_filename}"',
+        "X-Batch-Count": str(len(downloaded)),
+        "X-Batch-Errors": str(len(errors)),
+    }
     if errors:
         headers["X-Batch-Error-Details"] = json.dumps(errors, ensure_ascii=False)[:1024]
 

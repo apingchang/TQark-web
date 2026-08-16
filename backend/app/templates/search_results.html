@@ -3,9 +3,14 @@
 {% block title %}搜尋結果 — TQark-web{% endblock %}
 
 {% block content %}
+{# 【2026-08-16 改】2 欄 layout: 搜尋結果 (左) + right_sidebar (右) #}
+<div class="main-grid-2col">
+    {# 左欄: 搜尋結果 #}
+    <div class="search-results-main">
+<h1 class="page-title mb-3">搜尋結果</h1>
+
 <div class="card">
     <div class="card-body">
-        <h2 class="card-title">搜尋結果</h2>
 
         {# === 已選的 filter chips(學 StudyArk 風格) === #}
         <div class="mb-3">
@@ -64,69 +69,84 @@
                     </thead>
                     <tbody>
                         {% for item in results %}
-                        {# === 試卷 row === #}
+                        {# === 試卷 row (paper group 為單位) === #}
                         <tr id="row-{{ loop.index }}">
                             <td>
                                 <input type="checkbox"
                                        class="itemChk"
-                                       data-classid="{{ item.classid }}"
-                                       data-fileid="{{ item.id }}"
+                                       data-paper-id="{{ item.paper_id }}"
                                        data-filetype="paper"
                                        data-title="{{ item.title }}"
                                        data-school="{{ item.school_name }}"
                                        data-grade="{{ item.grade }}"
                                        data-year="{{ item.school_year }}"
                                        data-term="{{ item.school_term }}"
-                                       data-cat="{{ item.category }}"
                                        data-subject="{{ item.subject }}"
-                                       data-type="{{ item.type }}"
+                                       data-type="{{ item.exam_type }}"
                                        data-version="{{ item.version }}">
                             </td>
                             <td>
                                 <span class="badge bg-primary">📄 試卷</span>
-                                <small class="ms-2">{{ item.title }}</small>
+                                <small class="ms-2">
+                                    {{ item.school_name }}
+                                    {% if item.school_year %}{{ item.school_year }}{% endif %}
+                                    {% if item.school_term %}{{ item.school_term }}{% endif %}
+                                    {% if item.exam_type %}{{ item.exam_type }}{% endif %}
+                                    {% if item.grade %}{{ item.grade }}{% endif %}
+                                    {% if item.subject %}{{ item.subject }}{% endif %}
+                                    {% if item.version and item.version not in ('未註明', '') %}({{ item.version }}){% endif %}
+                                </small>
                             </td>
                             <td>
-                                <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=paper&title={{ item.title|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
+                                {% if item.paper_path %}
+                                <a href="/ui/download/paper/{{ item.paper_id }}?filetype=paper"
                                    class="btn btn-sm btn-primary single-dl-btn"
-                                   data-classid="{{ item.classid }}"
-                                   data-fileid="{{ item.id }}"
+                                   data-paper-id="{{ item.paper_id }}"
                                    data-filetype="paper">
                                     <small>⬇ 試卷</small>
                                 </a>
+                                {% else %}
+                                <small class="text-muted">無試卷</small>
+                                {% endif %}
                             </td>
                             <td id="status-{{ loop.index }}">
                                 <small class="text-muted">—</small>
                             </td>
                         </tr>
-                        {# === 答案 row(只有有答案才顯示) === #}
-                        {% if item.download_answer == '有' %}
+                        {# === 答案 row (有 daan 才顯示) === #}
+                        {% if item.daan_path %}
                         <tr class="answer-row" style="background-color: #f8f9fa;">
                             <td>
                                 <input type="checkbox"
                                        class="itemChk"
-                                       data-classid="{{ item.classid }}"
-                                       data-fileid="{{ item.id }}"
+                                       data-paper-id="{{ item.paper_id }}"
                                        data-filetype="daan"
                                        data-title="{{ item.title }} - 答案"
                                        data-school="{{ item.school_name }}"
                                        data-grade="{{ item.grade }}"
                                        data-year="{{ item.school_year }}"
                                        data-term="{{ item.school_term }}"
-                                       data-cat="{{ item.category }}"
                                        data-subject="{{ item.subject }}"
-                                       data-type="{{ item.type }}"
+                                       data-type="{{ item.exam_type }}"
                                        data-version="{{ item.version }}">
                             </td>
                             <td>
                                 <span class="badge bg-secondary">📝 答案</span>
-                                <small class="ms-2">{{ item.title }} - 答案</small>
+                                <small class="ms-2">
+                                    {{ item.school_name }}
+                                    {% if item.school_year %}{{ item.school_year }}{% endif %}
+                                    {% if item.school_term %}{{ item.school_term }}{% endif %}
+                                    {% if item.exam_type %}{{ item.exam_type }}{% endif %}
+                                    {% if item.grade %}{{ item.grade }}{% endif %}
+                                    {% if item.subject %}{{ item.subject }}{% endif %}
+                                    {% if item.version and item.version not in ('未註明', '') %}({{ item.version }}){% endif %}
+                                     - 答案
+                                </small>
                             </td>
                             <td>
-                                <a href="/ui/download/{{ item.classid }}/{{ item.id }}?filetype=daan&title={{ (item.title + ' 答案')|urlencode }}&school_name={{ item.school_name|urlencode }}&grade={{ item.grade|urlencode }}&school_year={{ item.school_year|urlencode }}&school_term={{ item.school_term|urlencode }}&category={{ item.category|urlencode }}&subject={{ item.subject|urlencode }}&exam_type={{ item.type|urlencode }}&version={{ item.version|urlencode }}"
+                                <a href="/ui/download/paper/{{ item.paper_id }}?filetype=daan"
                                    class="btn btn-sm btn-primary single-dl-btn"
-                                   data-classid="{{ item.classid }}"
-                                   data-fileid="{{ item.id }}"
+                                   data-paper-id="{{ item.paper_id }}"
                                    data-filetype="daan">
                                     <small>⬇ 答案</small>
                                 </a>
@@ -213,6 +233,13 @@
             </div>
         </div>
     </div>
+</div>
+    </div>
+    {# 右欄: 平台資訊 (reusable partial) #}
+    <aside class="search-results-sidebar">
+        {% from "partials/sidebars.html" import right_sidebar with context %}
+        {{ right_sidebar() }}
+    </aside>
 </div>
 
 {# === 確認下載 popup modal === #}

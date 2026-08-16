@@ -8,6 +8,8 @@
     <meta http-equiv="Expires" content="0">
     <title>{% block title %}TQark-web{% endblock %}</title>
     <link rel="stylesheet" href="/static/bootstrap.min.css">
+    {# 【2026-08-03 新】block head — 子 template 可加 page-specific CSS #}
+    {% block head %}{% endblock %}
     <style>
         body { background: #f8f9fa; }
         /* 【2026-07-28 移】從 landing.html 抽出來, dashboard.html 也用得到 */
@@ -169,6 +171,22 @@
             vertical-align: middle;
             border-radius: 0.25rem;
             line-height: 1.5;
+        }
+        /* 【2026-08-03 新】頁面 title (中間欄頂部, 所有 page 統一)
+           - 套用在所有 page-level title (dashboard / me_downloads / admin / cap_exam / ceec_exam / tools sub-pages)
+           - 不用 h1 預設大黑粗體, 改用 h2 大小 + 主色 (跟 navbar brand 同藍)
+           - 加底線讓 user 一眼看到這是頁面標題, 不是內容
+           - 【2026-08-03 改】置中對齊 (text-align: center), border-bottom 仍撐滿中間欄寬 */
+        .page-title {
+            font-size: 1.75rem;
+            line-height: 1;
+            font-weight: 700;
+            color: #0d6efd;
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: 0.25rem;
+            margin-top: 0.25rem;
+            margin-bottom: 0.75rem;
+            text-align: center;
         }
         /* user-info tooltip 不會被 navbar 遮住 */
         .tooltip-inner {

@@ -515,24 +515,30 @@ def archive_links(
     written = 0
     completed_urls: list[str] = []
     errors: list[str] = []
-    # 【2026-07-29】.edu.tw tad_uploader download 需 session cookie
-    # 推導下載 URL 對應的 category page 拿 cookie
-    def warmup_for(link: "FileLink") -> None:
+    # 【2026-07-30 fix】.edu.tw tad_uploader download 需 session cookie
+    # 為避免每個 file 都 warmup 一次,先為遇的 cat_sn page 事先 batch warmup,
+    # 这样 1 個 cat_sn 一個 page 即可,不是 N files = N warms
+    cat_pages_visited: set[str] = set()
+    def get_category_page(link: "FileLink") -> str | None:
         cat = parse_qs(urlparse(link.url).query).get("cat_sn")
         if not cat:
-            return
+            return None
         base = urlparse(link.url)
-        category_page = (
+        return (
             f"{base.scheme}://{base.netloc}{base.path}"
             f"?op=list_mode&list_mode=more&of_cat_sn={cat[0]}"
         )
-        try:
-            session.get(category_page, timeout=REQUEST_TIMEOUT)
-            # 【2026-07-30】set Referer to category_page (ASCII only, no Chinese)
-            warmup_for.referer = category_page
-        except requests.RequestException:
-            pass
-    warmup_for.referer = None  # type: ignore[attr-defined]  # last warmup category URL
+
+    # Pre-warmup: visit each unique category page once
+    for link in links:
+        cp = get_category_page(link)
+        if cp and cp not in cat_pages_visited:
+            cat_pages_visited.add(cp)
+            try:
+                session.get(cp, timeout=REQUEST_TIMEOUT)
+                time.sleep(0.3)  # gentle pacing between warmup calls
+            except requests.RequestException:
+                pass
 
 
 
@@ -550,10 +556,10 @@ def archive_links(
             continue
 
         try:
-            warmup_for(link)
+            cat_page = get_category_page(link)
             # 【2026-07-30 bugfix】Referer 不可為中文 URL (requests 內部用 latin-1 encode header)
-            # Use last warmup category page (ASCII only) as Referer
-            referer = warmup_for.referer if warmup_for.referer else link.url  # type: ignore[attr-defined]
+            # Use category page (ASCII only) as Referer — fallback to page_url
+            referer = cat_page or link.url
             headers = {"Referer": referer}
             # 【2026-07-30】加 pacing,避免 IP 被 rate-limit 退绠
             time.sleep(0.5)

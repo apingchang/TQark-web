@@ -59,11 +59,13 @@
             </a>
             {% endif %}
             
-            {# === 搜尋 (在 /dashboard 觸發 form submit) === #}
+            {# === 搜尋 (在 /dashboard 點下去 submit 表單, 用 button + form 屬性 100% 可靠) === #}
             {% if request.url.path == '/dashboard' %}
-                <a href="#" id="searchSubmitLink" class="list-group-item list-group-item-action">
+                <button type="submit" form="dashboardSearchForm" id="searchSubmitLink"
+                        class="list-group-item list-group-item-action border-0 bg-transparent text-start"
+                        style="cursor:pointer">
                     🔍 搜尋
-                </a>
+                </button>
             {% endif %}
             
             {# === 後台 (admin only) - 當前頁不顯示 === #}
@@ -73,10 +75,25 @@
                 </a>
             {% endif %}
 
-            {# === 返回上一頁 (任何頁都顯示, JS handler 在 /static/sidebars.js) === #}
-            <a href="#" class="list-group-item list-group-item-action js-back-link">
-                ⬅️ 返回上一頁
-            </a>
+            {# === 返回上一層 (2026-08-07 改: 路由式 parent URL, 不依賴 history.back; 只有 / 不顯示) === #}
+            {% set _parents = {
+                '/dashboard': '/',
+                '/tools': '/dashboard',
+                '/me/downloads': '/dashboard',
+                '/admin': '/dashboard',
+                '/ui/school-sources': '/dashboard',
+                '/ui/cap-exam': '/dashboard',
+                '/ui/ceec-exam': '/dashboard',
+                '/ui/search': '/dashboard',
+                '/tools/credit-card': '/tools',
+                '/tools/jp-translate': '/tools',
+            } %}
+            {% set _parent = _parents.get(request.url.path) %}
+            {% if _parent %}
+                <a href="{{ _parent }}" class="list-group-item list-group-item-action">
+                    ⬅️ 返回上一層
+                </a>
+            {% endif %}
         </div>
     </div>
 </aside>
@@ -90,6 +107,10 @@
             <strong>ℹ️ 平台資訊</strong>
         </div>
         <div class="card-body small">
+            {# 【2026-08-15 新】程式最後修改時間 (制認目前執行哪個版本) #}
+            <p class="text-muted small mb-2" title="backend/app + templates + static 最新 mtime">
+                🛠️ 程式最後修改: <code>{{ build_mtime or 'unknown' }}</code>
+            </p>
             {% if not user or not user.id %}
                 {# === 未登入: 只顯示登入/註冊 SOP === #}
                 <h6 class="mb-2">🏠 三好之家</h6>
@@ -149,5 +170,96 @@
             {% endif %}
         </div>
     </div>
+
+    {# === 【2026-08-03 新】考題資訊 — 所有試卷統計摘要 ===
+       - 只有在考題搜尋及其子頁面才顯示: dashboard / cap-exam / ceec-exam / school-sources / search
+       - 透過 with context 從 caller 拿到 stats + request (check 當前路徑)
+       - layout: 總覽 → 5 類計數 → 各縣市 → 最新檔案
+       - 【2026-08-03 改】移除在 landing 顯示 (landing 不算考題頁) #}
+    {% set exam_paths = ['/dashboard', '/ui/cap-exam', '/ui/ceec-exam', '/ui/school-sources', '/ui/search'] %}
+    {% if stats and request.url.path in exam_paths %}
+    <div class="card sidebar-card mt-3">
+        <div class="card-header bg-white">
+            <strong>📚 考題資訊</strong>
+            <small class="text-muted ms-2">平台所有試卷統計摘要</small>
+        </div>
+        <div class="card-body small">
+            {# === 總覽 === #}
+            <div class="mb-3">
+                <h6 class="mb-2 text-primary">📊 總覽</h6>
+                <ul class="list-unstyled mb-0">
+                    <li>📄 試卷總數: <strong>{{ stats.total_all or 0 }}</strong> 份</li>
+                    <li>🏫 學校數: <strong>{{ stats.school_count or 0 }}</strong> 所</li>
+                    <li>💾 總大小: <strong>{{ stats.archive_size_mb or 0 }}</strong> MB</li>
+                    <li>🗂️ 全部檔案: <strong>{{ stats.total_files or 0 }}</strong> 個</li>
+                </ul>
+            </div>
+
+            {# === 5 類考題計數 === #}
+            <div class="mb-3">
+                <h6 class="mb-2 text-primary">📚 各類考題</h6>
+                <ul class="list-unstyled mb-0">
+                    <li>📒 國小: <strong>{{ stats.count_elementary or 0 }}</strong> 份</li>
+                    <li>🎒 國中: <strong>{{ stats.count_junior or 0 }}</strong> 份</li>
+                    <li>🎓 高中: <strong>{{ stats.count_senior or 0 }}</strong> 份</li>
+                    <li>📙 歷屆會考: <strong>{{ stats.count_cap or 0 }}</strong> 份</li>
+                    <li>📕 歷屆大學入學考: <strong>{{ stats.count_ceec or 0 }}</strong> 份</li>
+                </ul>
+            </div>
+
+            {# === 各縣市 top 5 (預設折收, 點 header toggle) === #}
+            {% if stats.by_county %}
+            <div class="mb-3">
+                <a class="d-inline-flex align-items-center text-decoration-none small mb-2 toggle-collapsed"
+                   data-bs-toggle="collapse"
+                   href="#statsByCounty"
+                   role="button"
+                   aria-expanded="false"
+                   aria-controls="statsByCounty">
+                    <h6 class="mb-0 text-primary">🗺️ 各縣市 (top 5)</h6>
+                    <span class="ms-1 collapse-arrow">▸</span>
+                </a>
+                <div class="collapse" id="statsByCounty">
+                    <ul class="list-unstyled mb-0">
+                        {% for county, count in (stats.by_county.items()|list)[:5] %}
+                        <li>📍 {{ county }}: <strong>{{ count }}</strong></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {# === 最新檔案 top 5 (預設折收, 點 header toggle) === #}
+            {% if stats.latest_files %}
+            <div class="mb-0">
+                <a class="d-inline-flex align-items-center text-decoration-none small mb-2 toggle-collapsed"
+                   data-bs-toggle="collapse"
+                   href="#statsLatestFiles"
+                   role="button"
+                   aria-expanded="false"
+                   aria-controls="statsLatestFiles">
+                    <h6 class="mb-0 text-primary">🆕 最新檔案 (top 5)</h6>
+                    <span class="ms-1 collapse-arrow">▸</span>
+                </a>
+                <div class="collapse" id="statsLatestFiles">
+                    <ul class="list-unstyled mb-0">
+                        {% for f in (stats.latest_files|list)[:5] %}
+                        <li class="text-truncate" title="{{ f.name }}">
+                            📄 <small>{{ f.name[:28] }}{% if f.name|length > 28 %}…{% endif %}</small>
+                            <br><small class="text-muted ms-3">{{ f.mtime_str or '' }} · {{ f.county or '' }}{% if f.subject %} · {{ f.subject }}{% endif %}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {# === footer hint === #}
+            <p class="text-muted small mt-3 mb-0 text-center">
+                <em>快取 10 分鐘 · {{ stats.cache_age or '剛剛更新' }}</em>
+            </p>
+        </div>
+    </div>
+    {% endif %}
 </aside>
 {% endmacro %}

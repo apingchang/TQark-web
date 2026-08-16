@@ -5,11 +5,6 @@
 {% block title %}三好之家 — Sanhao Family{% endblock %}
 
 {% block content %}
-<div class="banner-top text-center py-4 mb-3">
-    <h1 class="banner-title m-0">🏠 三好之家</h1>
-    <p class="text-muted small mb-0 mt-1">Sanhao Family</p>
-</div>
-
 <div class="main-grid">
     {# 左側: 功能 (reusable partial) #}
     {% from "partials/sidebars.html" import left_sidebar with context %}
@@ -17,8 +12,12 @@
 
     {# 中央: console 分上下 2 部 + 30 秒輪播 #}
     <section class="center-console">
+        <h1 class="page-title" style="margin-bottom: 1.5rem;">🏠 三好之家</h1>
+
+        <div class="news-cards-wrapper">
         {# 上半: 懂王新聞摘要 (30 秒輪播, primary driver) #}
-        <div class="card mb-3 news-card" id="trumpCard" data-source="trump">
+        {# 【2026-08-03 改】移除 mb-3 (wrapper gap 已負責間隔, 避免 margin 變成 grid row 內部空間) #}
+        <div class="card news-card" id="trumpCard" data-source="trump">
             <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong>🇺🇸 懂王新聞摘要</strong>
                 <div class="d-flex align-items-center gap-3 ms-auto">
@@ -97,6 +96,7 @@
                 {% endif %}
             </div>
         </div>
+        </div>{# /news-cards-wrapper #}
     </section>
 
     {# 右側: 平台資訊 (reusable partial) #}
@@ -122,17 +122,6 @@
 
 {% block scripts %}
 <style>
-    .banner-top {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border: 1px solid #dee2e6;
-        border-radius: 0.5rem;
-        min-height: 80px;
-        width: 100%;
-        margin: 0 0.5rem 1rem 0.5rem;
-        /* 內部內容限制 max-width, 但背景 100% */
-        box-sizing: border-box;
-        padding: 1rem 0.5rem;
-    }
     .banner-bottom {
         background: #fff;
         border: 1px dashed #adb5bd;
@@ -191,15 +180,23 @@
         pointer-events: none;
     }
     /* 【2026-07-25 改】Equal-height news cards
-       - center-console 用 grid-template-rows: 1fr 1fr 平均分配剩餘高度
+       - center-console flex column: title (auto) + news-cards-wrapper (flex:1)
+       - news-cards-wrapper 內部 grid 1fr 1fr 平均分配剩餘高度
        - 每個 news-card 內部 flex column, body scroll if overflow
-       - 視窗變矮時, 兩個 card 各佔 50%, 不會有一個被推到看不見 */
+       - 視窗變矮時, 兩個 card 各佔 50%, 不會有一個被推到看不見
+       - 【2026-08-03 改】拆出 news-cards-wrapper,避免 title 被擠進第一個 grid row */
     .center-console {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        height: 100%;
+    }
+    .news-cards-wrapper {
         display: grid;
         grid-template-rows: 1fr 1fr;
         gap: 1rem;
+        flex: 1;
         min-height: 0;
-        height: 100%;
         overflow: hidden;
     }
     .news-card {

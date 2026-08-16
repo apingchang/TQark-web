@@ -11,6 +11,8 @@
 
     {# 中間: 主內容 #}
     <div class="dashboard-main">
+{# 【2026-08-03 新】頁面 title (中間欄頂部) #}
+<h1 class="page-title mb-3">考題搜尋</h1>
 {% if request.query_params.get('error') == 'rate_limited' %}
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         <strong>⏰ StudyArk 限流中</strong><br>
@@ -77,7 +79,7 @@
 {% elif user.permission <= 7 %}
 <div class="card">
     <div class="card-body">
-        <form method="get" action="/ui/search">
+        <form method="get" action="/ui/search" id="dashboardSearchForm">
             <div class="row g-2">
                 <div class="col-md-6">
                     <label class="form-label small">年級 / 考試類別</label>
@@ -130,28 +132,30 @@
                     <label class="form-label small">縣市</label>
                     <select name="county" id="countySelect" class="form-select form-select-sm">
                         <option value="">不限</option>
-                        <option value="taipei">臺北市</option>
-                        <option value="new_taipei">新北市</option>
-                        <option value="keelung">基隆市</option>
-                        <option value="yilan">宜蘭縣</option>
-                        <option value="taoyuan">桃園市</option>
-                        <option value="hsinchu_city">新竹市</option>
-                        <option value="hsinchu_county">新竹縣</option>
-                        <option value="miaoli">苗栗縣</option>
-                        <option value="taichung">臺中市</option>
-                        <option value="changhua">彰化縣</option>
-                        <option value="nantou">南投縣</option>
-                        <option value="yunlin">雲林縣</option>
-                        <option value="chiayi_city">嘉義市</option>
-                        <option value="chiayi_county">嘉義縣</option>
-                        <option value="tainan">臺南市</option>
-                        <option value="kaohsiung">高雄市</option>
-                        <option value="pingtung">屏東縣</option>
-                        <option value="taitung">臺東縣</option>
-                        <option value="hualien">花蓮縣</option>
-                        <option value="penghu">澎湖縣</option>
-                        <option value="kinmen">金門縣</option>
-                        <option value="lienchiang">連江縣</option>
+                        {# 【2026-08-16 改】option value 用中文名 (原本用英文 id, 但 form submit 直接送 value 給 backend,
+                           backend 用中文 exact match county, 所以原來會搜不到) #}
+                        <option value="臺北市">臺北市</option>
+                        <option value="新北市">新北市</option>
+                        <option value="基隆市">基隆市</option>
+                        <option value="宜蘭縣">宜蘭縣</option>
+                        <option value="桃園市">桃園市</option>
+                        <option value="新竹市">新竹市</option>
+                        <option value="新竹縣">新竹縣</option>
+                        <option value="苗栗縣">苗栗縣</option>
+                        <option value="臺中市">臺中市</option>
+                        <option value="彰化縣">彰化縣</option>
+                        <option value="南投縣">南投縣</option>
+                        <option value="雲林縣">雲林縣</option>
+                        <option value="嘉義市">嘉義市</option>
+                        <option value="嘉義縣">嘉義縣</option>
+                        <option value="臺南市">臺南市</option>
+                        <option value="高雄市">高雄市</option>
+                        <option value="屏東縣">屏東縣</option>
+                        <option value="臺東縣">臺東縣</option>
+                        <option value="花蓮縣">花蓮縣</option>
+                        <option value="澎湖縣">澎湖縣</option>
+                        <option value="金門縣">金門縣</option>
+                        <option value="連江縣">連江縣</option>
                     </select>
                 </div>
                 <div class="col-md-4 studyark-only">
@@ -214,7 +218,14 @@
                     </select>
                 </div>
             </div>
-            {# 【2026-07-31 改】submit button 搬到左欄 sidebar (搜尋 link) #}
+            {# 【2026-08-15 新】form 底部加 submit 按鈕, 不用非去左欄 sidebar 點
+               (William 反映「按搜尋怎還在 dashboard」) #}
+            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                <button type="submit" class="btn btn-primary">
+                    🔍 搜尋
+                </button>
+                <a href="/dashboard" class="btn btn-link btn-sm">清空全部</a>
+            </div>
         </form>
     </div>
 </div>
@@ -235,23 +246,6 @@ window.DASHBOARD_SUBJECTS = {
     ceec: {{ ceec_subjects_json | safe }},
 };
 </script>
-{# 【2026-07-31 新】左欄「搜尋」link 觸發 form submit #}
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-    const searchLink = document.getElementById("searchSubmitLink");
-    if (searchLink) {
-        searchLink.addEventListener("click", (e) => {
-            e.preventDefault();
-            // 找 dashboard 的搜尋 form (action=/ui/search)
-            const form = document.querySelector('form[action="/ui/search"]');
-            if (form) {
-                form.submit();
-            } else {
-                console.warn("dashboard search form not found");
-            }
-        });
-    }
-});
-</script>
+{# 【2026-08-16 改】左欄「搜尋」改成 button[form=] 直接 submit, 不要 JS 拼接。點下去 100% 可用 #}
 <script src="/static/dashboard_form.js?v=2026-07-24"></script>
 {% endblock %}

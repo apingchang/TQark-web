@@ -1,27 +1,104 @@
-# TQark-web Caddyfile
-# Reverse proxy: HTTPS on :8443 → FastAPI on 127.0.0.1:8000
+# TQark-web + OpenClaw 反向代理, 2026-07-27 改版 (final)
 #
-# 安裝:
-#   sudo cp Caddyfile /etc/caddy/Caddyfile
-#   sudo systemctl restart caddy
+# 架構:
+#   Internet  ──→ :8443 (HTTPS)  ──→  /tqark/*   → 127.0.0.1:8000  (Tqark-web, 公開, 向後相容)
+#                                ──→  /static/*  → 127.0.0.1:8000  (Tqark-web static files, 公開)
+#                                ──→  /* (catch-all) → 127.0.0.1:8000  (Tqark-web)
+#                                ──→  /openclaw/*  → 127.0.0.1:18789 (OpenClaw, Tailscale+LAN only)
+#                                ──→  /healthz     → 200 OK
+#   Tailscale / LAN  ──→ /openclaw/*           OK
+#   其他             ──→ /openclaw/*           403 Forbidden
+#
+# 【2026-07-27 改】Handle 順序很重要:
+#   1. /tqark/* (page)
+#   2. /static/* (static files)
+#   3. /openclaw/* (OpenClaw, MUST be before catch-all!)
+#   4. /openclaw (OpenClaw)
+#   5. handle_path /* (TQark-web catch-all, 用 matcher 排除 /openclaw/*)
+#   6. /healthz (後備 catch-all)
+#   7. fallback 404
+#
+# Caddy 的 handle_path /* 會 match 任何 path (包括 /openclaw/*),
+# 所以 /openclaw 必須放在 catch-all 前面。
 
 https://:8443 {
-    # 使用我們自己產的 self-signed cert(cert 在 /etc/caddy/ 因為 /home/aping 其他 user 進不去)
+    # 使用我們自己產的 self-signed cert
     tls /etc/caddy/tqark-cert.pem /etc/caddy/tqark-key.pem
 
-    reverse_proxy 127.0.0.1:8000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-    }
-
+    # === Default security headers (所有 path) ===
     header {
         X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"
         Referrer-Policy "strict-origin-when-cross-origin"
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         Content-Security-Policy "default-src 'self'; img-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
-        # 不快取 HTML template(dev 階段方便修改、避免瀏覽器 cache 舊版)
         Cache-Control "no-cache, no-store, must-revalidate"
+    }
+
+    # === /tqark/ → TQark-web (公開, 從 /tqark/* 或 / 都可訪問) ===
+    # 對 internet 開放, 不用 IP 限制
+    # /tqark/ 是 virtual root; strip prefix 讓 backend 看到原始 /
+    @tqark_path path /tqark /tqark/*
+    handle @tqark_path {
+        uri strip_prefix /tqark
+        reverse_proxy 127.0.0.1:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+    # /static/* 也走 TQark-web (backend 直接 serve static, 不 strip)
+    @static_path path /static/*
+    handle @static_path {
+        reverse_proxy 127.0.0.1:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # === /openclaw/ → OpenClaw (Tailscale + LAN only) ===
+    # ⚠️ 必須在 handle_path /* (catch-all) 前面, 否則會被 catch-all 吃掉
+    # 內網 CIDR: 127.0.0.1/8, 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, Tailscale 100.64.0.0/10
+
+    # /openclaw/* 路徑, 拒絕非內網
+    @openclaw_path path /openclaw /openclaw/ /openclaw/*
+    handle @openclaw_path {
+        @blocked not remote_ip 127.0.0.0/8 192.168.0.0/16 10.0.0.0/8 172.16.0.0/12 100.64.0.0/10
+        handle @blocked {
+            respond "Forbidden - OpenClaw only accessible via Tailscale or LAN" 403
+        }
+        # OpenClaw 服位於 root, 所以 Caddy 必須 strip /openclaw prefix
+        # (handle 不自動 strip, 需要手動加 uri strip_prefix)
+        uri strip_prefix /openclaw
+        # OpenClaw 用 HTTPS + self-signed cert, 需要 transport http { tls_insecure_skip_verify }
+        reverse_proxy 127.0.0.1:18789 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            transport http {
+                tls
+                tls_insecure_skip_verify
+            }
+        }
+    }
+
+    # === /healthz (公開, 早宣告避免被 catch-all 吃掉) ===
+    handle /healthz {
+        respond "caddy ok\n" 200
+    }
+
+    # === TQark-web catch-all ===
+    # /dashboard, /admin, /me/downloads, /ui/*, /auth/*, /login, /logout, /google/* 全走 backend
+    # 【2026-07-27 修】handle_path /* 比 handle / 涵蓋所有 subpath
+    # 但因為 /openclaw/* 跟 /healthz 已在前面宣告, 這裡只 catch 其他 path
+    handle_path /* {
+        reverse_proxy 127.0.0.1:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # === fallback 404 ===
+    handle {
+        respond "Not Found" 404
     }
 
     log {
@@ -30,10 +107,5 @@ https://:8443 {
             roll_keep 5
         }
         level INFO
-    }
-
-    @health path /healthz
-    handle @health {
-        respond "caddy ok\n" 200
     }
 }

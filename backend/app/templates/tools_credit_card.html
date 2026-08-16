@@ -3,15 +3,12 @@
 {% block title %}信用卡帳單 — 三好之家{% endblock %}
 
 {% block content %}
-<div class="banner-top text-center py-4 mb-3">
-    <h1 class="banner-title m-0">💳 信用卡帳單</h1>
-</div>
-
 <div class="main-grid">
     {% from "partials/sidebars.html" import left_sidebar with context %}
     {{ left_sidebar() }}
 
     <section class="center-console">
+        <h1 class="page-title mb-3">💳 信用卡帳單</h1>
         <div class="card">
             <div class="card-body text-center py-5">
                 <h2 class="display-1">🚧</h2>

@@ -5,11 +5,6 @@
 {% block content %}
 {# 【2026-07-31 改】用 query string 切換中央 card focus (?tool=jp or ?tool=cc) #}
 {% set current_tool = request.query_params.get('tool', 'jp') %}
-<div class="banner-top text-center py-4 mb-3">
-    <h1 class="banner-title m-0">🛠️ 三好工具</h1>
-    <p class="text-muted small mb-0 mt-1">實用小工具</p>
-</div>
-
 <div class="main-grid">
     {# 左側: 工具子項目 (page-specific) #}
     <aside class="left-sidebar">
@@ -26,9 +21,9 @@
                    class="list-group-item list-group-item-action {% if current_tool == 'cc' %}active{% endif %}">
                     💳 信用卡帳單
                 </a>
-                {# 返回上一頁 (跟 partial 一樣的 handler) #}
-                <a href="#" class="list-group-item list-group-item-action js-back-link">
-                    ⬅️ 返回上一頁
+                {# (2026-08-07 13:24 加回) /tools 是三好工具頁, 上一層 = /dashboard (考題搜尋) #}
+                <a href="/dashboard" class="list-group-item list-group-item-action">
+                    ⬅️ 返回上一層
                 </a>
             </div>
         </div>
@@ -36,6 +31,7 @@
 
     {# 中間: 對應的 tool UI #}
     <section class="center-console">
+        <h1 class="page-title mb-3">🛠️ 三好工具</h1>
         {% if current_tool == 'jp' %}
         {# === 日文翻譯 card (file input + engine + 開始翻譯) === #}
         <div class="card" id="jpCard">

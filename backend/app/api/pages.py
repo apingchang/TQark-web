@@ -167,7 +167,48 @@ def _common_ctx(user: User | None) -> dict:
         "user": _user_ctx(user),
         "permission_name": _permission_name(perm),
         "version": "0.1.2",
+        "build_mtime": _get_build_mtime(),
     }
+
+
+# 【2026-08-15 新】取得所有相關原始檔最新的 mtime, 讓側邊欄顯示「程式最後修改時間」
+_BUILD_MTIME_CACHE: tuple[float, str] | None = None
+_BUILD_MTIME_PATTERNS = (
+    # (label, glob pattern under backend/)
+    ("backend", "**/*.py"),
+    ("templates", "**/*.html"),
+    ("static", "**/*.js"),
+)
+
+
+def _get_build_mtime() -> str:
+    """回傳 backend 所有 .py / .html / .js 的最新 mtime (ISO 格式)。"""
+    global _BUILD_MTIME_CACHE
+    import os as _os
+    import time as _time
+    now = _time.time()
+    if _BUILD_MTIME_CACHE and (now - _BUILD_MTIME_CACHE[0]) < 30:
+        return _BUILD_MTIME_CACHE[1]
+
+    latest = 0.0
+    backend_dir = Path(__file__).resolve().parent.parent  # backend/
+    for label, pattern in _BUILD_MTIME_PATTERNS:
+        for path in backend_dir.glob(pattern):
+            try:
+                m = path.stat().st_mtime
+                if m > latest:
+                    latest = m
+            except OSError:
+                pass
+
+    if latest == 0.0:
+        result = "未知"
+    else:
+        from datetime import datetime, timezone, timedelta as _td
+        dt = datetime.fromtimestamp(latest, tz=timezone(_td(hours=8)))
+        result = dt.strftime("%Y-%m-%d %H:%M:%S")
+    _BUILD_MTIME_CACHE = (now, result)
+    return result
 
 
 def _permission_name(perm: int) -> str:
@@ -236,7 +277,7 @@ async def landing(
 # === Archive PDF count cache (2026-07-24) ===
 # 因為 /mnt/my_book 是 CIFS 網路磁碟, rglob 超慢
 # In-memory cache + 10 分鐘 TTL, background refresh
-_archive_counts_cache: dict = {"data": None, "ts": 0.0}
+_archive_counts_cache: dict = {"data": None, "ts": 0.0, "scanning": False}
 _archive_counts_lock = threading.Lock()
 _ARCHIVE_COUNTS_TTL = 600  # 10 minutes
 
@@ -271,24 +312,61 @@ def _has_recent_archive_activity() -> bool:
 
 
 def _get_cached_archive_counts() -> dict:
-    """Get cached PDF counts. Returns previous cache if still fresh."""
+    """Get cached PDF counts. Returns previous cache if still fresh.
+
+    【2026-08-03 新】return dict 多加 cache_age (人類可讀字串, 給 template footer 用):
+      - "剛剛更新" (< 1 分鐘)
+      - "X 分鐘前" (< 1 小時)
+      - "X 小時前" (< 1 天)
+      - "X 天前"
+    """
     now = _time.time()
     # 【2026-07-28】如果 archive 正在跑 (log 5 分鐘內改過), 視為 stale
     recent_activity = _has_recent_archive_activity()
     with _archive_counts_lock:
         if _archive_counts_cache["data"] is not None and now - _archive_counts_cache["ts"] < _ARCHIVE_COUNTS_TTL and not recent_activity:
-            return _archive_counts_cache["data"]
+            data = dict(_archive_counts_cache["data"])
+            data["cache_age"] = _format_cache_age(now - _archive_counts_cache["ts"])
+            return data
         if _archive_counts_cache["data"] is not None:
             # Stale — trigger background refresh (non-blocking), return stale
             import threading as _threading
             _threading.Thread(target=_refresh_archive_counts_bg, daemon=True).start()
-            return _archive_counts_cache["data"]
-    # Cold start or cache missing — synchronously scan
-    data = _scan_archive_counts()
+            data = dict(_archive_counts_cache["data"])
+            data["cache_age"] = _format_cache_age(now - _archive_counts_cache["ts"]) + " (背景更新中)"
+            return data
+    # Cold start or cache missing — 【2026-08-07 改】background scan + placeholder, 不再 block request
     with _archive_counts_lock:
-        _archive_counts_cache["data"] = data
-        _archive_counts_cache["ts"] = _time.time()
+        if not _archive_counts_cache["scanning"]:
+            _archive_counts_cache["scanning"] = True
+            import threading as _threading
+            def _bg_cold_scan():
+                try:
+                    _refresh_archive_counts_bg()
+                finally:
+                    with _archive_counts_lock:
+                        _archive_counts_cache["scanning"] = False
+            _threading.Thread(target=_bg_cold_scan, daemon=True, name="cold-scan-archive-counts").start()
+    # Return placeholder (讓 user 看到 dashboard 立刻 render; 之後 reload 才看到真實數字)
+    data = {
+        "count_elementary": 0, "count_junior": 0, "count_senior": 0,
+        "count_cap": 0, "count_ceec": 0, "total_all": 0, "count_tcool": 0,
+        "by_county": {}, "by_school": {}, "by_subject": {},
+        "latest_files": [], "archive_size_mb": 0, "total_files": 0,
+    }
+    data["cache_age"] = "首次掃描中 (背景跑, 不阻塞頁面)"
     return data
+
+
+def _format_cache_age(seconds: float) -> str:
+    """Format seconds elapsed as human-readable string."""
+    if seconds < 60:
+        return "剛剛更新"
+    if seconds < 3600:
+        return f"{int(seconds // 60)} 分鐘前"
+    if seconds < 86400:
+        return f"{int(seconds // 3600)} 小時前"
+    return f"{int(seconds // 86400)} 天前"
 
 
 def _refresh_archive_counts_bg():
@@ -344,7 +422,7 @@ def _scan_archive_counts() -> dict:
     if not archive_root.exists():
         return result
 
-    SKIP_TOP_DIRS = ("state", "logs")  # cap_exam/ceec 還是要 walk
+    SKIP_TOP_DIRS = ("state", "logs", "_inbox", "_internal", "_未分類", "_待分類", "其他X", "未分類")  # cap_exam/ceec 還是要 walk; 2026-08-07 加 _inbox/_internal (folder 整理產物)
 
     count_elementary = 0
     count_junior = 0
@@ -759,6 +837,7 @@ async def school_sources(
         sorted_grouped[cat] = sorted(counties.items(), key=lambda x: x[0])
         cat_totals[cat] = sum(len(schools) for schools in counties.values())
 
+    # 【2026-08-03 新】考題統計 (右側 sidebar 顯示考題資訊需要)
     return templates.TemplateResponse(
         "school_sources.html",
         {
@@ -770,6 +849,7 @@ async def school_sources(
             "total_count": len(sources),
             "cat_totals": cat_totals,
             "last_scraped": last_scraped,
+            "stats": _get_cached_archive_counts(),
         },
     )
 
@@ -1779,71 +1859,38 @@ async def _render_search_results(
     county: str = "",
     school_name: str = "",
 ):
+    """【2026-08-15 改】搜尋改走 local folder index (不再 call StudyArk 網頁)"""
     from app.core.db_helpers import log_action
-    from app.db.models import utcnow
-    from app.data.tw_counties import filter_school_by_county, get_county_name
-
-    search_params = {
-        "grade": grade or None,
-        "subject": subject or None,
-        "school_year": school_year or None,
-        "school_term": school_term or None,
-        "exam_type": exam_type or None,
-        "version": version or None,
-        "daan": daan or None,
-        "page": page,
-    }
-    # 去掉 None (page 不去)
-    search_params = {k: v for k, v in search_params.items() if v is not None and k != "page"}
-    search_params["page"] = page
+    from app.scraper import local_index
 
     error = None
-    results = []
+    results: list[dict] = []
     total = 0
-    total_page = 0
-    api_page = 1
-    try:
-        raw = await studyark.search_papers(**search_params)
-        # StudyArk 回傳 { list: [...], total, page, total_page }
-        if isinstance(raw, dict):
-            results = raw.get("list") or raw.get("data") or raw.get("results") or []
-            total = raw.get("total", 0)
-            total_page = raw.get("total_page", 0)
-            api_page = raw.get("page", page)
-        elif isinstance(raw, list):
-            results = raw
-    except FileNotFoundError as e:
-        error = str(e)
-    except Exception as e:
-        error = f"StudyArk 連線失敗: {e}"
+    total_page = 1
 
-    # 一頁限 8 papers(原本 StudyArk 是 12 → 8)
-    # 理由: 12 papers × 2 (試卷+答案) = 24 files 太多
-    #       8 papers × 2 = 16 files,較接近 William 期望的 ~15 files/頁
+    # PAPERS_PER_PAGE 沿用舊值 (8 groups × 2 files = 16 files/頁)
     PAPERS_PER_PAGE = 8
-    if results:
-        results = results[:PAPERS_PER_PAGE]
-        # 重新計算 total_page(以我們的 per-page 為準)
-        if total:
-            total_page = max(1, (total + PAPERS_PER_PAGE - 1) // PAPERS_PER_PAGE)
 
-    # 本地 filter: county + school_name
-    # (StudyArk 沒給 county,所以后端 filter)
-    if results and (county or school_name):
-        original_count = len(results)
-        filtered = []
-        for it in results:
-            sname = it.get("school_name", "") or ""
-            if county and not filter_school_by_county(sname, county):
-                continue
-            if school_name and school_name.strip() not in sname:
-                continue
-            filtered.append(it)
-        results = filtered
-        # 記錄 filter 資訊到 audit
-        filter_info = f"county={county},school={school_name},filter_kept={len(filtered)}/{original_count}"
-    else:
-        filter_info = f"county={county or 'all'},school={school_name or 'all'}"
+    # 【2026-08-15 改】直接從 local index 找
+    try:
+        results, total, total_page = local_index.search(
+            county=county,
+            grade=grade,
+            subject=subject,
+            school_year=school_year,
+            school_term=school_term,
+            exam_type=exam_type,
+            version=version,
+            school_name=school_name,
+            filetype="",  # 不限制 filetype (pair 顯示)
+            page=page,
+            per_page=PAPERS_PER_PAGE,
+        )
+    except Exception as e:
+        error = f"Local index 搜尋失敗: {e}"
+        _log.exception("Local search failed")
+
+    filter_info = f"county={county or 'all'},school={school_name or 'all'},grade={grade or 'all'},subject={subject or 'all'}"
 
     # Audit log
     await log_action(
@@ -1851,19 +1898,45 @@ async def _render_search_results(
         action="search",
         user_id=user.id,
         target=f"grade={grade},subject={subject}",
-        detail=f"page={page};{filter_info}",
+        detail=f"source=local;page={page};{filter_info};total={total}",
     )
     await db.commit()
 
     # 顯示用字串
-    params_display = ", ".join(f"{k}={v}" for k, v in search_params.items() if k != "page") or "(無條件)"
+    params_display = (
+        ", ".join(
+            f"{k}={v}"
+            for k, v in [
+                ("county", county),
+                ("grade", grade),
+                ("subject", subject),
+                ("school_year", school_year),
+                ("school_term", school_term),
+                ("exam_type", exam_type),
+                ("version", version),
+                ("school", school_name),
+            ]
+            if v
+        )
+        or "(無條件)"
+    )
 
     # 給 template 用:根據當前 page 組 querystring(給「下一頁」連結用)
     def qs_for_page(p: int) -> str:
-        base_params = {k: v for k, v in search_params.items() if k != "page"}
-        base_params["page"] = p
         from urllib.parse import urlencode
-        return urlencode(base_params)
+        base = {
+            "county": county,
+            "grade": grade,
+            "subject": subject,
+            "school_year": school_year,
+            "school_term": school_term,
+            "exam_type": exam_type,
+            "version": version,
+            "school_name": school_name,
+            "page": p,
+        }
+        base = {k: v for k, v in base.items() if v}
+        return urlencode(base)
 
     return templates.TemplateResponse(
         "search_results.html",
@@ -2151,6 +2224,125 @@ async def ui_search_get(
         grade=grade, subject=subject, school_year=school_year, school_term=school_term,
         exam_type=exam_type, version=version, daan=daan, page=page,
         county=county, school_name=school_name,
+    )
+
+
+@router.get("/ui/download/paper/{paper_id}")
+async def ui_download_paper(
+    paper_id: str,
+    request: Request,
+    filetype: str = Query("paper", regex="^(paper|daan)$"),
+    user: User = Depends(require_approved),
+    db: AsyncSession = Depends(get_db),
+):
+    """【2026-08-15 新】下載 local archive 內的 PDF（搜尋改 local 後用這個 endpoint）。
+
+    paper_id = SHA1(canonical_relative_path)[:16]
+    filetype = paper / daan（如果指定的不存在、但伴侶存在，會 fallback 到伴侶）
+
+    【路由順序】這個 route 必須在 /ui/download/{classid}/{fileid} 之前註冊，
+    否則會被舊的 route 搶走（classid=paper, fileid={paper_id}）。
+    """
+    from urllib.parse import quote
+
+    from app.core.db_helpers import hash_ip, log_action
+    from app.db.models import DownloadHistory
+    from app.scraper import local_index
+    import logging
+    _dl_logger = logging.getLogger("tqark.local_download")
+
+    group = local_index.get_paired_by_id(paper_id)
+    if group is None:
+        raise HTTPException(404, f"找不到 paper_id={paper_id}")
+
+    # 選 paper / daan 對應 path
+    # 【2026-08-15 fix】只單獨存在 paper 或 daan 時 → fallback 到對方
+    if filetype == "daan":
+        chosen_path = group["daan_path"] or group["paper_path"]
+        chosen_id = group["paper_id_daan"] or group["paper_id_paper"] or paper_id
+        actual_filetype = "daan" if group["daan_path"] else "paper"  # 記下實際提供哪個
+    else:
+        chosen_path = group["paper_path"] or group["daan_path"]
+        chosen_id = group["paper_id_paper"] or group["paper_id_daan"] or paper_id
+        actual_filetype = "paper" if group["paper_path"] else "daan"  # 記下實際提供哪個
+
+    if not chosen_path:
+        raise HTTPException(404, f"找不到 paper_id={paper_id} 的 {filetype} 檔案")
+
+    p = Path(chosen_path)
+    if not p.exists():
+        raise HTTPException(404, f"檔案不存在: {chosen_path}")
+
+    try:
+        pdf_bytes = p.read_bytes()
+    except OSError as e:
+        raise HTTPException(500, f"讀檔失敗: {e}")
+
+    # 組下載檔名（顯示用）
+    title_parts = []
+    if group["school_name"]:
+        title_parts.append(group["school_name"])
+    if group["school_year"]:
+        title_parts.append(f"{group['school_year']}學年度")
+    if group["school_term"]:
+        title_parts.append(group["school_term"])
+    if group["exam_type"]:
+        title_parts.append(group["exam_type"])
+    if group["grade"]:
+        title_parts.append(group["grade"])
+    if group["subject"]:
+        title_parts.append(group["subject"])
+    if group["version"] and group["version"] not in ("未註明", ""):
+        title_parts.append(f"({group['version']})")
+    title_parts.append("答案" if actual_filetype == "daan" else "試題")
+    download_filename = " ".join(title_parts) + ".pdf" if title_parts else p.name
+
+    # DownloadHistory 記錄 (paper_id 為主，classid/fileid 留空)
+    db_record = DownloadHistory(
+        user_id=user.id,
+        classid="LOCAL",
+        fileid=chosen_id,
+        filetype=actual_filetype,
+        title=group["title"] or None,
+        school_name=group["school_name"] or None,
+        grade=group["grade"] or None,
+        school_year=group["school_year"] or None,
+        school_term=group["school_term"] or None,
+        category=None,
+        subject=group["subject"] or None,
+        exam_type=group["exam_type"] or None,
+        version=group["version"] or None,
+        download_filename=download_filename,
+        ip_hash=hash_ip(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent", "")[:512] or None,
+    )
+    db.add(db_record)
+    await log_action(
+        db,
+        action="download_local",
+        user_id=user.id,
+        target=f"paper_id={paper_id}",
+        detail=f"filetype={filetype};path={chosen_path}",
+        ip=str(request.client.host) if request.client else None,
+    )
+    await db.commit()
+
+    safe_filename = download_filename.encode("ascii", errors="ignore").decode("ascii") or "exam.pdf"
+    encoded_filename = quote(download_filename)
+    headers = {
+        "Content-Disposition": (
+            f"attachment; "
+            f'filename="{safe_filename}"; '
+            f"filename*=UTF-8''{encoded_filename}"
+        ),
+        "X-Download-Filename": encoded_filename,
+    }
+
+    _dl_logger.info(f"[LOCAL DL] paper_id={paper_id} filetype={filetype} -> {chosen_path} ({len(pdf_bytes)} bytes)")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers=headers,
     )
 
 
@@ -2455,7 +2647,7 @@ def _scan_schools_from_disk() -> dict:
         "高雄市", "屏東縣", "臺東縣", "台東縣", "花蓮縣", "澎湖縣",
         "金門縣", "連江縣",
     }
-    SKIP_LEVELS = ("國小", "國中", "高中", "unsorted")
+    SKIP_LEVELS = ("國小", "國中", "高中", "unsorted", "unknown")
     
     def _count_shallow(school_dir, max_depth=3):
         """Count files >1KB, max N levels deep (CIFS friendly)."""
@@ -2571,6 +2763,9 @@ def _scan_schools_from_disk() -> dict:
         except OSError:
             pass
     
+    # 【2026-08-16 改】跳過 _inbox (pending review, 之後再整理)
+    # Pattern 3 (舊 _inbox schools scan) 已移除
+    
     # Dedupe by school name
     for county in list(result.keys()):
         seen = {}
@@ -2579,7 +2774,97 @@ def _scan_schools_from_disk() -> dict:
             if key not in seen or s["file_count"] > seen[key]["file_count"]:
                 seen[key] = s
         result[county] = sorted(seen.values(), key=lambda x: -x["file_count"])
-    
+
+    # 【2026-08-15 新】Pattern 4: 從 StudyArk 結構 抓學校名
+    # 結構: <county>/國小|國中|高中/<年級>/<科目>/paper|daan/<file>.pdf
+    # file 格式: <county>_<year>_<exam>_<fileid>_<school>_<publisher>.pdf
+    # 掃個一約 3 層深就能拿到, 不用 recursive
+    import re as _school_re
+    _SKIP_LEVELS_2 = ("國小", "國中", "高中")
+    for entry in archive_root.iterdir():
+        if not entry.is_dir():
+            continue
+        if entry.name not in KNOWN_COUNTIES:
+            continue
+        county = entry.name
+        # entry/level/grade/subject/
+        try:
+            for level in entry.iterdir():
+                if not level.is_dir() or level.name not in _SKIP_LEVELS_2:
+                    continue
+                # level/grade/
+                for grade in level.iterdir():
+                    if not grade.is_dir():
+                        continue
+                    # grade/subject/
+                    for subject in grade.iterdir():
+                        if not subject.is_dir():
+                            continue
+                        # subject/paper|daan/file.pdf
+                        for filetype in subject.iterdir():
+                            if not filetype.is_dir():
+                                continue
+                            if filetype.name not in ("paper", "daan"):
+                                continue
+                            # 取 1 個 sample filename 抓學校名 (避免一個一個 stat)
+                            try:
+                                first_file = next(iter(filetype.iterdir()), None)
+                            except (OSError, StopIteration):
+                                continue
+                            if first_file is None or not first_file.name.lower().endswith(".pdf"):
+                                continue
+                            # parse school name from filename
+                            # 格式 1: <county>_<year>_<exam>_<fileid>_<school>_<publisher>.pdf (StudyArk 標準)
+                            m = _school_re.match(
+                                rf"{_school_re.escape(county)}_(\d{{3}})_([^_]+)_(\d+)_([^_]+)_([^.]+)\.(pdf|docx|doc)$",
+                                first_file.name,
+                            )
+                            if not m:
+                                # 格式 2: <county>_<year>第N學期_<exam>_<school>_<grade>_<subject>[_解答].pdf (tcool migrated)
+                                m = _school_re.match(
+                                    rf"{_school_re.escape(county)}_(\d{{3}})_第\d學期_([^_]+)_([^_]+)_(一年級|二年級|三年級|四年級|五年級|六年級|七年級|八年級|九年級)_([^_]+?)(?:_解答)?\.(pdf|docx|doc)$",
+                                    first_file.name,
+                                )
+                                if m:
+                                    school_name = m.group(3)
+                                else:
+                                    # 格式 3 (2026-08-15): <county>_<year>_<exam>_<school>_<grade>_<subject>.pdf (無 fileid)
+                                    # 例: 苗栗縣_108_第1段考_縣立大同國中_七年級_公民.pdf
+                                    m = _school_re.match(
+                                        rf"{_school_re.escape(county)}_(\d{{3}})_([^_]+)_([^_]+)_(一年級|二年級|三年級|四年級|五年級|六年級|七年級|八年級|九年級|十年級|十一年級|十二年級)_([^_]+?)(?:_解答)?\.(pdf|docx|doc)$",
+                                        first_file.name,
+                                    )
+                                    if m:
+                                        school_name = m.group(3)
+                                    else:
+                                        continue
+                            else:
+                                school_name = m.group(4)
+                            # 【2026-08-15】跳過 placeholder school name
+                            # (ex: 「苗栗縣」被當 school name 填入, 或 「其他」、「未註明」)
+                            if not school_name or school_name in (county, "其他", "未註明", "其他縣市"):
+                                continue
+                            # file count
+                            fc = _count_shallow(filetype)
+                            if fc == 0:
+                                continue
+                            result.setdefault(county, []).append({
+                                "name": school_name,
+                                "file_count": fc,
+                                "path": f"{county}/{level.name}/{grade.name}/{subject.name}/{filetype.name}/",
+                            })
+        except OSError:
+            continue
+
+    # Re-dedupe by school name (Pattern 4 可能加進去)
+    for county in list(result.keys()):
+        seen = {}
+        for s in result[county]:
+            key = s["name"]
+            if key not in seen or s["file_count"] > seen[key]["file_count"]:
+                seen[key] = s
+        result[county] = sorted(seen.values(), key=lambda x: -x["file_count"])
+
     return result
 
 

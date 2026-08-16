@@ -42,22 +42,63 @@ app.include_router(scraper_router)
 
 @app.on_event("startup")
 async def startup_event():
-    """啟動時建 DB table + 預先 warmup schools cache"""
+    """啟動時建 DB table + 預先 warmup schools / archive_counts / pdf_tree cache"""
     await init_db()
-    # 【2026-07-31 新】Background warmup schools scan (避免 user 第一次 dropdown 慢 18s)
+
     import threading
-    def _warmup():
+    import time as _time
+
+    def _warmup_schools():
+        # 【2026-07-31 新】schools scan (避免 user 第一次 dropdown 慢 18s)
         from app.api.pages import _scan_schools_from_disk, _save_snapshot, _disk_schools_cache
-        import time
         try:
             data = _scan_schools_from_disk()
             _save_snapshot(data)
             _disk_schools_cache["data"] = data
-            _disk_schools_cache["ts"] = time.time()
+            _disk_schools_cache["ts"] = _time.time()
             print(f"[startup] schools cache warmed: {sum(len(v) for v in data.values())} schools, {sum(s['file_count'] for v in data.values() for s in v)} files", flush=True)
         except Exception as e:
             print(f"[startup] schools warmup failed: {e}", flush=True)
-    threading.Thread(target=_warmup, daemon=True).start()
+
+    def _warmup_archive_counts():
+        # 【2026-08-07 改】archive_counts scan 改 lazy + background, 不再 startup 同步跑 174s
+        # 觸發 background scan 讓它在 startup 後跑, user 訪問時可能已 populated
+        from app.api.pages import _get_cached_archive_counts
+        try:
+            data = _get_cached_archive_counts()  # 觸發 bg scan, return placeholder
+            print(f"[startup] archive_counts bg scan started (預計 ~3 分鐘; user 訪問時會 hit placeholder 或 cache)", flush=True)
+        except Exception as e:
+            print(f"[startup] archive_counts warmup failed: {e}", flush=True)
+
+    def _warmup_pdf_tree():
+        # 【2026-08-03 新】CAP + CEEC PDF tree scan (避免 dashboard 第一次 render 慢 11s)
+        # 呼叫 _scan_pdf_tree() 會自動 populate in-memory cache
+        from app.api.pages import _scan_pdf_tree, CAP_DIR, CEEC_DIR
+        try:
+            t0 = _time.time()
+            cap_items = _scan_pdf_tree(CAP_DIR)
+            ceec_items = _scan_pdf_tree(CEEC_DIR)
+            print(f"[startup] pdf_tree cache warmed: CAP={len(cap_items)} files, CEEC={len(ceec_items)} files ({_time.time() - t0:.1f}s)", flush=True)
+        except Exception as e:
+            print(f"[startup] pdf_tree warmup failed: {e}", flush=True)
+
+    # Schools cache warmup (existing)
+    threading.Thread(target=_warmup_schools, daemon=True, name="warmup-schools").start()
+    # 【2026-08-03 新】archive counts + pdf tree warmup — 解決 dashboard cold cache 慢
+    threading.Thread(target=_warmup_archive_counts, daemon=True, name="warmup-archive-counts").start()
+    threading.Thread(target=_warmup_pdf_tree, daemon=True, name="warmup-pdf-tree").start()
+
+    def _warmup_local_index():
+        # 【2026-08-15 新】local archive index (考題搜尋走本地,避免第一次 search 慢)
+        from app.scraper import local_index
+        try:
+            t0 = _time.time()
+            items = local_index.get_index()  # 會 trigger build_or_load
+            print(f"[startup] local_index cache warmed: {len(items)} items ({_time.time() - t0:.1f}s)", flush=True)
+        except Exception as e:
+            print(f"[startup] local_index warmup failed: {e}", flush=True)
+
+    threading.Thread(target=_warmup_local_index, daemon=True, name="warmup-local-index").start()
 
 
 @app.get("/health")
