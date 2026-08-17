@@ -315,6 +315,46 @@ def get_distinct_values(column: str, db_path=None, where_clause: str = "", where
     return [r[0] for r in rows if r[0]]
 
 
+def get_available_filters(county: str = "", school_name: str = "", db_path=None) -> dict:
+    """【2026-08-17 新】回傳該縣市/學校有的所有 filter dropdown values.
+
+    用於 dashboard cascading dropdown:
+    - 點 county → 回 schools (call /api/available-schools)
+    - 點 school → 回 year/grade/subject/exam/term/version (call this function)
+
+    Returns:
+        {
+            "school_year": ["110", "109", ...],  # DESC sort
+            "grade": ["七年級", "八年級", ...],
+            "subject": ["數學", "國文", ...],
+            "school_term": ["上學期", "下學期", ...],
+            "exam_type": ["第一次段考", "期中考", ...],
+            "version": ["南一", "康軒", ...],
+        }
+    """
+    conn = _connect(db_path)
+
+    where_parts = []
+    params = []
+    if county:
+        where_parts.append("county = ?"); params.append(county)
+    if school_name:
+        from app.scraper.school_tokens import core_tokens
+        for t in core_tokens(school_name):
+            where_parts.append("school_name LIKE ?"); params.append(f"%{t}%")
+    where_sql = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
+
+    fields = ["school_year", "grade", "subject", "school_term", "exam_type", "version"]
+    result = {}
+    for f in fields:
+        order = "DESC" if f == "school_year" else "ASC"
+        cond = f"{f} != '' AND {f} IS NOT NULL"
+        sql = f"SELECT DISTINCT {f} FROM files {(where_sql + ' AND ' + cond) if where_sql else ('WHERE ' + cond)} ORDER BY {f} {order}"
+        rows = conn.execute(sql, params).fetchall()
+        result[f] = [r[0] for r in rows if r[0]]
+    return result
+
+
 # ============================================================
 # Migration / backup
 # ============================================================

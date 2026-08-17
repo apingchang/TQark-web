@@ -2781,6 +2781,27 @@ async def api_available_schools(
         
         filtered = {target: schools_by_county.get(target, [])}
         return JSONResponse(filtered)
-    
+
     return JSONResponse(schools_by_county)
+
+
+@router.get("/api/available-filters", response_class=JSONResponse)
+async def api_available_filters(
+    county: str = Query("", description="Filter by county"),
+    school_name: str = Query("", description="Filter by school (use token matching)"),
+    user: User = Depends(require_login),
+):
+    """【2026-08-17 新】cascading dropdown 後段: 給 county + school 回該範圍所有 filter values.
+
+    Used by dashboard cascading dropdown (school → year/grade/subject/exam/term/version).
+    Returns:
+        {
+            "school_year": ["114", "113", ...],  # DESC
+            "grade": [...], "subject": [...], "school_term": [...],
+            "exam_type": [...], "version": [...]
+        }
+    """
+    from app.scraper.db import get_available_filters
+    filters = get_available_filters(county=county, school_name=school_name)
+    return JSONResponse(filters)
 

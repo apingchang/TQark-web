@@ -297,3 +297,114 @@ document.addEventListener("DOMContentLoaded", () => {
         setModeCeec();
     }
 });
+
+// ============================================================
+// 【2026-08-17 新】Cascading dropdown: 點 county → 學校; 點學校 → 其他 dropdowns
+// ============================================================
+const examTypeSelect = document.getElementById ? document.getElementById("examTypeSelect") : null;
+const subjectSelectEl = document.getElementById ? document.getElementById("subjectSelect") : null;
+const versionSelectEl = document.getElementById ? document.getElementById("versionSelect") : null;
+const schoolTermSelectEl = document.getElementById ? document.getElementById("schoolTermSelect") : null;
+const schoolYearInput = document.getElementById ? document.getElementById("schoolYearInput") : null;
+const yearListEl = document.getElementById ? document.getElementById("yearList") : null;
+const daanSelectEl = document.getElementById ? document.getElementById("daanSelect") : null;
+
+async function fetchAvailableFilters(county, schoolName) {
+    // 學校為空時只 filter county
+    const params = new URLSearchParams();
+    if (county) params.set("county", county);
+    if (schoolName) params.set("school_name", schoolName);
+    const url = "/api/available-filters?" + params.toString();
+    try {
+        const r = await fetch(url);
+        if (!r.ok) return null;
+        return await r.json();
+    } catch (e) {
+        console.warn("fetchAvailableFilters failed:", e);
+        return null;
+    }
+}
+
+function fillSelectOptions(selectEl, options, currentValue) {
+    if (!selectEl) return;
+    // 保留第一個 option (不限)
+    const defaultOpt = selectEl.options[0];
+    selectEl.innerHTML = "";
+    if (defaultOpt) selectEl.appendChild(defaultOpt);
+    // 重建其他 options
+    options.forEach(v => {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = v;
+        selectEl.appendChild(o);
+    });
+    // 還原 current value (如果還在清單裡)
+    if (currentValue && Array.from(selectEl.options).some(o => o.value === currentValue)) {
+        selectEl.value = currentValue;
+    } else {
+        selectEl.value = "";  // 不在清單 → reset
+    }
+}
+
+function fillDatalistOptions(datalistEl, options) {
+    if (!datalistEl) return;
+    datalistEl.innerHTML = "";
+    options.forEach(v => {
+        const o = document.createElement("option");
+        o.value = v;
+        datalistEl.appendChild(o);
+    });
+}
+
+async function onSchoolChange() {
+    if (!schoolNameSelect) return;
+    const county = countySelect ? (countySelect.value || "") : "";
+    const schoolName = schoolNameSelect.value || "";
+    // 沒選學校 → 用 template 預設值 (避免顯示 700+ garbage subject 從 DriveFolder)
+    if (!schoolName) {
+        fillSelectOptions(examTypeSelect, ["期中考", "期末考"], examTypeSelect ? examTypeSelect.value : "");
+        fillSelectOptions(subjectSelectEl,
+            ["數學","國語","英語","生活","健康與體育","社會","地理","歷史","理化","公民","自然","作文"],
+            subjectSelectEl ? subjectSelectEl.value : "");
+        fillSelectOptions(versionSelectEl, ["康軒","翰林","南一","佳音","何嘉仁","龍騰","泰宇","三民","其他"],
+            versionSelectEl ? versionSelectEl.value : "");
+        fillSelectOptions(schoolTermSelectEl, ["上學期","下學期"], schoolTermSelectEl ? schoolTermSelectEl.value : "");
+        // 學年 default: 83-115
+        const defaultYears = [];
+        for (let y = 115; y >= 83; y--) defaultYears.push(String(y));
+        fillDatalistOptions(yearListEl, defaultYears);
+        return;
+    }
+    // 有選學校 → 從 DB 拿該學校有的 filter values (避免 0 hit)
+    const filters = await fetchAvailableFilters(county, schoolName);
+    if (!filters) return;
+    fillSelectOptions(examTypeSelect, filters.exam_type || [], examTypeSelect ? examTypeSelect.value : "");
+    fillSelectOptions(subjectSelectEl, filters.subject || [], subjectSelectEl ? subjectSelectEl.value : "");
+    fillSelectOptions(versionSelectEl, filters.version || [], versionSelectEl ? versionSelectEl.value : "");
+    fillSelectOptions(schoolTermSelectEl, filters.school_term || [], schoolTermSelectEl ? schoolTermSelectEl.value : "");
+    fillDatalistOptions(yearListEl, filters.school_year || []);
+    // 學年 input 是 text 不是 select, 清空不在清單裡的值
+    if (schoolYearInput && filters.school_year && filters.school_year.length > 0) {
+        if (schoolYearInput.value && !filters.school_year.includes(schoolYearInput.value)) {
+            schoolYearInput.value = "";
+        }
+    }
+}
+
+// 在 onCountyChange 末尾 (load 學校後), 如果有選學校 → 也 call fetchAvailableFilters
+const _orig_fetchAvailableSchools = fetchAvailableSchools;
+// (Note: 實際 onCountyChange 用的是 fetchAvailableSchools 函式定義, 不容易 hook)
+// 直接在 onCountyChange 結束時多觸發一次 fetchAvailableFilters
+
+// 在 DOMContentLoaded 加 event listener
+document.addEventListener("DOMContentLoaded", () => {
+    if (schoolNameSelect) {
+        schoolNameSelect.addEventListener("change", onSchoolChange);
+    }
+    if (countySelect) {
+        countySelect.addEventListener("change", () => {
+            // 等 fetchAvailableSchools 完成後觸發 filter refresh
+            setTimeout(() => onSchoolChange(), 100);
+        });
+    }
+});
