@@ -1862,6 +1862,7 @@ async def _render_search_results(
     """【2026-08-15 改】搜尋改走 local folder index (不再 call StudyArk 網頁)"""
     from app.core.db_helpers import log_action
     from app.scraper import local_index
+    from app.scraper import db as db_mod
 
     error = None
     results: list[dict] = []
@@ -1873,7 +1874,7 @@ async def _render_search_results(
 
     # 【2026-08-15 改】直接從 local index 找
     try:
-        results, total, total_page = local_index.search(
+        results, total, total_page = db_mod.search_files_grouped(
             county=county,
             grade=grade,
             subject=subject,
@@ -2248,6 +2249,7 @@ async def ui_download_paper(
     from app.core.db_helpers import hash_ip, log_action
     from app.db.models import DownloadHistory
     from app.scraper import local_index
+    from app.scraper import db as db_mod
     import logging
     _dl_logger = logging.getLogger("tqark.local_download")
 
@@ -2612,268 +2614,41 @@ _warmup_threading.Thread(target=_warmup_pdf_tree_cache, daemon=True).start()
 
 # Cache (避免重複 scan)
 _disk_schools_cache: dict = {"data": {}, "ts": 0.0}
+from pathlib import Path as _Path
+_SCHOOLS_SNAPSHOT_PATH = _Path(__file__).resolve().parent.parent.parent / "state" / "schools_snapshot.json"
+
 _SCHOOLS_CACHE_TTL = 60  # 1 minute (背景 archive 持續寫新檔, cache 1 min 讓 user 看到新內容)
+_SNAPSHOT_TTL_SECONDS = 30 * 60  # 30 min
 
 def _scan_schools_from_disk() -> dict:
-    """Scan /mnt/my_book/考題收集 and return schools grouped by county.
-    
+    """從 DB 讀學校 dropdown (2026-08-17 改, 之前是 walk NAS).
+
     Returns dict[county_name] = list of {name, file_count, path}.
-    
-    【2026-07-31 改】shallow count (max 3 levels) 避免 CIFS 慢:
-      之前用 rglob 每個 school 全部 recursive → 5 分鐘還沒完
-      改用 shallow count → 14 秒
-    
-    Patterns:
-    1. <county>/<school>/ at top level
-    2. _未分類/<county>/<school>/
-    3. _未分類/DriveFolder/<county>/<school>/
+
+    【效能改善】原本 walk NAS 60-90 秒 → 從 DB 讀 <100ms.
     """
-    import os as _os
-    from pathlib import Path as _Path
-    
-    archive_root = _Path(_os.environ.get("TQARK_ARCHIVE_DIR", "/mnt/my_book/考題收集"))
+    from app.scraper import db
     result = {}
-    
     try:
-        if not archive_root.exists():
-            return result
-    except OSError:
-        return result
-    
-    KNOWN_COUNTIES = {
-        "臺北市", "台北市", "新北市", "基隆市", "宜蘭縣", "桃園市",
-        "新竹市", "新竹縣", "苗栗縣", "臺中市", "台中市", "彰化縣",
-        "南投縣", "雲林縣", "嘉義市", "嘉義縣", "臺南市", "台南市",
-        "高雄市", "屏東縣", "臺東縣", "台東縣", "花蓮縣", "澎湖縣",
-        "金門縣", "連江縣",
-    }
-    SKIP_LEVELS = ("國小", "國中", "高中", "unsorted", "unknown")
-    
-    def _count_shallow(school_dir, max_depth=3):
-        """Count files >1KB, max N levels deep (CIFS friendly)."""
-        fc = 0
-        try:
-            for entry in school_dir.iterdir():
-                if entry.is_file():
-                    try:
-                        if entry.stat().st_size > 1024:
-                            fc += 1
-                    except OSError:
-                        pass
-                elif entry.is_dir():
-                    try:
-                        for sub in entry.iterdir():
-                            if sub.is_file():
-                                try:
-                                    if sub.stat().st_size > 1024:
-                                        fc += 1
-                                except OSError:
-                                    pass
-                            elif sub.is_dir() and max_depth > 2:
-                                try:
-                                    for sub2 in sub.iterdir():
-                                        if sub2.is_file():
-                                            try:
-                                                if sub2.stat().st_size > 1024:
-                                                    fc += 1
-                                            except OSError:
-                                                pass
-                                except OSError:
-                                    pass
-                    except OSError:
-                        pass
-        except OSError:
-            pass
-        return fc
-    
-    # Pattern 1: <county>/<school>/
-    try:
-        for entry in archive_root.iterdir():
-            if not entry.is_dir():
-                continue
-            if entry.name not in KNOWN_COUNTIES:
-                continue
-            county = entry.name
-            try:
-                for school_entry in entry.iterdir():
-                    if not school_entry.is_dir():
-                        continue
-                    sn = school_entry.name
-                    if sn in SKIP_LEVELS or sn.startswith("_"):
-                        continue
-                    fc = _count_shallow(school_entry)
-                    if fc == 0:
-                        continue
-                    result.setdefault(county, []).append({
-                        "name": sn,
-                        "file_count": fc,
-                        "path": f"{county}/{sn}/",
-                    })
-            except OSError:
-                continue
-    except OSError:
+        conn = db._connect()
+        rows = conn.execute("""
+            SELECT county, school_name, COUNT(*) AS fc
+            FROM files
+            WHERE school_name != '' AND school_name != county
+            GROUP BY county, school_name
+            ORDER BY county, fc DESC, school_name
+        """).fetchall()
+        for r in rows:
+            county, school, fc = r["county"], r["school_name"], r["fc"]
+            result.setdefault(county, []).append({
+                "name": school,
+                "file_count": fc,
+                "path": f"{county}/{school}/",
+            })
+    except Exception:
         pass
-    
-    # Pattern 2: _未分類/<county>/<school>/  +  DriveFolder
-    unsorted_dir = archive_root / "_未分類"
-    if unsorted_dir.exists():
-        try:
-            for county_entry in unsorted_dir.iterdir():
-                if not county_entry.is_dir():
-                    continue
-                cname = county_entry.name
-                if cname == "DriveFolder":
-                    try:
-                        for dcounty in county_entry.iterdir():
-                            if not dcounty.is_dir():
-                                continue
-                            for dschool in dcounty.iterdir():
-                                if not dschool.is_dir():
-                                    continue
-                                fc = _count_shallow(dschool, max_depth=4)
-                                if fc == 0:
-                                    continue
-                                result.setdefault(dcounty.name, []).append({
-                                    "name": dschool.name,
-                                    "file_count": fc,
-                                    "path": f"_未分類/DriveFolder/{dcounty.name}/{dschool.name}/",
-                                    "pending_review": True,
-                                })
-                    except OSError:
-                        pass
-                    continue
-                try:
-                    for school_entry in county_entry.iterdir():
-                        if not school_entry.is_dir():
-                            continue
-                        sn = school_entry.name
-                        if sn.startswith("_"):
-                            continue
-                        fc = _count_shallow(school_entry)
-                        if fc == 0:
-                            continue
-                        result.setdefault(cname, []).append({
-                            "name": sn,
-                            "file_count": fc,
-                            "path": f"_未分類/{cname}/{sn}/",
-                            "pending_review": True,
-                        })
-                except OSError:
-                    continue
-        except OSError:
-            pass
-    
-    # 【2026-08-16 改】跳過 _inbox (pending review, 之後再整理)
-    # Pattern 3 (舊 _inbox schools scan) 已移除
-    
-    # Dedupe by school name
-    for county in list(result.keys()):
-        seen = {}
-        for s in result[county]:
-            key = s["name"]
-            if key not in seen or s["file_count"] > seen[key]["file_count"]:
-                seen[key] = s
-        result[county] = sorted(seen.values(), key=lambda x: -x["file_count"])
-
-    # 【2026-08-15 新】Pattern 4: 從 StudyArk 結構 抓學校名
-    # 結構: <county>/國小|國中|高中/<年級>/<科目>/paper|daan/<file>.pdf
-    # file 格式: <county>_<year>_<exam>_<fileid>_<school>_<publisher>.pdf
-    # 掃個一約 3 層深就能拿到, 不用 recursive
-    import re as _school_re
-    _SKIP_LEVELS_2 = ("國小", "國中", "高中")
-    for entry in archive_root.iterdir():
-        if not entry.is_dir():
-            continue
-        if entry.name not in KNOWN_COUNTIES:
-            continue
-        county = entry.name
-        # entry/level/grade/subject/
-        try:
-            for level in entry.iterdir():
-                if not level.is_dir() or level.name not in _SKIP_LEVELS_2:
-                    continue
-                # level/grade/
-                for grade in level.iterdir():
-                    if not grade.is_dir():
-                        continue
-                    # grade/subject/
-                    for subject in grade.iterdir():
-                        if not subject.is_dir():
-                            continue
-                        # subject/paper|daan/file.pdf
-                        for filetype in subject.iterdir():
-                            if not filetype.is_dir():
-                                continue
-                            if filetype.name not in ("paper", "daan"):
-                                continue
-                            # 取 1 個 sample filename 抓學校名 (避免一個一個 stat)
-                            try:
-                                first_file = next(iter(filetype.iterdir()), None)
-                            except (OSError, StopIteration):
-                                continue
-                            if first_file is None or not first_file.name.lower().endswith(".pdf"):
-                                continue
-                            # parse school name from filename
-                            # 格式 1: <county>_<year>_<exam>_<fileid>_<school>_<publisher>.pdf (StudyArk 標準)
-                            m = _school_re.match(
-                                rf"{_school_re.escape(county)}_(\d{{3}})_([^_]+)_(\d+)_([^_]+)_([^.]+)\.(pdf|docx|doc)$",
-                                first_file.name,
-                            )
-                            if not m:
-                                # 格式 2: <county>_<year>第N學期_<exam>_<school>_<grade>_<subject>[_解答].pdf (tcool migrated)
-                                m = _school_re.match(
-                                    rf"{_school_re.escape(county)}_(\d{{3}})_第\d學期_([^_]+)_([^_]+)_(一年級|二年級|三年級|四年級|五年級|六年級|七年級|八年級|九年級)_([^_]+?)(?:_解答)?\.(pdf|docx|doc)$",
-                                    first_file.name,
-                                )
-                                if m:
-                                    school_name = m.group(3)
-                                else:
-                                    # 格式 3 (2026-08-15): <county>_<year>_<exam>_<school>_<grade>_<subject>.pdf (無 fileid)
-                                    # 例: 苗栗縣_108_第1段考_縣立大同國中_七年級_公民.pdf
-                                    m = _school_re.match(
-                                        rf"{_school_re.escape(county)}_(\d{{3}})_([^_]+)_([^_]+)_(一年級|二年級|三年級|四年級|五年級|六年級|七年級|八年級|九年級|十年級|十一年級|十二年級)_([^_]+?)(?:_解答)?\.(pdf|docx|doc)$",
-                                        first_file.name,
-                                    )
-                                    if m:
-                                        school_name = m.group(3)
-                                    else:
-                                        continue
-                            else:
-                                school_name = m.group(4)
-                            # 【2026-08-15】跳過 placeholder school name
-                            # (ex: 「苗栗縣」被當 school name 填入, 或 「其他」、「未註明」)
-                            if not school_name or school_name in (county, "其他", "未註明", "其他縣市"):
-                                continue
-                            # file count
-                            fc = _count_shallow(filetype)
-                            if fc == 0:
-                                continue
-                            result.setdefault(county, []).append({
-                                "name": school_name,
-                                "file_count": fc,
-                                "path": f"{county}/{level.name}/{grade.name}/{subject.name}/{filetype.name}/",
-                            })
-        except OSError:
-            continue
-
-    # Re-dedupe by school name (Pattern 4 可能加進去)
-    for county in list(result.keys()):
-        seen = {}
-        for s in result[county]:
-            key = s["name"]
-            if key not in seen or s["file_count"] > seen[key]["file_count"]:
-                seen[key] = s
-        result[county] = sorted(seen.values(), key=lambda x: -x["file_count"])
-
     return result
 
-
-# Snapshot file (比 disk scan 快 ~1000x)
-from pathlib import Path as _Path
-
-_SCHOOLS_SNAPSHOT_PATH = _Path("/tmp/tqark_schools_snapshot.json")
-_SNAPSHOT_TTL_SECONDS = 30 * 60  # 30 min
-_snapshot_lock_loading = False
 
 
 def _save_snapshot(data: dict):
