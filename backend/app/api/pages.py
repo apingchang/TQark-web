@@ -7,6 +7,7 @@ HTML page routes
 - GET /static/*  → 靜態檔案
 """
 
+import os
 from pathlib import Path
 import json
 import threading
@@ -784,6 +785,8 @@ async def dashboard(
             "cap_years_json": json.dumps(cap_years, ensure_ascii=False),
             "ceec_years_json": json.dumps(ceec_years, ensure_ascii=False),
             "stats": stats,
+            # 【2026-08-17 新】cache buster 用 file mtime (每次改 JS 都不同)
+            "deploy_ts": int(os.path.getmtime(Path(__file__).parent.parent / "static" / "dashboard_form.js")),
         },
     )
 
