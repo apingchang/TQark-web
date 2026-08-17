@@ -19,11 +19,17 @@ import threading
 import time as _time
 from pathlib import Path
 
+from fastapi.templating import Jinja2Templates
+
 from app.config import settings
 from app.db.models import User
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+# 【2026-08-17 新】Jinja2Templates instance (共用的 TemplateResponse 物件)
+# pages.py 跟 pages_cap_ceec.py 都從這 import 避免重複宣告
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # PERMISSION_NAMES (admin panel 用)
 PERMISSION_NAMES = {
