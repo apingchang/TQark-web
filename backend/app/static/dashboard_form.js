@@ -48,6 +48,22 @@ function getSubjects(mode) {
     return SUBJECTS_FALLBACK[mode] || [];
 }
 
+// 【2026-08-17 新】CAP/CEEC 學年清單 (從後端傳來的 window.DASHBOARD_YEARS)
+function getYears(mode) {
+    const win = window.DASHBOARD_YEARS || {};
+    return win[mode] || [];
+}
+
+function populateYears(datalistEl, years) {
+    if (!datalistEl) return;
+    datalistEl.innerHTML = "";
+    years.forEach(y => {
+        const o = document.createElement("option");
+        o.value = String(y);
+        datalistEl.appendChild(o);
+    });
+}
+
 // =========================================================
 // State
 // =========================================================
@@ -69,7 +85,7 @@ let savedValues = {
 function $id(id) { return document.getElementById(id); }
 function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
 
-let form, gradeSelect, subjectSelect, countySelect, schoolNameSelect, submitBtn, cardTitle;
+let form, gradeSelect, subjectSelect, countySelect, schoolNameSelect, submitBtn, cardTitle, pageTitleEl;
 let countyCol, schoolCol, termCol, examTypeCol, versionCol, daanCol, yearCol;
 let studyarkOnlyEls;  // 【2026-07-24 新】所有 .studyark-only 元素 (text + filters)
 
@@ -83,6 +99,7 @@ function initDomRefs() {
     schoolNameSelect = $id("schoolNameSelect");
     submitBtn = form.querySelector('button[type="submit"]');
     cardTitle = document.querySelector('h5.card-title');
+    pageTitleEl = document.querySelector('h1.page-title');
 
     function findCol(name) {
         const el = form.querySelector(`[name="${name}"]`);
@@ -100,6 +117,14 @@ function initDomRefs() {
 
     // 【2026-07-24 新】所有 StudyArk-only 元素 (text + 限流警語 + 各 filter col)
     studyarkOnlyEls = $all('.studyark-only');
+    // 【2026-08-17 新】讓 dropdown 變數在 initDomRefs 裡 assign
+    examTypeSelect = $id("examTypeSelect");
+    subjectSelectEl = $id("subjectSelect");
+    versionSelectEl = $id("versionSelect");
+    schoolTermSelectEl = $id("schoolTermSelect");
+    schoolYearInput = $id("schoolYearInput");
+    yearListEl = $id("yearList");
+    daanSelectEl = $id("daanSelect");
 }
 
 // =========================================================
@@ -145,17 +170,28 @@ function enableIn(el) {
 }
 
 // 【2026-07-24 新】StudyArk-only 元素切換
+// 【2026-08-17 改】subject column 不在 studyark-only (CAP/CEEC 也用)
+//   yearCol 已經在 setModeCap/Ceec 中 showEl + enableIn
 function showStudyarkOnly() {
     studyarkOnlyEls.forEach(el => {
         el.style.display = "";
         enableIn(el);
     });
+    if (subjectSelectEl) {
+        subjectSelectEl.style.display = "";
+        subjectSelectEl.disabled = false;
+    }
 }
 function hideStudyarkOnly() {
     studyarkOnlyEls.forEach(el => {
         el.style.display = "none";
         disableIn(el);
     });
+    // 保留 subject column 顯示 (CAP/CEEC 用)
+    if (subjectSelectEl) {
+        subjectSelectEl.style.display = "";
+        subjectSelectEl.disabled = false;
+    }
 }
 
 // =========================================================
@@ -172,11 +208,13 @@ function setModeStudyark() {
     submitBtn.textContent = "🔍 搜尋";
     submitBtn.className = "btn btn-primary mt-3";
     if (cardTitle) cardTitle.textContent = "搜尋考古題 (StudyArk)";
+    if (pageTitleEl) pageTitleEl.textContent = "考題搜尋";
 }
 
 function setModeCap() {
     currentMode = "cap";
     populateSubjects(subjectSelect, getSubjects("cap"), "不限");
+    populateYears(yearListEl, getYears("cap"));
 
     hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
     showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CAP filter by year)
@@ -184,14 +222,16 @@ function setModeCap() {
     if (gradeSelect) gradeSelect.disabled = false;
 
     form.action = "/ui/search";
-    submitBtn.textContent = "🔍 搜尋 歷屆會考";
+    submitBtn.textContent = "🔍 搜尋 會考考題";
     submitBtn.className = "btn btn-warning mt-3";
     if (cardTitle) cardTitle.textContent = "📙 搜尋歷屆會考 (CAP)";
+    if (pageTitleEl) pageTitleEl.textContent = "📙 會考考題搜尋";
 }
 
 function setModeCeec() {
     currentMode = "ceec";
     populateSubjects(subjectSelect, getSubjects("ceec"), "不限");
+    populateYears(yearListEl, getYears("ceec"));
 
     hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
     showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CEEC filter by year)
@@ -199,9 +239,10 @@ function setModeCeec() {
     if (gradeSelect) gradeSelect.disabled = false;
 
     form.action = "/ui/search";
-    submitBtn.textContent = "🔍 搜尋 歷屆大學入學考";
+    submitBtn.textContent = "🔍 搜尋 大考考題";
     submitBtn.className = "btn btn-warning mt-3";
     if (cardTitle) cardTitle.textContent = "📕 搜尋歷屆大學入學考 (CEEC)";
+    if (pageTitleEl) pageTitleEl.textContent = "📕 大考考題搜尋";
 }
 
 // =========================================================
@@ -305,13 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================================
 // 【2026-08-17 新】Cascading dropdown: 點 county → 學校; 點學校 → 其他 dropdowns
 // ============================================================
-const examTypeSelect = document.getElementById ? document.getElementById("examTypeSelect") : null;
-const subjectSelectEl = document.getElementById ? document.getElementById("subjectSelect") : null;
-const versionSelectEl = document.getElementById ? document.getElementById("versionSelect") : null;
-const schoolTermSelectEl = document.getElementById ? document.getElementById("schoolTermSelect") : null;
-const schoolYearInput = document.getElementById ? document.getElementById("schoolYearInput") : null;
-const yearListEl = document.getElementById ? document.getElementById("yearList") : null;
-const daanSelectEl = document.getElementById ? document.getElementById("daanSelect") : null;
+// 在 initDomRefs 裡 init (避免這邊就跑 DOM query)
 
 async function fetchAvailableFilters(county, schoolName) {
     // 學校為空時只 filter county

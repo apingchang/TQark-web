@@ -12,7 +12,7 @@
     {# 中間: 主內容 #}
     <div class="dashboard-main">
 {# 【2026-08-03 新】頁面 title (中間欄頂部) #}
-<h1 class="page-title mb-3">考題搜尋</h1>
+<h1 class="page-title mb-3" id="pageTitle">考題搜尋</h1>
 {% if request.query_params.get('error') == 'rate_limited' %}
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         <strong>⏰ StudyArk 限流中</strong><br>
@@ -150,7 +150,8 @@
                         </optgroup>
                     </select>
                 </div>
-                <div class="col-md-4 studyark-only">
+                {# 【2026-08-17 改】科目 dropdown 對 StudyArk / CAP / CEEC 都顯示, JS populate 不同清單 #}
+                <div class="col-md-4">
                     <label class="form-label small">科目</label>
                     <select name="subject" id="subjectSelect" class="form-select form-select-sm">
                         <option value="">不限</option>
@@ -226,6 +227,10 @@
 window.DASHBOARD_SUBJECTS = {
     cap: {{ cap_subjects_json | safe }},
     ceec: {{ ceec_subjects_json | safe }},
+};
+window.DASHBOARD_YEARS = {
+    cap: {{ cap_years_json | safe }},
+    ceec: {{ ceec_years_json | safe }},
 };
 </script>
 {# 【2026-08-16 改】左欄「搜尋」改成 button[form=] 直接 submit, 不要 JS 拼接。點下去 100% 可用 #}

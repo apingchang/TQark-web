@@ -248,3 +248,76 @@ class TestGradeCascading:
         content = page.content()
         assert "會考" in content, "統一考試 (會考) 應該永遠保留"
         assert "大學入學考" in content, "統一考試 (大學入學考) 應該永遠保留"
+
+
+class TestUnifiedExamDashboard:
+    """統一考試 (會考/大考) dashboard 行為"""
+
+    def test_selecting_cap_keeps_subject_visible(self, logged_in_page):
+        """選會考時, 科目 dropdown 應該保持可見且有 CAP 真實科目"""
+        page = logged_in_page
+        page.goto(f"{BASE_URL}/dashboard")
+
+        # 選會考
+        page.select_option("#gradeSelect", "會考")
+        page.wait_for_timeout(300)  # 等 JS setModeCap 完成
+
+        # 科目 dropdown 應該 visible
+        subject = page.locator("#subjectSelect")
+        assert subject.is_visible(), "CAP 模式下 科目 dropdown 應該 visible"
+        assert not subject.is_disabled(), "CAP 模式下 科目 dropdown 應該 enabled"
+
+        # 科目 options 應該是 CAP 真實科目 (從 window.DASHBOARD_SUBJECTS)
+        cap_subjects = page.evaluate("() => window.DASHBOARD_SUBJECTS?.cap || []")
+        assert len(cap_subjects) > 0, f"應該有 CAP 科目, 實際 {cap_subjects}"
+
+    def test_selecting_ceec_keeps_subject_visible(self, logged_in_page):
+        """選大考時, 科目 dropdown 應該保持可見且有 CEEC 真實科目"""
+        page = logged_in_page
+        page.goto(f"{BASE_URL}/dashboard")
+
+        page.select_option("#gradeSelect", "大學入學考")
+        page.wait_for_timeout(300)
+
+        subject = page.locator("#subjectSelect")
+        assert subject.is_visible(), "CEEC 模式下 科目 dropdown 應該 visible"
+        assert not subject.is_disabled(), "CEEC 模式下 科目 dropdown 應該 enabled"
+
+        ceec_subjects = page.evaluate("() => window.DASHBOARD_SUBJECTS?.ceec || []")
+        assert len(ceec_subjects) > 0, f"應該有 CEEC 科目, 實際 {ceec_subjects}"
+
+    def test_cap_mode_shows_cap_page_title(self, logged_in_page):
+        """CAP 模式時, page title 應該顯示「會考考題搜尋」"""
+        page = logged_in_page
+        page.goto(f"{BASE_URL}/dashboard")
+
+        page.select_option("#gradeSelect", "會考")
+        page.wait_for_timeout(300)
+
+        title = page.locator("#pageTitle").text_content()
+        assert "會考" in title, f"page title 應該含會考, 實際 '{title}'"
+
+    def test_ceec_mode_shows_ceec_page_title(self, logged_in_page):
+        """CEEC 模式時, page title 應該顯示「大考考題搜尋」"""
+        page = logged_in_page
+        page.goto(f"{BASE_URL}/dashboard")
+
+        page.select_option("#gradeSelect", "大學入學考")
+        page.wait_for_timeout(300)
+
+        title = page.locator("#pageTitle").text_content()
+        assert "大考" in title or "大學入學考" in title, (
+            f"page title 應該含大考/大學入學考, 實際 '{title}'"
+        )
+
+    def test_cap_year_datalist_loaded(self, logged_in_page):
+        """CAP 模式時, 學年 datalist 應該填 CAP 真實年度"""
+        page = logged_in_page
+        page.goto(f"{BASE_URL}/dashboard")
+
+        page.select_option("#gradeSelect", "會考")
+        page.wait_for_timeout(300)
+
+        # yearList 應該有 options
+        year_count = page.locator("#yearList option").count()
+        assert year_count > 0, f"CAP 模式 yearList 應該有 options, 實際 {year_count}"

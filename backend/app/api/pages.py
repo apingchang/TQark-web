@@ -766,6 +766,9 @@ async def dashboard(
     ceec_items = _scan_pdf_tree(CEEC_DIR)
     cap_subjects = sorted({i["subject"] for i in cap_items if i["subject"]})
     ceec_subjects = sorted({i["subject"] for i in ceec_items if i["subject"]})
+    # 【2026-08-17 新】CAP/CEEC 真實年度清單 (dashboard 切 mode 時填 datalist)
+    cap_years = sorted({i["year"] for i in cap_items if i["year"] > 0}, reverse=True)
+    ceec_years = sorted({i["year"] for i in ceec_items if i["year"] > 0}, reverse=True)
 
     # 【2026-07-28 移】平台資訊搬到 dashboard.html
     stats = _get_cached_archive_counts()
@@ -778,6 +781,8 @@ async def dashboard(
             "user_full": user,  # 完整 User object 給 template 用 datetime 等
             "cap_subjects_json": json.dumps(cap_subjects, ensure_ascii=False),
             "ceec_subjects_json": json.dumps(ceec_subjects, ensure_ascii=False),
+            "cap_years_json": json.dumps(cap_years, ensure_ascii=False),
+            "ceec_years_json": json.dumps(ceec_years, ensure_ascii=False),
             "stats": stats,
         },
     )
