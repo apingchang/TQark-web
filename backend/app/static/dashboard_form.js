@@ -389,6 +389,43 @@ async function onSchoolChange() {
             schoolYearInput.value = "";
         }
     }
+    // 【2026-08-17 新】Grade cascading: 只列該學校有的年級. 統一考試永遠保留.
+    updateGradeOptions(filters.grade || []);
+}
+
+// Map DB 的 grade 到 optgroup category (elementary / junior / senior / unset)
+function gradeToCategory(g) {
+    const elementary = ["一年級","二年級","三年級","四年級","五年級","六年級"];
+    const junior = ["七年級","八年級","九年級"];
+    const senior = ["高一","高二","高三"];
+    if (elementary.includes(g)) return "elementary";
+    if (junior.includes(g)) return "junior";
+    if (senior.includes(g)) return "senior";
+    return null;  // unknown
+}
+
+function updateGradeOptions(schoolGrades) {
+    const gradeSel = document.getElementById("gradeSelect");
+    if (!gradeSel) return;
+    // 計算 school 涵蓋的 category
+    const categories = new Set();
+    schoolGrades.forEach(g => {
+        const c = gradeToCategory(g);
+        if (c) categories.add(c);
+    });
+    // 預設: 三類全顯示 (沒選學校時)
+    const showAll = categories.size === 0;
+    const groups = {
+        elementary: document.getElementById("gradeOptgroupElementary"),
+        junior: document.getElementById("gradeOptgroupJunior"),
+        senior: document.getElementById("gradeOptgroupSenior"),
+    };
+    for (const [cat, group] of Object.entries(groups)) {
+        if (!group) continue;
+        group.disabled = !showAll && !categories.has(cat);
+        // disabled optgroup 在瀏覽器中還是可見, 但選項不可選
+        group.hidden = !showAll && !categories.has(cat);  // 完全隱藏
+    }
 }
 
 // 在 onCountyChange 末尾 (load 學校後), 如果有選學校 → 也 call fetchAvailableFilters

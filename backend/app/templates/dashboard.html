@@ -132,16 +132,18 @@
                     <label class="form-label small">年級 / 考試類別</label>
                     <select name="grade" class="form-select form-select-sm" id="gradeSelect">
                         <option value="">不限</option>
-                        <optgroup label="國小">
-                            <option>一年級</option><option>二年級</option><option>三年級</option>
-                            <option>四年級</option><option>五年級</option><option>六年級</option>
+                        {# 【2026-08-17 改】學校有年級時, 由 JS 動態 filter 選項. 統一考試 always 保留 #}
+                        <optgroup label="國小" id="gradeOptgroupElementary">
+                            <option value="一年級">一年級</option><option value="二年級">二年級</option><option value="三年級">三年級</option>
+                            <option value="四年級">四年級</option><option value="五年級">五年級</option><option value="六年級">六年級</option>
                         </optgroup>
-                        <optgroup label="國中">
-                            <option>七年級</option><option>八年級</option><option>九年級</option>
+                        <optgroup label="國中" id="gradeOptgroupJunior">
+                            <option value="七年級">七年級</option><option value="八年級">八年級</option><option value="九年級">九年級</option>
                         </optgroup>
-                        <optgroup label="高中">
-                            <option>高一</option><option>高二</option><option>高三</option>
+                        <optgroup label="高中" id="gradeOptgroupSenior">
+                            <option value="高一">高一</option><option value="高二">高二</option><option value="高三">高三</option>
                         </optgroup>
+                        {# 統一考試永遠可選 (跟學校無關) #}
                         <optgroup label="統一考試">
                             <option value="會考">📙 歷屆會考 (CAP)</option>
                             <option value="大學入學考">📕 歷屆大學入學考 (CEEC)</option>
