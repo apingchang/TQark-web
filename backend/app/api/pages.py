@@ -1301,15 +1301,7 @@ import threading as _warmup_threading
 _warmup_threading.Thread(target=_warmup_pdf_tree_cache, daemon=True).start()
 
 
-# =========================================================
-# 【2026-07-31 新】Disk-based school scan
-# 用於 search dropdown: 選定 county 後, 列出 disk 中真有資料的學校
-# =========================================================
-
-# Cache (避免重複 scan)
-_disk_schools_cache: dict = {"data": {}, "ts": 0.0}
-from pathlib import Path as _Path
-_SCHOOLS_SNAPSHOT_PATH = _Path(__file__).resolve().parent.parent.parent / "state" / "schools_snapshot.json"
-
-_SCHOOLS_CACHE_TTL = 60  # 1 minute (背景 archive 持續寫新檔, cache 1 min 讓 user 看到新內容)
-_SNAPSHOT_TTL_SECONDS = 30 * 60  # 30 min
+# 【2026-08-17 Pages Split 3】
+# _disk_schools_cache / _SCHOOLS_CACHE_TTL / _SNAPSHOT_TTL_SECONDS / _SCHOOLS_SNAPSHOT_PATH
+# 都搬到 app/api/pages_search.py (由 search routes 使用)
+# pages.py 不再需要

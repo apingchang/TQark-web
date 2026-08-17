@@ -53,6 +53,12 @@ from app.scraper.db import get_available_filters
 
 search_router = APIRouter(tags=["search"])
 
+# 【2026-08-17 Pages Split 3】schools cache 全域變數 (從 pages.py 搬過來)
+_disk_schools_cache: dict = {"data": {}, "ts": 0.0}
+_SCHOOLS_SNAPSHOT_PATH = __import__('pathlib').Path(__file__).resolve().parent.parent.parent / "state" / "schools_snapshot.json"
+_SCHOOLS_CACHE_TTL = 60  # 1 minute (背景 archive 持續寫新檔, cache 1 min 讓 user 看到新內容)
+_SNAPSHOT_TTL_SECONDS = 30 * 60  # 30 min
+
 # ──────────────────────────────────────────────────────────────
 # Segment 1: _render_search_results (主搜尋 render)
 # ──────────────────────────────────────────────────────────────
