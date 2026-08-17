@@ -54,14 +54,23 @@ function getYears(mode) {
     return win[mode] || [];
 }
 
-function populateYears(datalistEl, years) {
-    if (!datalistEl) return;
-    datalistEl.innerHTML = "";
+// 【2026-08-17 改】學年 select dropdown 重建 (DESC 排序)
+function populateYears(selectEl, years, currentValue) {
+    if (!selectEl) return;
+    const defaultOpt = selectEl.options[0];
+    selectEl.innerHTML = "";
+    if (defaultOpt) selectEl.appendChild(defaultOpt);
     years.forEach(y => {
         const o = document.createElement("option");
         o.value = String(y);
-        datalistEl.appendChild(o);
+        o.textContent = String(y);
+        selectEl.appendChild(o);
     });
+    if (currentValue && Array.from(selectEl.options).some(o => o.value === String(currentValue))) {
+        selectEl.value = String(currentValue);
+    } else {
+        selectEl.value = "";
+    }
 }
 
 // =========================================================
@@ -122,8 +131,8 @@ function initDomRefs() {
     subjectSelectEl = $id("subjectSelect");
     versionSelectEl = $id("versionSelect");
     schoolTermSelectEl = $id("schoolTermSelect");
-    schoolYearInput = $id("schoolYearInput");
-    yearListEl = $id("yearList");
+    // 【2026-08-17 改】學年從 input+datalist 改成 select dropdown
+    yearSelectEl = $id("schoolYearSelect");
     daanSelectEl = $id("daanSelect");
 }
 
@@ -214,7 +223,7 @@ function setModeStudyark() {
 function setModeCap() {
     currentMode = "cap";
     populateSubjects(subjectSelect, getSubjects("cap"), "不限");
-    populateYears(yearListEl, getYears("cap"));
+    populateYears(yearSelectEl, getYears("cap"));
 
     hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
     showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CAP filter by year)
@@ -231,7 +240,7 @@ function setModeCap() {
 function setModeCeec() {
     currentMode = "ceec";
     populateSubjects(subjectSelect, getSubjects("ceec"), "不限");
-    populateYears(yearListEl, getYears("ceec"));
+    populateYears(yearSelectEl, getYears("ceec"));
 
     hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
     showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CEEC filter by year)
@@ -343,6 +352,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+let yearSelectEl;  // 【2026-08-17 改】學年 select (initDomRefs 裡 assign)
+
 // ============================================================
 // 【2026-08-17 新】Cascading dropdown: 點 county → 學校; 點學校 → 其他 dropdowns
 // ============================================================
@@ -411,7 +422,7 @@ async function onSchoolChange() {
         // 學年 default: 83-115
         const defaultYears = [];
         for (let y = 115; y >= 83; y--) defaultYears.push(String(y));
-        fillDatalistOptions(yearListEl, defaultYears);
+        populateYears(yearSelectEl, defaultYears);
         return;
     }
     // 有選學校 → 從 DB 拿該學校有的 filter values (避免 0 hit)
@@ -421,13 +432,7 @@ async function onSchoolChange() {
     fillSelectOptions(subjectSelectEl, filters.subject || [], subjectSelectEl ? subjectSelectEl.value : "");
     fillSelectOptions(versionSelectEl, filters.version || [], versionSelectEl ? versionSelectEl.value : "");
     fillSelectOptions(schoolTermSelectEl, filters.school_term || [], schoolTermSelectEl ? schoolTermSelectEl.value : "");
-    fillDatalistOptions(yearListEl, filters.school_year || []);
-    // 學年 input 是 text 不是 select, 清空不在清單裡的值
-    if (schoolYearInput && filters.school_year && filters.school_year.length > 0) {
-        if (schoolYearInput.value && !filters.school_year.includes(schoolYearInput.value)) {
-            schoolYearInput.value = "";
-        }
-    }
+    populateYears(yearSelectEl, filters.school_year || []);
     // 【2026-08-17 新】Grade cascading: 只列該學校有的年級. 統一考試永遠保留.
     updateGradeOptions(filters.grade || []);
 }

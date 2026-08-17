@@ -121,12 +121,12 @@
                     </select>
                     <small class="form-text text-muted" id="schoolCountHint"></small>
                 </div>
+                {# 【2026-08-17 改】學年改用 select dropdown (跟其他 filter 一致, 統一考試也有 dropdown) #}
                 <div class="col-md-4">
-                    <label class="form-label small">學年 (如: 110, 不限表示全部)</label>
-                    <input type="text" name="school_year" id="schoolYearInput" class="form-control form-control-sm"
-                           placeholder="例如 110, 不限留空" list="yearList" autocomplete="off">
-                    {# 【2026-08-17 改】學年由 JS 從 DB 動態填入 datalist (避免顯示沒資料的學年) #}
-                    <datalist id="yearList"></datalist>
+                    <label class="form-label small">學年</label>
+                    <select name="school_year" id="schoolYearSelect" class="form-select form-select-sm">
+                        <option value="">不限</option>
+                    </select>
                 </div>
                 <div class="col-md-4 studyark-only">
                     <label class="form-label small">年級 / 考試類別</label>

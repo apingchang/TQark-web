@@ -310,14 +310,14 @@ class TestUnifiedExamDashboard:
             f"page title 應該含大考/大學入學考, 實際 '{title}'"
         )
 
-    def test_cap_year_datalist_loaded(self, logged_in_page):
-        """CAP 模式時, 學年 datalist 應該填 CAP 真實年度"""
+    def test_cap_year_select_dropdown_loaded(self, logged_in_page):
+        """CAP 模式時, 學年 select dropdown 應該填 CAP 真實年度"""
         page = logged_in_page
         page.goto(f"{BASE_URL}/dashboard")
 
         page.select_option("#gradeSelect", "會考")
         page.wait_for_timeout(300)
 
-        # yearList 應該有 options
-        year_count = page.locator("#yearList option").count()
-        assert year_count > 0, f"CAP 模式 yearList 應該有 options, 實際 {year_count}"
+        # 【2026-08-17 改】學年從 datalist 改成 select dropdown
+        year_count = page.locator("#schoolYearSelect option").count()
+        assert year_count > 1, f"CAP 模式 schoolYearSelect 應該有 options (不限 + N 個年度), 實際 {year_count}"
