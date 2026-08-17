@@ -1904,22 +1904,23 @@ async def _render_search_results(
     )
     await db.commit()
 
-    # 顯示用字串
-    params_display = (
-        ", ".join(
-            f"{k}={v}"
-            for k, v in [
-                ("county", county),
-                ("grade", grade),
-                ("subject", subject),
-                ("school_year", school_year),
-                ("school_term", school_term),
-                ("exam_type", exam_type),
-                ("version", version),
-                ("school", school_name),
-            ]
-            if v
-        )
+    # 顯示用 dict (template 用來生成個別移除連結)
+    params_display = {
+        k: v for k, v in [
+            ("county", county),
+            ("grade", grade),
+            ("subject", subject),
+            ("school_year", school_year),
+            ("school_term", school_term),
+            ("exam_type", exam_type),
+            ("version", version),
+            ("daan", daan),
+            ("school_name", school_name),
+        ] if v
+    }
+    # 顯示用字串 (audit log)
+    search_params_str = (
+        ", ".join(f"{k}={v}" for k, v in params_display.items())
         or "(無條件)"
     )
 
@@ -1947,7 +1948,8 @@ async def _render_search_results(
             "request": request,
             "results": results,
             "error": error,
-            "search_params": params_display,
+            "search_params": search_params_str,  # audit log 字串
+            "params_display": params_display,  # template chip 移除連結用
             # 為了 template 顯示 current filter 跟 chip
             "grade": grade,
             "subject": subject,

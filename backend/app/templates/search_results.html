@@ -13,16 +13,36 @@
     <div class="card-body">
 
         {# === 已選的 filter chips(學 StudyArk 風格) === #}
-        <div class="mb-3">
-            {% if county %}<span class="badge bg-dark me-2">縣市: {{ counties|selectattr('id', 'equalto', county)|map(attribute='name')|first or county }}</span>{% endif %}
-            {% if grade %}<span class="badge bg-primary me-2">年級: {{ grade }}</span>{% endif %}
-            {% if school_year %}<span class="badge bg-success me-2">學年: {{ school_year }}</span>{% endif %}
-            {% if school_term %}<span class="badge bg-info me-2">學期: {{ school_term }}</span>{% endif %}
-            {% if subject %}<span class="badge bg-warning text-dark me-2">科目: {{ subject }}</span>{% endif %}
-            {% if exam_type %}<span class="badge bg-secondary me-2">段考: {{ exam_type }}</span>{% endif %}
-            {% if version %}<span class="badge bg-dark me-2">版本: {{ version }}</span>{% endif %}
-            {% if daan %}<span class="badge bg-light text-dark me-2">答案: {% if daan == 'yes' %}含答案{% else %}不含答案{% endif %}</span>{% endif %}
-            {% if school_name %}<span class="badge bg-primary me-2">學校關鍵字: {{ school_name }}</span>{% endif %}
+        {# 【2026-08-17 改】所有 search filters 都要顯示 + 個別移除 + 「考試類別」chip #}
+        <div class="mb-3 d-flex flex-wrap align-items-center">
+            <small class="text-muted me-2">搜尋條件:</small>
+            {% if grade == "會考" %}
+                <span class="badge bg-warning text-dark me-2">
+                    考試類別: 📙 會考 (CAP)
+                    <a href="?{% for k, in2 in params_display.items() %}{% if k != 'grade' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-dark ms-1 text-decoration-none" title="移除此條件">×</a>
+                </span>
+            {% elif grade == "大學入學考" %}
+                <span class="badge bg-warning text-dark me-2">
+                    考試類別: 📕 大學入學考 (CEEC)
+                    <a href="?{% for k, in2 in params_display.items() %}{% if k != 'grade' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-dark ms-1 text-decoration-none" title="移除此條件">×</a>
+                </span>
+            {% elif grade %}
+                <span class="badge bg-primary me-2">
+                    年級: {{ grade }}
+                    <a href="?{% for k, in2 in params_display.items() %}{% if k != 'grade' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a>
+                </span>
+            {% endif %}
+            {% if county %}<span class="badge bg-dark me-2">縣市: {{ county }} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'county' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if school_year %}<span class="badge bg-success me-2">學年: {{ school_year }} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'school_year' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if school_term %}<span class="badge bg-info me-2">學期: {{ school_term }} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'school_term' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if subject %}<span class="badge bg-warning text-dark me-2">科目: {{ subject }} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'subject' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-dark ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if exam_type %}<span class="badge bg-secondary me-2">段考: {{ exam_type }} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'exam_type' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if version %}<span class="badge bg-dark me-2">版本: {{ version }} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'version' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if daan %}<span class="badge bg-light text-dark me-2">答案: {% if daan == 'yes' %}含答案{% else %}不含答案{% endif %} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'daan' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-dark ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if school_name %}<span class="badge bg-primary me-2">學校關鍵字: {{ school_name }} <a href="?{% for k, in2 in params_display.items() %}{% if k != 'school_name' and in2 %}{{k}}={{in2}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+            {% if not grade and not county and not school_year and not school_term and not subject and not exam_type and not version and not daan and not school_name %}
+                <small class="text-muted">(無篩選, 顯示全部)</small>
+            {% endif %}
             <a href="/dashboard" class="btn btn-link btn-sm p-0 ms-2">清空全部</a>
         </div>
 

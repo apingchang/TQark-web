@@ -180,6 +180,8 @@ function setModeCap() {
 
     hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
     showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CAP filter by year)
+    // 【2026-08-17 修】gradeSelect 永遠 enabled (grade 本身是 mode selector, 選會考才能送出)
+    if (gradeSelect) gradeSelect.disabled = false;
 
     form.action = "/ui/search";
     submitBtn.textContent = "🔍 搜尋 歷屆會考";
@@ -193,6 +195,8 @@ function setModeCeec() {
 
     hideStudyarkOnly();  // 隱藏 StudyArk 文字 + 限流警語 + 所有 StudyArk filters
     showEl(yearCol);      enableIn(yearCol);  // 學年保留 (CEEC filter by year)
+    // 【2026-08-17 修】gradeSelect 永遠 enabled (grade 本身是 mode selector, 選大考才能送出)
+    if (gradeSelect) gradeSelect.disabled = false;
 
     form.action = "/ui/search";
     submitBtn.textContent = "🔍 搜尋 歷屆大學入學考";
