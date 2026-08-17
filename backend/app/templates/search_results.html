@@ -37,9 +37,9 @@
             <div class="alert alert-danger">{{ error }}</div>
         {% elif results %}
             <p class="mb-2">
-                共 <strong>{{ total }}</strong> 筆(本頁顯示 {{ results|length }} 筆,
-                本地縣市/學校 filter 後),
-                目前第 <strong>{{ page }}</strong> / <strong>{{ total_page }}</strong> 頁(StudyArk 每頁 8 筆,含答案最多 16 個檔案)
+                共 <strong>{{ total }}</strong> 組(本頁顯示 <strong>{{ files_in_page }}</strong> 個檔案,
+                含答案 {{ files_in_page_daan }} 個),
+                目前第 <strong>{{ page }}</strong> / <strong>{{ total_page }}</strong> 頁(每頁 8 組,含答案每頁最多 16 個檔案;單批下載最多 20 個)
             </p>
             {# 【2026-08-17 新】DriveFolder fallback banner: 當 metadata filter 0 筆, 自動放寬只比對學校 #}
             {% if fallback_unclassified %}

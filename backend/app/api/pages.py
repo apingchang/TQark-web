@@ -1967,6 +1967,14 @@ async def _render_search_results(
             "fallback_unclassified": fallback_info["fallback_unclassified"],
             "fallback_count": fallback_info["fallback_count"],
             "fallback_filters_dropped": fallback_info["fallback_filters_dropped"],
+            # 【2026-08-17 新】本頁實際檔案數 (paper + daan row 個別算), 給 template 顯示
+            "files_in_page": sum(
+                1 + (1 if (g.get("paper_id_daan") and g.get("daan_path")) else 0)
+                for g in results
+            ),
+            "files_in_page_daan": sum(
+                1 for g in results if g.get("paper_id_daan") and g.get("daan_path")
+            ),
         },
     )
 
