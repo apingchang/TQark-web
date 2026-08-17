@@ -544,7 +544,86 @@ def search_files_grouped_with_tokens(
             "size_kb": main["size_kb"],
         })
 
-    return groups, total, total_pages
+    # 4. 【2026-08-17 新】Fallback: 如果 filter 0 筆但有 school_name, 放寬只比對 school
+    fallback_unclassified = False
+    fallback_count = 0
+    fallback_filters_dropped = []
+
+    # 判定哪些 filter 是 metadata (放寬時可丟)
+    metadata_filters = {
+        "grade": grade, "subject": subject, "school_year": school_year,
+        "school_term": school_term, "exam_type": exam_type,
+        "version": version, "filetype": filetype,
+    }
+    has_any_metadata_filter = any(metadata_filters.values())
+    # DriveFolder 檔案 school_name 通常有, 但其他欄位空
+    # 條件: (a) total=0, (b) 有 school_name, (c) 有 metadata filter
+    if total == 0 and school_name and has_any_metadata_filter:
+        # 重新 query, 只用 county + school_name
+        from app.scraper.school_tokens import core_tokens as _core_tokens
+        where_parts_fb = []
+        params_fb = []
+        if county:
+            where_parts_fb.append("county = ?"); params_fb.append(county)
+        tokens = _core_tokens(school_name)
+        for t in tokens:
+            where_parts_fb.append("school_name LIKE ?"); params_fb.append(f"%{t}%")
+        where_sql_fb = ("WHERE " + " AND ".join(where_parts_fb)) if where_parts_fb else ""
+        count_sql_fb = f"SELECT COUNT(*) FROM files {where_sql_fb}"
+        fb_total = conn.execute(count_sql_fb, params_fb).fetchone()[0]
+        if fb_total > 0:
+            # 重新 pair grouping
+            rows_fb = conn.execute(
+                f"SELECT * FROM files {where_sql_fb} "
+                f"ORDER BY school_year DESC, county, school_name, grade, subject "
+                f"LIMIT ? OFFSET ?",
+                params_fb + [per_page, offset]
+            ).fetchall()
+            grouped_fb = defaultdict(lambda: {"paper": None, "daan": None})
+            for r in rows_fb:
+                key = (
+                    r["county"], r["school_year"], r["school_term"],
+                    r["exam_type"], r["school_name"], r["grade"],
+                    r["subject"], r["version"],
+                )
+                if r["paper_or_daan"] == "paper":
+                    grouped_fb[key]["paper"] = r
+                elif r["paper_or_daan"] == "daan":
+                    grouped_fb[key]["daan"] = r
+            groups_fb = []
+            for key, pair in grouped_fb.items():
+                main = pair["paper"] or pair["daan"]
+                if not main:
+                    continue
+                c, y, t, e, s, g, sub, v = key
+                groups_fb.append({
+                    "paper_id": main["paper_id"],
+                    "county": c, "school_year": y, "school_term": t,
+                    "exam_type": e, "school_name": s, "grade": g,
+                    "subject": sub, "version": v,
+                    "paper_id_paper": pair["paper"]["paper_id"] if pair["paper"] else None,
+                    "paper_path": pair["paper"]["rel_path"] if pair["paper"] else None,
+                    "paper_id_daan": pair["daan"]["paper_id"] if pair["daan"] else None,
+                    "daan_path": pair["daan"]["rel_path"] if pair["daan"] else None,
+                    "filetype_set": [t for t in ("paper", "daan") if pair[t]],
+                    "download_answer": "有" if pair["daan"] else "無",
+                    "title": main["filename"],
+                    "rel_path": main["rel_path"],
+                    "filename": main["filename"],
+                    "size_kb": main["size_kb"],
+                })
+            groups = groups_fb
+            total = fb_total
+            total_pages = max(1, (total + per_page - 1) // per_page)
+            fallback_unclassified = True
+            fallback_count = fb_total
+            fallback_filters_dropped = [k for k, v in metadata_filters.items() if v]
+
+    return groups, total, total_pages, {
+        "fallback_unclassified": fallback_unclassified,
+        "fallback_count": fallback_count,
+        "fallback_filters_dropped": fallback_filters_dropped,
+    }
 
 
 # Replace the original

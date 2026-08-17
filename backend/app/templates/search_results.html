@@ -41,6 +41,14 @@
                 本地縣市/學校 filter 後),
                 目前第 <strong>{{ page }}</strong> / <strong>{{ total_page }}</strong> 頁(StudyArk 每頁 8 筆,含答案最多 16 個檔案)
             </p>
+            {# 【2026-08-17 新】DriveFolder fallback banner: 當 metadata filter 0 筆, 自動放寬只比對學校 #}
+            {% if fallback_unclassified %}
+            <div class="alert alert-info mb-3" role="alert">
+                ℹ️ <strong>含未分類檔案</strong> — 您選擇的條件 ({{ fallback_filters_dropped | join(", ") }}) 沒找到結構化資料,
+                但<strong>{{ school_name }}</strong> 還有 <strong>{{ fallback_count }}</strong> 個未分類檔案 (DriveFolder raw dump)。
+                這些檔案 metadata 不完整, 建議清掉條件或選擇其他學校。
+            </div>
+            {% endif %}
 
             {# === 頂部浮動「已選 N 項」指示器 === #}
             <div id="batchBar" class="alert alert-warning sticky-top d-none" style="top: 10px; z-index: 100;">

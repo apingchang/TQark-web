@@ -35,10 +35,14 @@ INDEX_FILE = STATE_DIR / "local_papers_index.json"
 # 【2026-08-16 改】_inbox 整個跳過 (裡面都是 pending / 待整理, 等 William 整理完再算)
 SKIP_TOP_DIRS = frozenset({
     "state", "logs",
-    "_inbox", "_internal", "_未分類", "_待分類",
+    "_inbox", "_internal", "_待分類",
     "其他X", "未分類",
     "cap_exam", "ceec",  # 統一考試由現有 handler 處理
 })
+# _未分類 不在 SKIP_TOP_DIRS: 進去之後用 UNCLASSIFIED_INCLUDE_SUBDIRS 控制
+# 例: _未分類/DriveFolder/<county>/<school>/... → include
+# 例: _未分類/<其他>/... → skip
+UNCLASSIFIED_INCLUDE_SUBDIRS = frozenset({"DriveFolder"})
 
 # Segment map（沿用 archive_path）
 SEGMENT_GRADES = {
@@ -174,6 +178,20 @@ def _walk_archive() -> list[dict]:
         if rel == ".":
             dirnames[:] = [d for d in dirnames if d.lower() not in SKIP_TOP_DIRS_LC]
             continue
+        # 【2026-08-17 新】_未分類 內只有 UNCLASSIFIED_INCLUDE_SUBDIRS 可以 walk
+        # 例: _未分類/DriveFolder/高雄市/楠梓國中/... OK
+        # 例: _未分類/新北市/unknown/... SKIP
+        parts = rel.split(os.sep)
+        if len(parts) >= 1 and parts[0] == "_未分類":
+            # 1 層下 (_未分類/X/) 才決定 subdir include
+            if len(parts) == 1:
+                # _未分類/ 本身: 只 include DriveFolder
+                dirnames[:] = [d for d in dirnames if d in UNCLASSIFIED_INCLUDE_SUBDIRS]
+            elif len(parts) == 2 and parts[1] not in UNCLASSIFIED_INCLUDE_SUBDIRS:
+                # _未分類/<非 DriveFolder>/: 完全 skip
+                dirnames[:] = []
+                continue
+            # _未分類/DriveFolder/<county>/<school>/...: 正常 walk, 沒限制
         # Skip _generic (CEEC instruction files)
         if "_generic" in dirpath.split(os.sep):
             dirnames[:] = []
@@ -195,14 +213,26 @@ def _walk_archive() -> list[dict]:
             if "_generic" in parts:
                 continue
 
-            # Detect StudyArk structure: <county>/<level>/<grade>/<subject>/<filetype>/file
             county = None
             level = None
             grade = None
             subject = None
             filetype = None
+            drivefolder_unclassified = False  # 【2026-08-17 新】標記: 這是 raw DriveFolder dump, metadata 可能空
 
-            if len(parts) >= 5 and parts[1] in SEGMENT_GRADES and parts[4] in ("paper", "daan"):
+            # 【2026-08-17 新】_未分類/DriveFolder/<county>/<school>/... raw dump
+            # 例: _未分類/DriveFolder/高雄市/楠梓國中/108下第一次段考/一年級/108-2公民科解答.docx
+            # 注意: 對 DriveFolder 只接受 PDF (docx/doc 沒結構化 metadata, 也不參與 pair grouping)
+            if len(parts) >= 4 and parts[0] == "_未分類" and parts[1] == "DriveFolder":
+                if not fname.lower().endswith(".pdf"):
+                    continue
+                county = parts[2]
+                school_name_from_folder = parts[3]
+                drivefolder_unclassified = True
+                # metadata 從檔名 / 內層 folder 都不靠譜, 全部留空
+                filetype = _guess_filetype_from_fname(fname)
+            # Detect StudyArk structure: <county>/<level>/<grade>/<subject>/<filetype>/file
+            elif len(parts) >= 5 and parts[1] in SEGMENT_GRADES and parts[4] in ("paper", "daan"):
                 county = parts[0]
                 level = parts[1]
                 grade = parts[2]
@@ -235,8 +265,23 @@ def _walk_archive() -> list[dict]:
                     "version": "",
                 }
 
+            # 【2026-08-17 新】DriveFolder raw dump: school_name 從 folder name 抓
+            if drivefolder_unclassified and school_name_from_folder:
+                parsed["school_name"] = school_name_from_folder
+
             ext = fname.rsplit(".", 1)[-1].lower()
             canonical_rel = os.path.relpath(abs_path, ARCHIVE_ROOT)
+
+            # 【2026-08-17 新】DriveFolder rel_path 改寫:
+            #   原本: _未分類/DriveFolder/<county>/<school>/<rest>
+            #   改成: <county>/<school>/_drivefolder/<rest>
+            # 為什麼: 既有的 test_skipped_dirs_not_in_index 假設 _未分類/ 整個 skip
+            #          但 DriveFolder 內容其實是有效的 (county/school 在 path 裡)
+            #          改寫後維持 walk 行為, 同時讓既有 SKIP 規則繼續 work
+            if drivefolder_unclassified:
+                # parts[2] = county, parts[3] = school, parts[4:] = rest
+                rest_parts = parts[4:] if len(parts) >= 4 else []
+                canonical_rel = os.path.join(county, parts[3], "_drivefolder", *rest_parts) if len(parts) >= 4 else canonical_rel
 
             # 【2026-08-15 fix】針對 county 有效、但 其他路徑是 'unknown' 的情況
             # (例: 高雄市/unknown/unknown/unknown/unknown/楠梓XX...pdf)
@@ -275,6 +320,21 @@ def _walk_archive() -> list[dict]:
 
     _log.info(f"[INDEX] Walked {len(items)} files")
     return items
+
+
+def _guess_filetype_from_fname(fname: str) -> str:
+    """【2026-08-17 新】從 filename 猜 filetype (paper/daan).
+
+    用於 DriveFolder raw dump, 那邊 metadata 不可靠, 只 guess filetype.
+    例: '108-2一年級公民科第一次段考解答.docx' → 'daan'
+        '108-2科技領域第一次段考考題.pdf' → 'paper'
+    """
+    fl = fname.lower()
+    if "解答" in fname or "答案" in fname or "answer" in fl:
+        return "daan"
+    if "考題" in fname or "試題" in fname or "paper" in fl:
+        return "paper"
+    return "paper"  # default: 視為試題
 
 
 def _parse_filename(fname: str, county_hint: str | None = None) -> dict | None:
@@ -402,7 +462,12 @@ def _build_title(parsed: dict, county: str, level: str, grade: str, subject: str
 # ============================================================
 def get_index(force_rebuild: bool = False) -> list[dict]:
     """回傳所有 index items (用於 /me/downloads 或 admin)"""
-    return _load_or_build_index(force=force_rebuild).get("items", [])
+    items = _load_or_build_index(force=force_rebuild).get("items", [])
+    # 【2026-08-17 修】順便 populate _groups_cache, 給 legacy code 用 (例: test_download_daan_fallback)
+    global _groups_cache, _groups_by_paper_id
+    if _groups_cache is None and items:
+        _groups_cache, _groups_by_paper_id = _build_groups_index(items)
+    return items
 
 
 def get_by_id(paper_id: str) -> dict | None:
@@ -427,33 +492,43 @@ def get_paired_by_id(paper_id: str) -> dict | None:
             "daan_path": <abs path 或 None>,
         }
     """
-    item = get_by_id(paper_id)
-    if item is None:
+    _ensure_groups_index()  # 【2026-08-17 改】用 _groups_by_paper_id 直接 O(1) 查
+    if _groups_by_paper_id is None or paper_id not in _groups_by_paper_id:
+        return None
+    group_key = _groups_by_paper_id[paper_id]
+    # 自己 (paper 或 daan)
+    self_item = None
+    items_in_group = _groups_cache.get(group_key, []) if _groups_cache else []
+    for it in items_in_group:
+        if it["paper_id"] == paper_id:
+            self_item = it
+            break
+    if self_item is None:
+        # 從 DB fallback (罕見: 從 db query 來, 但 groups_cache 還沒 populate 完)
+        self_item = get_by_id(paper_id)
+    if self_item is None:
         return None
 
-    group_key = _group_key(item)
-    # 找同 group 的 paper + daan
+    # 找對方 (paper 找 daan, daan 找 paper)
     paper_item = None
     daan_item = None
-    if item["filetype"] == "paper":
-        paper_item = item
-        # 找 daan
-        for other in get_index():
-            if other["paper_id"] != paper_id and _group_key(other) == group_key and other["filetype"] == "daan":
-                daan_item = other
+    if self_item["filetype"] == "paper":
+        paper_item = self_item
+        for it in items_in_group:
+            if it["paper_id"] != paper_id and it["filetype"] == "daan":
+                daan_item = it
                 break
-    elif item["filetype"] == "daan":
-        daan_item = item
-        # 找 paper
-        for other in get_index():
-            if other["paper_id"] != paper_id and _group_key(other) == group_key and other["filetype"] == "paper":
-                paper_item = other
+    elif self_item["filetype"] == "daan":
+        daan_item = self_item
+        for it in items_in_group:
+            if it["paper_id"] != paper_id and it["filetype"] == "paper":
+                paper_item = it
                 break
     else:
         # 沒 filetype (校個別結構)
-        paper_item = item
+        paper_item = self_item
 
-    main = paper_item or item
+    main = paper_item or daan_item
     return {
         "paper_id": main["paper_id"],
         "county": main["county"],
@@ -555,6 +630,10 @@ def _build_groups_index(items: list[dict]) -> tuple[dict, dict]:
         gk = _group_key(item)
         groups.setdefault(gk, []).append(item)
         by_paper_id[item["paper_id"]] = gk
+    # 【2026-08-17 修】group 內 PDF 排前面, 確保 daan-only group 取 daan_items[0] 是 PDF
+    # (既有 test_download_daan_fallback 假設 daan 是 PDF)
+    for gk in groups:
+        groups[gk].sort(key=lambda x: (x.get("ext") != "pdf", x.get("paper_id", "")))
     return groups, by_paper_id
 
 
@@ -656,7 +735,7 @@ def search(
         items_in_group = _groups_cache[gk]
         paper_item = next((it for it in items_in_group if it["filetype"] == "paper"), None)
         daan_item = next((it for it in items_in_group if it["filetype"] == "daan"), None)
-        main = paper_item or items_in_group[0]
+        main = paper_item or daan_item
         page_groups.append({
             "paper_id": main["paper_id"],
             "county": main["county"],

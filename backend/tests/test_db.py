@@ -389,3 +389,156 @@ class TestRealScale:
         assert elapsed < 0.5, f"query took {elapsed*1000:.0f}ms (應 < 500ms)"
         assert total > 0  # 至少有 match
         assert len(rows) == 8
+
+
+# ============================================================
+# 【2026-08-17 新】DriveFolder + Fallback tests
+# ============================================================
+
+@pytest.fixture
+def drivefolder_items():
+    """模擬 _未分類/DriveFolder/<county>/<school>/... 的 raw dump items.
+
+    Metadata 大多空 (school_name 從 folder name 抓),
+    但 school_name 必填, filetype 從 fname 猜 (paper/daan)。
+    """
+    return [
+        # 楠梓國中 試題 (filetype 猜到)
+        {
+            "paper_id": "aaaa0001drive0001",
+            "rel_path": "_未分類/DriveFolder/高雄市/高雄市楠梓國中/108下第一次段考/一年級/108-2一年級公民科第一次段考考題.pdf",
+            "filename": "108-2一年級公民科第一次段考考題.pdf",
+            "county": "高雄市",
+            "level": "國中",
+            "school_year": "",  # DriveFolder 解析不出
+            "grade": "",  # DriveFolder 解析不出
+            "subject": "",  # DriveFolder 解析不出
+            "filetype": "paper",  # 從 fname 猜到
+            "school_name": "高雄市楠梓國中",  # 從 folder name 抓
+            "school_term": "",
+            "exam_type": "",
+            "version": "",
+            "size_kb": 123,
+            "mtime": "2026-08-16T13:00:00",
+            "abs_path": "/mnt/my_book/考題收集/_未分類/DriveFolder/高雄市/高雄市楠梓國中/108下第一次段考/一年級/108-2一年級公民科第一次段考考題.pdf",
+            "ext": "pdf",
+            "title": "",
+        },
+        # 楠梓國中 解答
+        {
+            "paper_id": "bbbb0002drive0002",
+            "rel_path": "_未分類/DriveFolder/高雄市/高雄市楠梓國中/108下第一次段考/一年級/108-2一年級公民科第一次段考解答.docx",
+            "filename": "108-2一年級公民科第一次段考解答.docx",
+            "county": "高雄市",
+            "level": "國中",
+            "school_year": "",
+            "grade": "",
+            "subject": "",
+            "filetype": "daan",  # 從 fname 猜到 (有「解答」)
+            "school_name": "高雄市楠梓國中",
+            "school_term": "",
+            "exam_type": "",
+            "version": "",
+            "size_kb": 45,
+            "mtime": "2026-08-16T13:01:00",
+            "abs_path": "/mnt/my_book/考題收集/_未分類/DriveFolder/高雄市/高雄市楠梓國中/108下第一次段考/一年級/108-2一年級公民科第一次段考解答.docx",
+            "ext": "docx",
+            "title": "",
+        },
+    ]
+
+
+class TestDriveFolderInclusion:
+    """測試 _未分類/DriveFolder/<county>/<school>/ 結構納入 DB."""
+
+    def test_drivefolder_items_have_county_and_school(self, tmp_db, drivefolder_items):
+        """DriveFolder items 一定要有 county + school_name (從 folder 抓)."""
+        db.rebuild_from_items(drivefolder_items, db_path=tmp_db)
+        rows, total, _ = db.search_files(
+            school_name_kw="高雄市楠梓國中",
+            db_path=tmp_db,
+        )
+        assert total == 2
+        for r in rows:
+            assert r["county"] == "高雄市"
+            assert "楠梓" in r["school_name"]
+
+    def test_drivefolder_paper_daan_pair_grouped(self, tmp_db, drivefolder_items):
+        """DriveFolder 也能正確 pair (paper + daan 同一 group)."""
+        db.rebuild_from_items(drivefolder_items, db_path=tmp_db)
+        groups, total, _, _ = db.search_files_grouped(
+            school_name="高雄市楠梓國中",
+            db_path=tmp_db,
+        )
+        assert total == 2
+        assert len(groups) == 1, "paper + daan should be 1 group"
+        g = groups[0]
+        assert g["school_name"] == "高雄市楠梓國中"
+        assert g["filetype_set"] == ["paper", "daan"]
+        assert g["download_answer"] == "有"
+
+    def test_drivefolder_metadata_filter_returns_zero(self, tmp_db, drivefolder_items):
+        """metadata filter (grade/subject/exam_type) 對 DriveFolder 0 hit."""
+        db.rebuild_from_items(drivefolder_items, db_path=tmp_db)
+        rows, total, _ = db.search_files(
+            county="高雄市",
+            school_name_kw="高雄市楠梓國中",
+            grade="一年級",  # DriveFolder 沒 grade, 應該 0 hit
+            db_path=tmp_db,
+        )
+        assert total == 0
+
+
+class TestFallbackUnclassified:
+    """測試 search_files_grouped fallback: filter 0 筆 → 自動放寬到只比對 school."""
+
+    def test_fallback_triggers_when_filter_zero(self, tmp_db, drivefolder_items):
+        """metadata filter 0 筆但 school_name 有 → fallback 觸發."""
+        db.rebuild_from_items(drivefolder_items, db_path=tmp_db)
+        groups, total, _, fb = db.search_files_grouped(
+            county="高雄市",
+            school_name="高雄市楠梓國中",
+            grade="一年級",  # 0 hit, 應該 trigger fallback
+            db_path=tmp_db,
+        )
+        assert fb["fallback_unclassified"] is True
+        assert fb["fallback_count"] == 2
+        assert "grade" in fb["fallback_filters_dropped"]
+        assert total == 2  # fallback 用 total 而非 0
+        assert len(groups) == 1  # 1 pair group
+
+    def test_no_fallback_when_filter_hits(self, tmp_db, sample_items):
+        """filter 有 hit 時 fallback 不觸發."""
+        db.rebuild_from_items(sample_items, db_path=tmp_db)
+        groups, total, _, fb = db.search_files_grouped(
+            county="高雄市",
+            school_name="高雄市立楠梓國民中學",
+            grade="七年級",  # 有 hit
+            db_path=tmp_db,
+        )
+        assert fb["fallback_unclassified"] is False
+        assert fb["fallback_count"] == 0
+        assert total == 2  # paper + daan
+
+    def test_no_fallback_without_school_name(self, tmp_db, drivefolder_items):
+        """沒有 school_name 時不 fallback (避免太寬)."""
+        db.rebuild_from_items(drivefolder_items, db_path=tmp_db)
+        groups, total, _, fb = db.search_files_grouped(
+            county="高雄市",
+            grade="一年級",
+            db_path=tmp_db,
+        )
+        assert fb["fallback_unclassified"] is False
+
+    def test_fallback_preserves_paper_daan_pair(self, tmp_db, drivefolder_items):
+        """fallback 結果仍正確 pair paper/daan."""
+        db.rebuild_from_items(drivefolder_items, db_path=tmp_db)
+        groups, _, _, _ = db.search_files_grouped(
+            county="高雄市",
+            school_name="高雄市楠梓國中",
+            grade="三年級",  # 0 hit → fallback
+            db_path=tmp_db,
+        )
+        assert len(groups) == 1
+        g = groups[0]
+        assert g["filetype_set"] == ["paper", "daan"]

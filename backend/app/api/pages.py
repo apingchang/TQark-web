@@ -1873,8 +1873,9 @@ async def _render_search_results(
     PAPERS_PER_PAGE = 8
 
     # 【2026-08-15 改】直接從 local index 找
+    fallback_info = {"fallback_unclassified": False, "fallback_count": 0, "fallback_filters_dropped": []}
     try:
-        results, total, total_page = db_mod.search_files_grouped(
+        results, total, total_page, fallback_info = db_mod.search_files_grouped(
             county=county,
             grade=grade,
             subject=subject,
@@ -1962,6 +1963,10 @@ async def _render_search_results(
             "total_page": total_page,
             "qs_for_page": qs_for_page,
             "counties": __import__("app.data.tw_counties", fromlist=["COUNTIES"]).COUNTIES,
+            # 【2026-08-17 新】DriveFolder fallback info (template 顯示「含未分類檔案」)
+            "fallback_unclassified": fallback_info["fallback_unclassified"],
+            "fallback_count": fallback_info["fallback_count"],
+            "fallback_filters_dropped": fallback_info["fallback_filters_dropped"],
         },
     )
 
