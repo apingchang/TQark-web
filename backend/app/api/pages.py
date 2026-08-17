@@ -1342,6 +1342,15 @@ def _render_cap_exam_results(request, user, year, subject, filetype, page=1):
     all_years = sorted(set(i["year"] for i in all_items if i["year"] > 0), reverse=True)
     all_subjects = sorted(set(i["subject"] for i in all_items if i["subject"]))
 
+    # 【2026-08-17 新】filter chips 用對 (template 個別移除按鈕 URL rebuild)
+    params_display = {
+        k: v for k, v in [
+            ("grade", "會考"),  # 固定標記, 不影響 SQL (CAP page 永遠是會考)
+            ("school_year", year if year else ""),
+            ("subject", subject or ""),
+            ("filetype", filetype or ""),
+        ] if v
+    }
     return templates.TemplateResponse(
         "cap_exam.html",
         {
@@ -1353,6 +1362,7 @@ def _render_cap_exam_results(request, user, year, subject, filetype, page=1):
             "selected_year": year,
             "selected_subject": subject,
             "selected_filetype": filetype,
+            "params_display": params_display,
             "total_files": total,
             "total_size": sum(i["size"] for i in items),
             "page": page,
@@ -1470,6 +1480,16 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype,
     all_years = sorted(set(i["year"] for i in all_items if i["year"] > 0), reverse=True)
     all_subjects = sorted(set(i["subject"] for i in all_items if i["subject"]))
 
+    # 【2026-08-17 新】filter chips 用對 (template 個別移除按鈕 URL rebuild)
+    params_display = {
+        k: v for k, v in [
+            ("grade", "大學入學考"),  # 固定標記, 不影響 SQL (CEEC page 永遠是大學入學考)
+            ("school_year", year if year else ""),
+            ("exam_type", exam_type or ""),
+            ("subject", subject or ""),
+            ("filetype", filetype or ""),
+        ] if v
+    }
     return templates.TemplateResponse(
         "ceec_exam.html",
         {
@@ -1483,6 +1503,7 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype,
             "selected_year": year,
             "selected_subject": subject,
             "selected_filetype": filetype,
+            "params_display": params_display,
             "total_files": total,
             "total_size": sum(i["size"] for i in items),
             "page": page,

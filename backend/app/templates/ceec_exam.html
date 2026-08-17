@@ -12,13 +12,22 @@
       🎓 歷屆大學入學考試
     {% endif %}
   </h1>
-  {% if selected_year or selected_subject %}
-  <p class="text-muted">
-    {% if selected_subject %}科目: <span class="badge bg-warning text-dark">{{ selected_subject }}</span>{% endif %}
-    {% if selected_year %}學年: <span class="badge bg-success">{{ selected_year }}</span>{% endif %}
-    ｜ <a href="/ui/ceec-exam">清除篩選</a>
-  </p>
-  {% else %}
+  {# 【2026-08-17 改】filter chips 對齊 StudyArk page 風格 (個別移除) === #}
+  {# CEEC page 永遠顯示「考試類別」chip (user 透過 grade=大學入學考 進入的) #}
+  <div class="mb-3 d-flex flex-wrap align-items-center">
+    <small class="text-muted me-2">搜尋條件:</small>
+    <span class="badge bg-warning text-dark me-2">
+      考試類別: 📕 大學入學考 (CEEC)
+      <a href="?{% for k, v in params_display.items() %}{% if k != 'grade' and v %}{{k}}={{v}}&{% endif %}{% endfor %}" class="text-dark ms-1 text-decoration-none" title="移除此條件">×</a>
+    </span>
+    {% if selected_year %}<span class="badge bg-success me-2">學年: {{ selected_year }} <a href="?{% for k, v in params_display.items() %}{% if k != 'school_year' and v %}{{k}}={{v}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+    {% if selected_exam_type %}<span class="badge bg-secondary me-2">考試類型: {{ selected_exam_type }} <a href="?{% for k, v in params_display.items() %}{% if k != 'exam_type' and v %}{{k}}={{v}}&{% endif %}{% endfor %}" class="text-white ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+    {% if selected_subject %}<span class="badge bg-warning text-dark me-2">科目: {{ selected_subject }} <a href="?{% for k, v in params_display.items() %}{% if k != 'subject' and v %}{{k}}={{v}}&{% endif %}{% endfor %}" class="text-dark ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+    {% if selected_filetype %}<span class="badge bg-light text-dark me-2">類型: {{ selected_filetype }} <a href="?{% for k, v in params_display.items() %}{% if k != 'filetype' and v %}{{k}}={{v}}&{% endif %}{% endfor %}" class="text-dark ms-1 text-decoration-none" title="移除此條件">×</a></span>{% endif %}
+    <a href="/ui/ceec-exam" class="btn btn-link btn-sm p-0 ms-2">清空全部</a>
+  </div>
+  {# 來源說明 (沒 selected_year/subject 時額外顯示) #}
+  {% if not selected_year and not selected_subject %}
   <p class="text-muted">
     來源: <a href="https://www.ceec.edu.tw/xmfile?xsmsid=0J052424829869345634" target="_blank">大學入學考試中心 CEEC</a>
     ｜ 學測 + 分科測驗 + 英語聽力。
