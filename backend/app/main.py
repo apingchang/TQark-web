@@ -28,6 +28,23 @@ app = FastAPI(
     version="0.1.2",
 )
 
+# 【2026-08-17 新】強制 no-cache HTML responses (避免 internet proxy / browser cache 住舊 JS)
+# dashboard_form.js 用 ?v=mtime 還是會被某些 proxy strip 或 cache hit
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class NoCacheHTMLMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        ct = response.headers.get("content-type", "")
+        # 只針對 HTML responses, 不影響 API / static files
+        if "text/html" in ct:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
+app.add_middleware(NoCacheHTMLMiddleware)
+
 # /static mount(serve Bootstrap CSS / JS / favicon)
 _static_dir = Path(__file__).resolve().parent / "static"
 _static_dir.mkdir(parents=True, exist_ok=True)
