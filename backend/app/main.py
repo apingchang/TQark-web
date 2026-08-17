@@ -100,6 +100,38 @@ async def startup_event():
 
     threading.Thread(target=_warmup_local_index, daemon=True, name="warmup-local-index").start()
 
+    # 【2026-08-17 新】SQLite DB warmup + background full scan
+    # 為什麼: dashboard dropdown 跟 search 都用 DB
+    # - 啟動時先讀現有 DB (即使 DB 是空, dropdown 也能從 DB 顯示空 list)
+    # - 背景跑一次 full scan 更新 DB (讓 archive 後新增的檔立即生效)
+    def _warmup_search_db():
+        from app.scraper import db as db_mod
+        from pathlib import Path as _Path
+        try:
+            t0 = _time.time()
+            db_mod.init_db()
+            conn = db_mod._connect()
+            count = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+            print(f"[startup] search_db: {count} items in DB ({_time.time() - t0:.2f}s)", flush=True)
+        except Exception as e:
+            print(f"[startup] search_db init failed: {e}", flush=True)
+            return  # DB init fail, skip bg scan
+
+        # Background full scan (不阻擋 startup)
+        def _bg_scan():
+            try:
+                from app.scraper.local_index import _walk_archive
+                t0 = _time.time()
+                items = _walk_archive()  # uses ARCHIVE_ROOT constant
+                db_mod.rebuild_from_items(items)
+                print(f"[startup-bg] search_db full scan done: {len(items)} items ({_time.time() - t0:.1f}s)", flush=True)
+            except Exception as e:
+                print(f"[startup-bg] search_db full scan failed: {e}", flush=True)
+
+        threading.Thread(target=_bg_scan, daemon=True, name="search-db-bg-scan").start()
+
+    threading.Thread(target=_warmup_search_db, daemon=True, name="warmup-search-db").start()
+
 
 @app.get("/health")
 async def health() -> dict:

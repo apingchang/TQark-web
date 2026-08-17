@@ -638,6 +638,26 @@ async def main():
         invalidate_signal.touch()
         log.info(f"  Touched invalidate signal: {invalidate_signal}")
 
+        # 【2026-08-17 新】trigger DB incremental update
+        # 為什麼: 之後 dashboard dropdown + search 都用 SQLite
+        # archive 完新檔歸位後, 必須立即讓 DB 知道 (避免 user 等 6h scan)
+        try:
+            from app.scraper.db import init_db, rebuild_from_items, get_db_path
+            from app.scraper.local_index import _walk_archive
+            db_path = get_db_path()
+            init_db(db_path)
+            log.info(f"  [DB] Scanning archive for incremental update (db={db_path})")
+            t0 = time.time()
+            items = _walk_archive()  # uses its own ARCHIVE_ROOT constant
+            rebuild_from_items(items, db_path=db_path)
+            elapsed = time.time() - t0
+            log.info(f"  [DB] ✅ Incremental update done in {elapsed:.1f}s ({len(items)} items)")
+        except Exception as e:
+            log.warning(f"  [DB] ⚠️  Incremental update failed: {e}")
+            log.warning(f"  [DB] Dashboard 仍會顯示舊 DB, 下次 archive / 6h scan 會修")
+            import traceback
+            log.debug(traceback.format_exc())
+
     log.info(f"=== Archive task done (saved={saved_count}, total={len(collected_set)}) ===")
 
 
