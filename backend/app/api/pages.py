@@ -1371,6 +1371,7 @@ def _render_cap_exam_results(request, user, year, subject, filetype, page=1):
             "selected_subject": subject,
             "selected_filetype": filetype,
             "params_display": params_display,
+            "deploy_ts": int(os.path.getmtime(Path(__file__).parent.parent / "static" / "cache_check.js")),
             "total_files": total,
             "total_size": sum(i["size"] for i in items),
             "page": page,
@@ -1512,6 +1513,7 @@ def _render_ceec_exam_results(request, user, exam_type, year, subject, filetype,
             "selected_subject": subject,
             "selected_filetype": filetype,
             "params_display": params_display,
+            "deploy_ts": int(os.path.getmtime(Path(__file__).parent.parent / "static" / "cache_check.js")),
             "total_files": total,
             "total_size": sum(i["size"] for i in items),
             "page": page,
@@ -1979,6 +1981,8 @@ async def _render_search_results(
             "error": error,
             "search_params": search_params_str,  # audit log 字串
             "params_display": params_display,  # template chip 移除連結用
+            # 【2026-08-17 新】cache buster (file mtime 自動 invalidate)
+            "deploy_ts": int(os.path.getmtime(Path(__file__).parent.parent / "static" / "cache_check.js")),
             # 為了 template 顯示 current filter 跟 chip
             "grade": grade,
             "subject": subject,

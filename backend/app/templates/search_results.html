@@ -325,4 +325,6 @@ table td:last-child {
 
 {% block scripts %}
 <script src="/static/search_results.js?v=fix-progress-modal-1"></script>
+{# 【2026-08-17 加】cache check 提示 (避免 browser cache 住舊 JS) #}
+<script src="/static/cache_check.js?v={{ deploy_ts }}"></script>
 {% endblock %}
