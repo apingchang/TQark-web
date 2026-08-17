@@ -134,6 +134,28 @@ function initDomRefs() {
     // 【2026-08-17 改】學年從 input+datalist 改成 select dropdown
     yearSelectEl = $id("schoolYearSelect");
     daanSelectEl = $id("daanSelect");
+
+    // 【2026-08-17 改】預設載入時填 dropdown (避免顯示「只有不限」)
+    if (yearSelectEl && yearSelectEl.options.length <= 1) {
+        const defaultYears = [];
+        for (let y = 115; y >= 83; y--) defaultYears.push(String(y));
+        populateYears(yearSelectEl, defaultYears);
+    }
+    if (subjectSelectEl && subjectSelectEl.options.length <= 1) {
+        fillSelectOptions(subjectSelectEl,
+            ["數學","國語","英語","生活","健康與體育","社會","地理","歷史","理化","公民","自然","作文"],
+            subjectSelectEl.value);
+    }
+    if (examTypeSelect && examTypeSelect.options.length <= 1) {
+        fillSelectOptions(examTypeSelect, ["期中考", "期末考"], examTypeSelect.value);
+    }
+    if (versionSelectEl && versionSelectEl.options.length <= 1) {
+        fillSelectOptions(versionSelectEl, ["康軒","翰林","南一","佳音","何嘉仁","龍騰","泰宇","三民","其他"],
+            versionSelectEl.value);
+    }
+    if (schoolTermSelectEl && schoolTermSelectEl.options.length <= 1) {
+        fillSelectOptions(schoolTermSelectEl, ["上學期","下學期"], schoolTermSelectEl.value);
+    }
 }
 
 // =========================================================
