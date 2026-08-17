@@ -762,7 +762,6 @@ async def dashboard(
     user: User = Depends(require_login),
 ):
     # 【2026-07-24 新】拿 CAP / CEEC 真實 subject list (從 disk scan) 傳到 template
-    #   避免 JS hardcode 漏掉 (例如 CAP 有「寫作測驗」)
     cap_items = _scan_pdf_tree(CAP_DIR)
     ceec_items = _scan_pdf_tree(CEEC_DIR)
     cap_subjects = sorted({i["subject"] for i in cap_items if i["subject"]})
@@ -770,6 +769,22 @@ async def dashboard(
     # 【2026-08-17 新】CAP/CEEC 真實年度清單 (dashboard 切 mode 時填 datalist)
     cap_years = sorted({i["year"] for i in cap_items if i["year"] > 0}, reverse=True)
     ceec_years = sorted({i["year"] for i in ceec_items if i["year"] > 0}, reverse=True)
+    # 【2026-08-17 新】StudyArk 真實學年 (從 DB 拿, 不再 hardcode 83-115)
+    #   DB 欄位 school_year, 排除 DriveFolder + CAP/CEEC 資料夾
+    #   【2026-08-17 修】用 with 確保 conn 正確 close (避免 sqlite3.ProgrammingError)
+    from app.scraper import db as _db_mod
+    # 【2026-08-17 修】用 _connect() 但不要 close (cached connection)
+    _conn = _db_mod._connect()
+    _studyark_years_rows = _conn.execute("""
+        SELECT DISTINCT school_year FROM files
+        WHERE school_year != '' AND school_year IS NOT NULL
+          AND (rel_path NOT LIKE '%_drivefolder/%')
+          AND (rel_path NOT LIKE '%/cap_exam/%')
+          AND (rel_path NOT LIKE '%/ceec/%')
+        ORDER BY CAST(school_year AS INTEGER) DESC
+    """).fetchall()
+    studyark_years = [int(r[0]) for r in _studyark_years_rows if r[0] and r[0].isdigit()]
+    print(f'[dashboard] StudyArk 真實學年 ({len(studyark_years)}): {studyark_years[:5]}...{studyark_years[-3:]}', flush=True)
 
     # 【2026-07-28 移】平台資訊搬到 dashboard.html
     stats = _get_cached_archive_counts()
@@ -787,6 +802,7 @@ async def dashboard(
             "ceec_subjects_json": json.dumps(ceec_subjects, ensure_ascii=False),
             "cap_years_json": json.dumps(cap_years, ensure_ascii=False),
             "ceec_years_json": json.dumps(ceec_years, ensure_ascii=False),
+            "studyark_years": studyark_years,
             "stats": stats,
             "deploy_ts": int(os.path.getmtime(Path(__file__).parent.parent / "static" / "dashboard_form.js")),
             "nonce": _nonce,

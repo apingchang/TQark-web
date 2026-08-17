@@ -128,12 +128,12 @@
                     </select>
                     <small class="form-text text-muted" id="schoolCountHint"></small>
                 </div>
-                {# 【2026-08-17 改】學年用 server-side render (StudyArk 預設範圍 83-115; CAP/CEEC 在 JS setMode 切換時重新填) #}
+                {# 【2026-08-17 改】學年用 DB 真實 year (從後端 query DB, 排除 DriveFolder + CAP/CEEC) #}
                 <div class="col-md-4">
                     <label class="form-label small">學年</label>
                     <select name="school_year" id="schoolYearSelect" class="form-select form-select-sm">
                         <option value="">不限</option>
-                        {% for y in range(115, 82, -1) %}
+                        {% for y in studyark_years %}
                         <option value="{{ y }}">{{ y }}</option>
                         {% endfor %}
                     </select>
