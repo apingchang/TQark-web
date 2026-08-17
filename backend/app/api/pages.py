@@ -774,21 +774,28 @@ async def dashboard(
     # 【2026-07-28 移】平台資訊搬到 dashboard.html
     stats = _get_cached_archive_counts()
 
-    return templates.TemplateResponse(
+    # 【2026-08-17 新】random nonce (每次 request 不同, 防止 proxy cache HTML)
+    import secrets as _secrets
+    _nonce = _secrets.token_urlsafe(8)
+    response = templates.TemplateResponse(
         "dashboard.html",
         {
             **_common_ctx(user),
             "request": request,
-            "user_full": user,  # 完整 User object 給 template 用 datetime 等
+            "user_full": user,
             "cap_subjects_json": json.dumps(cap_subjects, ensure_ascii=False),
             "ceec_subjects_json": json.dumps(ceec_subjects, ensure_ascii=False),
             "cap_years_json": json.dumps(cap_years, ensure_ascii=False),
             "ceec_years_json": json.dumps(ceec_years, ensure_ascii=False),
             "stats": stats,
-            # 【2026-08-17 新】cache buster 用 file mtime (每次改 JS 都不同)
             "deploy_ts": int(os.path.getmtime(Path(__file__).parent.parent / "static" / "dashboard_form.js")),
+            "nonce": _nonce,
         },
     )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @router.get("/ui/school-sources", response_class=HTMLResponse)

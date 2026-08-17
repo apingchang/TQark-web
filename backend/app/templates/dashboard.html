@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block title %}考題搜尋 — 三好之家{% endblock %}
+{# 【2026-08-17 新】random nonce (每次 request 不同, 防止 proxy cache HTML) #}
+<meta name="x-nonce" content="{{ nonce }}">
 
 {% block content %}
 {# 【2026-07-28 改】dashboard 用 .main-grid-2col (主 1fr + 右側 240px) #}
@@ -13,6 +15,11 @@
     <div class="dashboard-main">
 {# 【2026-08-03 新】頁面 title (中間欄頂部) #}
 <h1 class="page-title mb-3" id="pageTitle">考題搜尋</h1>
+{# 【2026-08-17 強烈提示】版本戳記 - 用來確認 user 看到的是不是新版 #}
+<small class="text-muted d-block mb-2" id="versionStamp">
+    🏷️ 版本: build-072588a + nonce={{ nonce }} | 
+    {% if deploy_ts %}JS mtime={{ deploy_ts }}{% endif %}
+</small>
 {% if request.query_params.get('error') == 'rate_limited' %}
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         <strong>⏰ StudyArk 限流中</strong><br>
