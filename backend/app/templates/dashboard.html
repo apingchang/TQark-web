@@ -121,11 +121,14 @@
                     </select>
                     <small class="form-text text-muted" id="schoolCountHint"></small>
                 </div>
-                {# 【2026-08-17 改】學年改用 select dropdown (跟其他 filter 一致, 統一考試也有 dropdown) #}
+                {# 【2026-08-17 改】學年用 server-side render (StudyArk 預設範圍 83-115; CAP/CEEC 在 JS setMode 切換時重新填) #}
                 <div class="col-md-4">
                     <label class="form-label small">學年</label>
                     <select name="school_year" id="schoolYearSelect" class="form-select form-select-sm">
                         <option value="">不限</option>
+                        {% for y in range(115, 82, -1) %}
+                        <option value="{{ y }}">{{ y }}</option>
+                        {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-4 studyark-only">
