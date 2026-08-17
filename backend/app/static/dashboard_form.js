@@ -55,8 +55,24 @@ function getYears(mode) {
 }
 
 // 【2026-08-17 改】學年 select dropdown 重建 (DESC 排序)
+// 保護 server-side render: 只在 options.length <= 1 才清空重填
+// (否則保留 server-side render 的 options, 避免 user 端 cache 看到空 dropdown)
 function populateYears(selectEl, years, currentValue) {
     if (!selectEl) return;
+    // 保留 server-side render 的 options (預設 83-115)
+    // 只有當 select 完全空 (有 server-side 但 JS 跑了 reset) 才重填
+    if (selectEl.options.length > 1) {
+        // 只更新 currentValue (不要清空重填)
+        if (currentValue && Array.from(selectEl.options).some(o => o.value === String(currentValue))) {
+            selectEl.value = String(currentValue);
+        } else if (years && years.length > 0 && !years.includes(selectEl.value)) {
+            // 如果 server-side 預設值不在 dynamic 清單, reset
+            // 但因為 server-side 用的是 83-115 (包含 CAP/CEEC 真實年度),
+            // 所以通常不會 reset
+        }
+        return;  // ← 重要: 不清空 options, 保留 server-side render
+    }
+    // options.length <= 1 (沒 server-side 或被清空), 才重建
     const defaultOpt = selectEl.options[0];
     selectEl.innerHTML = "";
     if (defaultOpt) selectEl.appendChild(defaultOpt);
@@ -399,22 +415,27 @@ async function fetchAvailableFilters(county, schoolName) {
 
 function fillSelectOptions(selectEl, options, currentValue) {
     if (!selectEl) return;
-    // 保留第一個 option (不限)
+    // 保護 server-side render: 只在 options.length <= 1 才清空重填
+    if (selectEl.options.length > 1) {
+        if (currentValue && Array.from(selectEl.options).some(o => o.value === currentValue)) {
+            selectEl.value = currentValue;
+        }
+        return;
+    }
+    // 完全空才重建
     const defaultOpt = selectEl.options[0];
     selectEl.innerHTML = "";
     if (defaultOpt) selectEl.appendChild(defaultOpt);
-    // 重建其他 options
     options.forEach(v => {
         const o = document.createElement("option");
         o.value = v;
         o.textContent = v;
         selectEl.appendChild(o);
     });
-    // 還原 current value (如果還在清單裡)
     if (currentValue && Array.from(selectEl.options).some(o => o.value === currentValue)) {
         selectEl.value = currentValue;
     } else {
-        selectEl.value = "";  // 不在清單 → reset
+        selectEl.value = "";
     }
 }
 
