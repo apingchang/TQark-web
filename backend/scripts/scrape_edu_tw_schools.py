@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, unquote, urljoin, urlparse
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlparse, urlunparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -149,6 +149,31 @@ def save_state(state: dict[str, Any]) -> None:
         encoding="utf-8",
     )
     temporary.replace(STATE_FILE)
+
+
+def encode_referer(url: str) -> str:
+    """Return ``url`` with the path percent-encoded so it is safe to use as a
+    Referer (or any other HTTP) header.
+
+    HTTP headers are encoded with ``latin-1`` by Python's ``http.client``,
+    so a Referer that contains raw Chinese (or other non-latin-1) characters
+    raises ``UnicodeEncodeError`` before the request is sent. Percent-encoding
+    the path keeps the Referer ASCII-only while still pointing at the same
+    resource.
+
+    The query string is preserved verbatim — most servers expect it intact
+    and any non-ASCII characters there must already be percent-encoded by
+    the calling site.
+    """
+    if not url:
+        return url
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return url
+    encoded_path = quote(parsed.path, safe="/")
+    return urlunparse(
+        (parsed.scheme, parsed.netloc, encoded_path, parsed.params, parsed.query, parsed.fragment)
+    )
 
 
 def safe_filename(name: str) -> str:
@@ -559,7 +584,7 @@ def archive_links(
             cat_page = get_category_page(link)
             # 【2026-07-30 bugfix】Referer 不可為中文 URL (requests 內部用 latin-1 encode header)
             # Use category page (ASCII only) as Referer — fallback to page_url
-            referer = cat_page or link.url
+            referer = cat_page or encode_referer(link.url)
             headers = {"Referer": referer}
             # 【2026-07-30】加 pacing,避免 IP 被 rate-limit 退绠
             time.sleep(0.5)
