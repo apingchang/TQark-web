@@ -103,3 +103,7 @@ backend/data/external_sources.json
 *.bak
 *.crt
 *.key
+
+# analysis/ dry-run output (regenerated each run, not source)
+backend/scripts/analysis/drivefolder_dryrun_*.csv
+backend/scripts/analysis/drivefolder_dryrun_*.json
