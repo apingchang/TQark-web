@@ -546,6 +546,7 @@ def analyse():
     print(f"Drive folder config schools: {len(drive_config)}")
 
     main_lookup = {}
+    main_target_rels = set()
     for it in items:
         if not it.get("level"):
             continue
@@ -558,6 +559,10 @@ def analyse():
         )
         if key not in main_lookup:
             main_lookup[key] = it["abs_path"]
+        # 8/25 fix: 也記 target_rel-ish path 供 disk-truth conflict check
+        rel = it.get("rel_path", "")
+        if rel and not rel.startswith("_"):
+            main_target_rels.add(rel)
 
     analysis = []
     for it in drive_items:
@@ -609,9 +614,20 @@ def analyse():
 
         conflict_target = None
         if confidence != "LOW":
-            key = (county, school_year, grade, subject, filetype, exam_type, school_name)
-            if key in main_lookup:
-                conflict_target = main_lookup[key]
+            # 8/25 fix: 用 target_rel disk truth 而非 7-tuple 算 conflict
+            # 因為 main archive 可能有 _drivefolder suffix 檔、index 沒走到
+            try:
+                from pathlib import Path
+                target_abs = ARCHIVE_ROOT / target_rel
+                if target_abs.exists():
+                    conflict_target = str(target_abs)
+            except Exception:
+                pass
+            # 退路: 用 7-tuple key (legacy)
+            if not conflict_target:
+                key = (county, school_year, grade, subject, filetype, exam_type, school_name)
+                if key in main_lookup:
+                    conflict_target = main_lookup[key]
 
         analysis.append({
             "paper_id": it["paper_id"],
