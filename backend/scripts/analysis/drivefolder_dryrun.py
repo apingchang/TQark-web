@@ -438,6 +438,18 @@ def parse_school_term(filename: str, school: tuple[str, str]) -> str | None:
         re.compile(r"第([12])\s*學期"),
         re.compile(r"第([一二])\s*學期"),
         re.compile(r"([上下])(?:學期|半)"),
+        # 8/25 新增: 崇林風格 — <3digit> + (上|下) 但後面沒「學期/半/數字」字
+        # e.g., "101下自然七年級第一次段考.pdf" / "崇林102下自然第一次段考.pdf"
+        # 不 match "101上學期" (已由前面 pattern 抓)、"110上半年" (已由前面 pattern 抓)
+        re.compile(r"(?<!\d)(?:10[0-9]|11[0-5])([上下])(?![學期半\d])"),
+        # 8/25 新增: 崇林風格 — <3digit>-<1|2>- → -1- = 上學期, -2- = 下學期
+        # e.g., "101-2-八年級第三次段考.pdf"
+        # 不要 match "1021-108" 這種電話號碼 (前面是 4-digit + 後面是 3-digit)
+        re.compile(r"(?<!\d)(?:10[0-9]|11[0-5])-([12])(?![0-9])"),
+        # 8/25 第二輪: 崇林編碼 <year><sem>-<exam> → <sem> 1=上學期、2=下學期
+        # e.g., "1082-2-7社會.pdf" / "1071-3七年級自然試卷.pdf"
+        # 注意: 這個 pattern 必須在 parse_school_year 的 `<3digit>-<1|2>` pattern 後才採用
+        re.compile(r"(?<!\d)(?:10[0-9]|11[0-5])([12])(?=-)"),
     ]
     for pat in patterns:
         m = pat.search(base)
@@ -471,6 +483,15 @@ def parse_exam_type(filename: str) -> str | None:
     for kw in keywords:
         if kw in base:
             return kw
+
+    # 8/25: 崇林編碼 <year><sem>-<exam> → exam 1=第一次段考、2=第二次段考、3=第三次段考
+    # e.g., "1082-2-7社會.pdf" / "1071-3七年級自然試卷.pdf"
+    # 必須前面是 <3digit><1|2>- 才算 (避免誤判年份裡的數字)
+    m = re.search(r"(?:10[0-9]|11[0-5])[12]-([123])(?!\d)", base)
+    if m:
+        exam_digit = m.group(1)
+        return {"1": "第一次段考", "2": "第二次段考", "3": "第三次段考"}.get(exam_digit)
+
     return None
 
 
