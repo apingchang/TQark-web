@@ -163,7 +163,7 @@ function initDomRefs() {
             subjectSelectEl.value);
     }
     if (examTypeSelect && examTypeSelect.options.length <= 1) {
-        fillSelectOptions(examTypeSelect, ["期中考", "期末考"], examTypeSelect.value);
+        fillSelectOptions(examTypeSelect, ["第一次段考", "第二次段考", "第三次段考", "第1次段考", "第2次段考", "第3次段考", "段考", "第一次定期考", "第二次定期考", "第三次定期考", "第1次定期考", "第2次定期考", "第3次定期考", "第一次定期評量", "第二次定期評量", "第三次定期評量", "定期考", "定期評量", "期中考", "期末考", "月考", "模擬考", "複習考", "評量"], examTypeSelect ? examTypeSelect.value : "");
     }
     if (versionSelectEl && versionSelectEl.options.length <= 1) {
         fillSelectOptions(versionSelectEl, ["康軒","翰林","南一","佳音","何嘉仁","龍騰","泰宇","三民","其他"],
@@ -455,7 +455,7 @@ async function onSchoolChange() {
     const schoolName = schoolNameSelect.value || "";
     // 沒選學校 → 用 template 預設值 (避免顯示 700+ garbage subject 從 DriveFolder)
     if (!schoolName) {
-        fillSelectOptions(examTypeSelect, ["期中考", "期末考"], examTypeSelect ? examTypeSelect.value : "");
+        fillSelectOptions(examTypeSelect, ["第一次段考", "第二次段考", "第三次段考", "第1次段考", "第2次段考", "第3次段考", "段考", "第一次定期考", "第二次定期考", "第三次定期考", "第1次定期考", "第2次定期考", "第3次定期考", "第一次定期評量", "第二次定期評量", "第三次定期評量", "定期考", "定期評量", "期中考", "期末考", "月考", "模擬考", "複習考", "評量"], examTypeSelect ? examTypeSelect.value : "");
         fillSelectOptions(subjectSelectEl,
             ["數學","國語","英語","生活","健康與體育","社會","地理","歷史","理化","公民","自然","作文"],
             subjectSelectEl ? subjectSelectEl.value : "");
