@@ -559,6 +559,18 @@ async def main_async(args):
 
         await browser.close()
 
+    # 【2026-08-26 新 Stage 4b】Trigger DB rebuild
+    try:
+        from app.scraper.db import init_db, rebuild_from_items, get_db_path
+        from app.scraper.local_index import _walk_archive
+        db_path = get_db_path()
+        init_db(db_path)
+        items = _walk_archive()
+        rebuild_from_items(items, db_path=db_path)
+        log.info(f"[DB] ✅ Rebuild done: {len(items)} items")
+    except Exception as e:
+        log.warning(f"[DB] ⚠️  Rebuild failed: {e}")
+
     log.info("All done")
     return 0
 

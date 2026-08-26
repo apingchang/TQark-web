@@ -18,7 +18,9 @@ Usage:
     uv run python scripts/archive_kh_frameset.py --all  # process all frameset schools
 """
 import argparse
-import json
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import re
 import subprocess
 import sys

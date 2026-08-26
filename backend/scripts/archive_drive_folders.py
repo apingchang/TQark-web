@@ -24,6 +24,9 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+# Add backend to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from dotenv import load_dotenv  # noqa
 import requests
 
@@ -299,6 +302,20 @@ def main():
     logger.info("Schools: %d   Total files seen: %d", len(schools), total["files"])
     logger.info("Downloaded: %d   Skipped: %d   Errors: %d",
                 total["downloaded"], total["skipped"], total["errors"])
+
+    # 【2026-08-26 新】下載完成後 trigger DB rebuild (Stage 4b)
+    # 不再等 6hr cron - 新下載的檔案立刻進 DB
+    if not args.dry_run and total["downloaded"] > 0:
+        logger.info("\n=== Triggering DB rebuild (Stage 4b) ===")
+        try:
+            from app.scraper.db import init_db, rebuild_from_items
+            from app.scraper.local_index import _walk_archive
+            t0 = time.time()
+            items = _walk_archive()
+            inserted, total_n = rebuild_from_items(items)
+            logger.info("✅ DB rebuilt: %d items (%.1fs)", total_n, time.time() - t0)
+        except Exception as e:
+            logger.error("DB rebuild failed: %s", e)
 
 
 if __name__ == "__main__":

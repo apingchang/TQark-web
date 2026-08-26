@@ -21,7 +21,9 @@
   TQARK_ARCHIVE_DELAY       default 60 (不同 fileid 之間間隔秒數)
   TQARK_ARCHIVE_INTRA_DELAY default 10 (同一 fileid 內 paper→daan 之間秒數)
 """
-import asyncio
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import json
 import logging
 import os

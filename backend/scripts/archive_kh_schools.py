@@ -14,6 +14,8 @@ Usage:
 """
 import argparse
 import json
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import re
 import subprocess
 import sys
@@ -148,6 +150,14 @@ def main():
         print(f"📚 Found {len(kh_schools)} kh_web schools")
         for s in kh_schools:
             process_school(s, args.dry_run)
+        # 【2026-08-26 新 Stage 4b】Trigger DB rebuild
+        from app.scraper.db import init_db, rebuild_from_items, get_db_path
+        from app.scraper.local_index import _walk_archive
+        db_path = get_db_path()
+        init_db(db_path)
+        items = _walk_archive()
+        rebuild_from_items(items, db_path=db_path)
+        print(f"[DB] ✅ Rebuild done: {len(items)} items")
         return
     
     # default: dry-run preview
