@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
