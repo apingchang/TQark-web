@@ -222,7 +222,7 @@ def ocr_one_record(record: dict, do_ocr=True) -> dict:
     if not do_ocr:
         return {'paper_id': record['paper_id'], 'parsed': {}, 'text': ''}
     
-    text, err = ocr_cover(Path(abs_path))
+    text, err = ocr_cover_robust(Path(abs_path))
     if err:
         return {'paper_id': record['paper_id'], 'error': err, 'parsed': {}}
     
@@ -332,3 +332,57 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+
+# ============================================================
+# Stage 5: 直式 OCR 支援
+# ============================================================
+
+def ocr_cover_robust(pdf_path: Path, lang: str = 'chi_tra+eng') -> tuple:
+    """OCR PDF cover, 支援直式 (rotation fallback). Return (text, error)."""
+    text, err = ocr_cover(pdf_path, lang)
+    if text and err is None:
+        # 檢查是否 parse 出 metadata, 沒 parse → 試 rotation
+        parsed = parse_ocr_text(text)
+        if not parsed or (not parsed.get('school_name') and not parsed.get('county')):
+            # 嘗試 rotation 90 度
+            text_rot, err_rot = ocr_cover_rotated(pdf_path, lang, angle=90)
+            if text_rot and err_rot is None:
+                parsed_rot = parse_ocr_text(text_rot)
+                # 比較哪個 parse 結果較好
+                score_normal = len(parsed)
+                score_rot = len(parsed_rot)
+                if score_rot > score_normal:
+                    return (text_rot, None)
+        return (text, None)
+    return (text, err)
+
+
+def ocr_cover_rotated(pdf_path: Path, lang: str = 'chi_tra+eng', angle: int = 90) -> tuple:
+    """OCR PDF cover 但旋轉指定角度. Return (text, error)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        prefix = f'{tmpdir}/cover'
+        r = subprocess.run(
+            ['pdftoppm', '-r', '150', '-f', '1', '-l', '1', str(pdf_path), prefix],
+            capture_output=True, timeout=30
+        )
+        if r.returncode != 0:
+            return ('', 'pdftoppm fail')
+        png_files = list(Path(tmpdir).glob('cover*.ppm')) + list(Path(tmpdir).glob('cover*.png'))
+        if not png_files:
+            return ('', 'no image produced')
+        # PIL rotate
+        from PIL import Image
+        img = Image.open(png_files[0])
+        img_rot = img.rotate(angle, expand=True)
+        rotated_path = Path(tmpdir) / 'rotated.png'
+        img_rot.save(rotated_path)
+        out_prefix = f'{tmpdir}/out'
+        r = subprocess.run(
+            ['tesseract', str(rotated_path), out_prefix, '-l', lang],
+            capture_output=True, timeout=60
+        )
+        out_txt = Path(out_prefix + '.txt')
+        if r.returncode != 0 or not out_txt.exists():
+            return ('', 'tesseract fail')
+        return (out_txt.read_text(), None)
