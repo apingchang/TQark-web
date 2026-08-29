@@ -30,8 +30,20 @@ def normalize_county(county: str) -> str:
     return COUNTY_UPGRADE.get(county, county)
 
 def normalize_school_name(school_name: str, county: str) -> str:
-    """去 county+縣/市立 prefix: '臺南市立復興國中' → '復興國中'"""
-    if not school_name or not county:
+    """去 county+縣/市立/國立 prefix. SPEC 8/29 增 '國立'.
+
+    例:
+    - '臺南市立復興國中' → '復興國中'
+    - '彰化縣立溪湖高中' → '溪湖高中'
+    - '國立溪湖高級中學' → '溪湖高級中學'
+    """
+    if not school_name:
+        return school_name
+    # 1. 移除 '國立' prefix (常見, 不依 county)
+    if school_name.startswith('國立'):
+        school_name = school_name[2:]
+    # 2. 移除 county+立 prefix
+    if not county:
         return school_name
     county_no_suffix = county.replace('市', '').replace('縣', '')
     prefixes = [county + '立', county_no_suffix + '縣立', county_no_suffix + '市立', county + '國立']
@@ -204,8 +216,9 @@ def build_new_relpath(parsed, filetype=None):
     """建新 rel_path. 依 SPEC 8/28+8/29.
 
     - county 缺 → _未分類/<grade>/<subject>/
-    - county 有 + school 缺 → <county>/未分類<level>/<grade>/<subject>/ (default 國中)
-    - 全有 → <county>/<school>/<level>/<grade>/<subject>/
+    - county 有 + school 有 → <county>/<school>/<grade>/<subject>/ (school 知名時, 簡化沒 level)
+    - county 有 + school 缺 (level 已知) → <county>/<level>/<grade>/ (沒 subject, 簡化)
+    - county 有 + school 缺 + level 未明 → <county>/未分類<level>/<grade>/<subject>/
     """
     county = parsed.get('county', '')
     grade = parsed.get('grade', '未註明')
@@ -220,8 +233,11 @@ def build_new_relpath(parsed, filetype=None):
         if subject and subject != '未分類':
             parts.append(subject)
         return '/'.join(parts)
-    school_display = school if school else f'未分類{level}'
-    parts = [county, school_display, level, grade, subject]
+    if school:
+        parts = [county, school, grade, subject]
+        parts = [p for p in parts if p and p != '未註明' and (p != '未分類')]
+        return '/'.join(parts)
+    parts = [county, level, grade]
     parts = [p for p in parts if p and p != '未註明' and (p != '未分類')]
     return '/'.join(parts)
 

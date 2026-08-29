@@ -38,11 +38,23 @@ def _abs_from_rel(rel: str) -> str:
 # OCR 抽 cover page text
 # ============================================================
 
-def _preprocess_image(img_path: Path) -> Path:
-    """對掃描影像做 preprocess: 灰階 + 對比增強. 提昇 image-based PDF OCR 成功率."""
+def _preprocess_image(img_input) -> Path:
+    """對掃描影像做 preprocess: 灰階 + 對比增強. 提昇 image-based PDF OCR 成功率.
+
+    SPEC 8/29: 接受 Path 或 PIL.Image object (rotation 後直接傳 image 物件).
+    """
     from PIL import Image, ImageEnhance, ImageFilter
     try:
-        img = Image.open(img_path)
+        # 1. load image (Path 或 image 物件)
+        if isinstance(img_input, Image.Image):
+            img = img_input
+            # 找 tmp dir 存檔 (傳 image 物件沒有 parent)
+            import tempfile
+            tmp_dir = Path(tempfile.gettempdir())
+            out_path = tmp_dir / f'pre_{id(img)}.png'
+        else:
+            img = Image.open(img_input)
+            out_path = img_input.parent / (img_input.stem + '_pre.png')
         # 灰階
         if img.mode != 'L':
             img = img.convert('L')
@@ -51,12 +63,10 @@ def _preprocess_image(img_path: Path) -> Path:
         img = enhancer.enhance(1.5)
         # 銳化
         img = img.filter(ImageFilter.SHARPEN)
-        # 存
-        out_path = img_path.parent / (img_path.stem + '_pre.png')
         img.save(out_path)
         return out_path
     except Exception:
-        return img_path  # 失敗就 return 原檔
+        return img_input  # 失敗就 return 原輸入
 
 
 def ocr_cover(pdf_path: Path, lang: str = 'chi_tra+eng', max_pages: int = 3) -> tuple:
@@ -81,6 +91,8 @@ def ocr_cover(pdf_path: Path, lang: str = 'chi_tra+eng', max_pages: int = 3) -> 
             return (text, None)
 
     # 2. pdftotext 抓不到 → 走 OCR
+    # SPEC 8/29 (Step B+): 圖片 PDF 可能需要 rotate 90 度 (順時針) 才能 OCR
+    metadata_keywords = ['學年度', '學期', '段考', '考試', '解答', '試題', '年級', '學校', '高級中學', '國中', '國立']
     with tempfile.TemporaryDirectory() as tmpdir:
         prefix = f'{tmpdir}/cover'
         r = subprocess.run(
@@ -92,18 +104,43 @@ def ocr_cover(pdf_path: Path, lang: str = 'chi_tra+eng', max_pages: int = 3) -> 
         png_files = sorted(list(Path(tmpdir).glob('cover*.ppm')) + list(Path(tmpdir).glob('cover*.png')))
         if not png_files:
             return ('', 'no image produced')
+
+        # 對每頁試 normal + rotated 90 (順時針)
+        # 用 PIL 旋轉
+        from PIL import Image
         all_text = []
         for png in png_files:
-            preprocessed = _preprocess_image(png)
-            out_prefix = f'{tmpdir}/out_{png.stem}'
-            r = subprocess.run(
-                ['tesseract', str(preprocessed), out_prefix, '-l', lang, '--psm', '6'],
-                capture_output=True, timeout=60
-            )
-            out_txt = Path(out_prefix + '.txt')
-            if r.returncode != 0 or not out_txt.exists():
-                continue
-            all_text.append(out_txt.read_text())
+            best_text = ''
+            found_metadata = False
+            # 試多個 PSM 模式
+            for psm in (6, 3):  # 6=uniform block, 3=auto (含直式)
+                for rotation in (0, -90):  # 0=normal, -90=順時針
+                    try:
+                        img = Image.open(png)
+                        if rotation == -90:
+                            img = img.rotate(rotation, expand=True)
+                        preprocessed = _preprocess_image(img)
+                        out_prefix = f'{tmpdir}/out_{png.stem}_r{rotation}_p{psm}'
+                        r = subprocess.run(
+                            ['tesseract', str(preprocessed), out_prefix, '-l', lang, '--psm', str(psm)],
+                            capture_output=True, timeout=60
+                        )
+                        out_txt = Path(out_prefix + '.txt')
+                        if r.returncode != 0 or not out_txt.exists():
+                            continue
+                        page_text = out_txt.read_text()
+                        if not best_text or len(page_text) > len(best_text):
+                            best_text = page_text
+                        # 如果這頁有 metadata keyword → 用這個
+                        if any(kw in page_text for kw in metadata_keywords):
+                            found_metadata = True
+                            break
+                    except Exception:
+                        continue
+                if found_metadata:
+                    break
+            if best_text:
+                all_text.append(best_text)
         if not all_text:
             return ('', 'all pages tesseract fail')
         return ('\n'.join(all_text), None)
@@ -152,7 +189,17 @@ EXAM_PATTERNS = [
 ]
 
 # 年級
-GRADES = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級', '七年級', '八年級', '九年級', '十年級', '十一年級', '十二年級']
+GRADES = [
+    '一年級', '二年級', '三年級', '四年級', '五年級', '六年級',
+    '七年級', '八年級', '九年級',
+    '十年級', '十一年級', '十二年級',
+]
+# SPEC 8/29: 高中 cover 常寫 '高一/高二/高三' (口語), '高X各班', '高X年級'
+GRADE_VARIANTS = {
+    '高一': '十年級', '高二': '十一年級', '高三': '十二年級',
+    '高一各班': '十年級', '高二各班': '十一年級', '高三各班': '十二年級',
+    '高一年級': '十年級', '高二年級': '十一年級', '高三年級': '十二年級',
+}
 
 # 學校 patterns: 縣市 + 立/縣立/市立 + 學校名
 SCHOOL_PATTERNS = [
@@ -230,11 +277,16 @@ def parse_ocr_text(text: str) -> dict:
     else:
         result['filetype'] = 'paper'
     
-    # 6. grade (年級先抽)
-    for g in GRADES:
-        if g in text:
-            result['grade'] = g
+    # 6. grade (年級先抽) — 含 '高X/高X各班/高X年級' 變體
+    for variant, official in GRADE_VARIANTS.items():
+        if variant in text:
+            result['grade'] = official
             break
+    if not result.get('grade'):
+        for g in GRADES:
+            if g in text:
+                result['grade'] = g
+                break
 
     # 7. level 推算 (先看 school_name 結尾 → fallback grade)
     # 因為「二年級」可能是「國小二年級」或「國中二年級」(8年級), 純 grade 推不夠
@@ -491,3 +543,106 @@ def ocr_cover_rotated(pdf_path: Path, lang: str = 'chi_tra+eng', angle: int = 90
         if r.returncode != 0 or not out_txt.exists():
             return ('', 'tesseract fail')
         return (out_txt.read_text(), None)
+
+
+# ============================================================
+# Rotate PDF image content (image-based PDF)
+# SPEC 8/29: image PDF 旋轉 OCR 後, 必須把 image content rotate 並 save in-place
+# ============================================================
+
+def rotate_pdf_content(abs_path, rotation: int = -90):
+    """旋轉 PDF 每頁 image content (不是 view rotation). 用 PyMuPDF.
+
+    流程:
+    1. PyMuPDF 渲染每頁 → PNG bytes
+    2. PIL rotate
+    3. 新 PDF 把 rotated image 嵌進去
+    4. 覆蓋原檔 (in-place)
+    """
+    import fitz
+    import io
+    from PIL import Image
+    from pathlib import Path as P
+
+    abs_path = P(abs_path)
+    doc = fitz.open(str(abs_path))
+    new_doc = fitz.open()
+    for page in doc:
+        # 渲染 250 DPI
+        mat = fitz.Matrix(2.5, 2.5)
+        pix = page.get_pixmap(matrix=mat)
+        img_bytes = pix.tobytes('png')
+        pil_img = Image.open(io.BytesIO(img_bytes))
+        pil_rot = pil_img.rotate(rotation, expand=True)
+        rot_bytes = io.BytesIO()
+        pil_rot.save(rot_bytes, format='PNG')
+        rot_bytes.seek(0)
+        new_page = new_doc.new_page(width=pil_rot.size[0], height=pil_rot.size[1])
+        new_page.insert_image(new_page.rect, stream=rot_bytes.read())
+    new_doc.save(str(abs_path))
+    new_doc.close()
+    doc.close()
+
+
+def detect_pdf_rotation(abs_path, lang: str = 'chi_tra+eng') -> int:
+    """判斷 PDF 是否需要旋轉才能 OCR.
+
+    Return:
+    - 0: 不需要
+    - -90: 順時針 90°
+    - 90: 逆時針 90°
+    - 180: 180°
+    """
+    import fitz
+    import io
+    import tempfile
+    import subprocess
+    from PIL import Image
+    from pathlib import Path as P
+
+    abs_path = P(abs_path)
+    # 渲染 page 1
+    doc = fitz.open(str(abs_path))
+    if len(doc) == 0:
+        return 0
+    page = doc[0]
+    mat = fitz.Matrix(2, 2)
+    pix = page.get_pixmap(matrix=mat)
+    img_bytes = pix.tobytes('png')
+    doc.close()
+
+    # 試 normal + rotate 90°
+    pil_img = Image.open(io.BytesIO(img_bytes))
+    scores = {}
+    for r in (0, -90, 90, 180):
+        if r == 0:
+            test_img = pil_img
+        else:
+            test_img = pil_img.rotate(r, expand=True)
+        # save tmp + tesseract
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            test_img.save(tmp.name)
+            tmp_path = tmp.name
+        out_prefix = tmp_path + '_out'
+        result = subprocess.run(
+            ['tesseract', tmp_path, out_prefix, '-l', lang, '--psm', '3'],
+            capture_output=True, timeout=60
+        )
+        out_txt = P(out_prefix + '.txt')
+        if out_txt.exists():
+            text = out_txt.read_text()
+            # 啟發: 含中文 metadata keyword 越多, 分數越高
+            keywords = ['學年度', '學期', '段考', '考試', '解答', '試題', '年級', '學校', '高級中學', '國中', '國立', '科目', '老師', '班']
+            score = sum(1 for kw in keywords if kw in text)
+            # 加分: 中文字符密度 (中文 OCR 通常 char count > 10 為佳)
+            score += min(len([c for c in text if '\u4e00' <= c <= '\u9fff']) / 10, 5)
+            scores[r] = score
+            P(tmp_path).unlink()
+            out_txt.unlink()
+        else:
+            scores[r] = 0
+    # 選最高分 rotation
+    best = max(scores, key=scores.get)
+    if scores[best] > 0 and best != 0:
+        return best
+    return 0
