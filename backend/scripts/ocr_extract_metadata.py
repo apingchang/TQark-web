@@ -38,31 +38,75 @@ def _abs_from_rel(rel: str) -> str:
 # OCR 抽 cover page text
 # ============================================================
 
-def ocr_cover(pdf_path: Path, lang: str = 'chi_tra+eng') -> tuple:
-    """OCR PDF 第 1 頁 cover, return (text, error)."""
+def _preprocess_image(img_path: Path) -> Path:
+    """對掃描影像做 preprocess: 灰階 + 對比增強. 提昇 image-based PDF OCR 成功率."""
+    from PIL import Image, ImageEnhance, ImageFilter
+    try:
+        img = Image.open(img_path)
+        # 灰階
+        if img.mode != 'L':
+            img = img.convert('L')
+        # 對比增強 (×1.5)
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.5)
+        # 銳化
+        img = img.filter(ImageFilter.SHARPEN)
+        # 存
+        out_path = img_path.parent / (img_path.stem + '_pre.png')
+        img.save(out_path)
+        return out_path
+    except Exception:
+        return img_path  # 失敗就 return 原檔
+
+
+def ocr_cover(pdf_path: Path, lang: str = 'chi_tra+eng', max_pages: int = 3) -> tuple:
+    """OCR PDF 前 N 頁 cover (預設 page 1-3), return (text, error).
+
+    SPEC 8/29: 擴大辨識範圍 (Step B)
+    - 因為有些 PDF 第 1 頁是題目, metadata 在 page 2-3
+    - 先試 pdftotext (vector 文字, 較快較準), 沒字才 OCR image
+
+    改進: pdftotext vector 文字優先 → 沒字才 pdftoppm + tesseract OCR
+    """
+    # 1. 先試 pdftotext (vector 文字抽取, 包含 metadata 區)
+    r = subprocess.run(
+        ['pdftotext', '-layout', '-l', str(max_pages), str(pdf_path), '-'],
+        capture_output=True, timeout=30
+    )
+    if r.returncode == 0:
+        text = r.stdout.decode('utf-8', errors='ignore').strip()
+        # 簡單啟發: 含常見 metadata keyword → 是 metadata 區
+        metadata_keywords = ['學年度', '學期', '段考', '考試', '解答', '試題', '年級']
+        if text and any(kw in text for kw in metadata_keywords):
+            return (text, None)
+
+    # 2. pdftotext 抓不到 → 走 OCR
     with tempfile.TemporaryDirectory() as tmpdir:
         prefix = f'{tmpdir}/cover'
-        # 1. PDF → PNG
         r = subprocess.run(
-            ['pdftoppm', '-r', '150', '-f', '1', '-l', '1', str(pdf_path), prefix],
-            capture_output=True, timeout=30
+            ['pdftoppm', '-r', '200', '-f', '1', '-l', str(max_pages), str(pdf_path), prefix],
+            capture_output=True, timeout=60
         )
         if r.returncode != 0:
             return ('', 'pdftoppm fail')
-        # 2. 找產生的 PNG/PPM
-        png_files = list(Path(tmpdir).glob('cover*.ppm')) + list(Path(tmpdir).glob('cover*.png'))
+        png_files = sorted(list(Path(tmpdir).glob('cover*.ppm')) + list(Path(tmpdir).glob('cover*.png')))
         if not png_files:
             return ('', 'no image produced')
-        # 3. tesseract OCR
-        out_prefix = f'{tmpdir}/out'
-        r = subprocess.run(
-            ['tesseract', str(png_files[0]), out_prefix, '-l', lang],
-            capture_output=True, timeout=60
-        )
-        out_txt = Path(out_prefix + '.txt')
-        if r.returncode != 0 or not out_txt.exists():
-            return ('', 'tesseract fail')
-        return (out_txt.read_text(), None)
+        all_text = []
+        for png in png_files:
+            preprocessed = _preprocess_image(png)
+            out_prefix = f'{tmpdir}/out_{png.stem}'
+            r = subprocess.run(
+                ['tesseract', str(preprocessed), out_prefix, '-l', lang, '--psm', '6'],
+                capture_output=True, timeout=60
+            )
+            out_txt = Path(out_prefix + '.txt')
+            if r.returncode != 0 or not out_txt.exists():
+                continue
+            all_text.append(out_txt.read_text())
+        if not all_text:
+            return ('', 'all pages tesseract fail')
+        return ('\n'.join(all_text), None)
 
 
 # ============================================================
@@ -92,15 +136,19 @@ TERM_PATTERNS = [
 
 # 段考 patterns
 EXAM_PATTERNS = [
-    (re.compile(r'第\s*([1-3一二三])\s*次\s*定期\s*(?:考|評量)'), lambda m: f'第{m.group(1)}次定期考'),  # OK 因為 f-string 內 m.group
-    (re.compile(r'第\s*([1-3一二三])\s*次\s*段考'), lambda m: f'第{m.group(1)}次段考'),
+    (re.compile(r'第\s*([1-3一二三])\s*次\s*階段\s*評量'), lambda m: f'第{m.group(1)}次階段評量'),
     (re.compile(r'第\s*([1-3一二三])\s*階段\s*評量'), lambda m: f'第{m.group(1)}階段評量'),
+    (re.compile(r'第\s*([1-3一二三])\s*次\s*定期\s*(?:考|評量)'), lambda m: f'第{m.group(1)}次定期考'),
+    (re.compile(r'第\s*([1-3一二三])\s*次\s*段考'), lambda m: f'第{m.group(1)}次段考'),
+    (re.compile(r'第\s*([1-3一二三])\s*次\s*模擬考'), lambda m: f'第{m.group(1)}次模擬考'),
+    (re.compile(r'第\s*([1-3一二三])\s*次\s*月考'), lambda m: f'第{m.group(1)}次月考'),
     (re.compile(r'期中考'), lambda m: '期中考'),
     (re.compile(r'期末考'), lambda m: '期末考'),
-    (re.compile(r'(?:第\s*[1-3一二三]\s*次)?\s*模擬考'), lambda m: '模擬考'),
+    (re.compile(r'模擬考'), lambda m: '模擬考'),
     (re.compile(r'月考'), lambda m: '月考'),
     (re.compile(r'複習考'), lambda m: '複習考'),
-    (re.compile(r'定期(?:考|評量)'), lambda m: '定期評量'),
+    (re.compile(r'定期(?:評量|考)'), lambda m: '定期評量'),
+    (re.compile(r'階段評量'), lambda m: '階段評量'),
 ]
 
 # 年級
@@ -128,12 +176,24 @@ def parse_ocr_text(text: str) -> dict:
     # e.g., "桃園市立中興國民中學" / "臺東縣立新生國小"
     school_m = re.search(r'([\u4e00-\u9fff]{2,3}[市縣])立?[\u4e00-\u9fff]{2,15}(?:國[民中小]|高中|高工|商職|家商|工商|高商|高職)', text)
     if school_m:
-        result['school_name'] = school_m.group(0)
+        school_name = school_m.group(0)
     else:
         # 試單純 XX國小/國中/高中 (沒縣市)
-        school_m = re.search(r'([\u4e00-\u9fff]{2,15}(?:國民中學|國民小學|國中|國小|高中|高工|高商|高職|家商|工商))', text)
+        school_m = re.search(r'([\u4e00-\u9fff]{2,15}(?:國民中學|國民小學|國中部|國小部|高中部|高級中學|國中|國小|高中|高工|高商|高職|家商|工商))', text)
         if school_m:
-            result['school_name'] = school_m.group(0)
+            school_name = school_m.group(0)
+        else:
+            school_name = ''
+
+    # Bug 1 fix: 移除 placeholder (_local_HASH_, _unknown_xxx_)
+    if school_name:
+        # 移除 _local_[a-z0-9]+_ 或 _unknown_[^_]+_ 等 placeholder
+        # 例: "_新北市_unknown_第一次段考_local_eeac4a47_新北市崇林國中" → "新北市崇林國中"
+        # 第一步: 移除 _local_XXX_ 或 _unknown_XXX_
+        school_name = re.sub(r'_(?:local_[a-z0-9_]+|unknown_[^_]+)_', '_', school_name)
+        # 第二步: 移除多餘的底線
+        school_name = re.sub(r'_+', '_', school_name).strip('_')
+        result['school_name'] = school_name if school_name else ''
     
     # 3. year: 找 3-digit year + 學年/學年度
     year_m = re.search(r'(\d{2,3})\s*學年(?:度)?', text)
@@ -150,6 +210,12 @@ def parse_ocr_text(text: str) -> dict:
         if m:
             result['school_term'] = fn(m)
             break
+    # Fallback 1: 「(上)不分科系」/「(下)不分科系」 → 上/下學期
+    # 也涵蓋「(上)學期」、「(下)學期」 (括號包學期)
+    if 'school_term' not in result:
+        m = re.search(r'[\(（]\s*(上|下)\s*[\)）]', text)
+        if m:
+            result['school_term'] = m.group(1) + '學期'
     
     # 5. exam
     for pat, fn in EXAM_PATTERNS:
@@ -157,22 +223,61 @@ def parse_ocr_text(text: str) -> dict:
         if m:
             result['exam_type'] = fn(m)
             break
+
+    # 5.5 filetype (答案卷 vs 試題卷)
+    if any(kw in text for kw in ['答案卷', '標準答案', '解答', '解答卷', '參考答案', '答案紙', '答案  卷', '答案']):
+        result['filetype'] = 'daan'
+    else:
+        result['filetype'] = 'paper'
     
-    # 6. grade
+    # 6. grade (年級先抽)
     for g in GRADES:
         if g in text:
             result['grade'] = g
             break
-    
-    # 7. subject (從常見科目)
-    SUBJECTS = ['國文', '國語', '英語', '英文', '數學', '自然', '社會', '理化', '生物',
-                '歷史', '地理', '公民', '健康', '健體', '體育', '音樂', '美術', '家政',
-                '生活', '綜合活動', '資訊', '科技', '作文', '閱讀']
+
+    # 7. level 推算 (先看 school_name 結尾 → fallback grade)
+    # 因為「二年級」可能是「國小二年級」或「國中二年級」(8年級), 純 grade 推不夠
+    school = result.get('school_name', '') or ''
+    if '高級中學' in school or school.endswith('高中部'):
+        result['level'] = '高中'
+    elif '國民中學' in school or '國中部' in school or school.endswith('國中'):
+        result['level'] = '國中'
+    elif '國民小學' in school or '國小部' in school or school.endswith('國小'):
+        result['level'] = '國小'
+    elif result.get('grade'):
+        # Fallback: grade 推 (因為 cover 印的「OO 高中」可能錯, 但 grade 是學生實際年級)
+        if result['grade'] in ('一年級', '二年級', '三年級', '四年級', '五年級', '六年級'):
+            result['level'] = '國小'
+        elif result['grade'] in ('七年級', '八年級', '九年級'):
+            result['level'] = '國中'
+        elif result['grade'] in ('十年級', '十一年級', '十二年級'):
+            result['level'] = '高中'
+
+    # 8. subject (longest-match-first + 完整 keywords)
+    # SPEC 8/29: 科目一律不加「科」字 — 統一用 '社會', '國文', '英文', '數學', '自然' 等
+    # 順序重要: 長的 keyword 先 match (避免「英語」match 到「英語」前面)
+    SUBJECTS = [
+        # 含「領域/教育」長詞優先
+        '自然與生活科技', '健康與體育', '綜合活動領域', '語文學習領域',
+        '健康教育', '資訊科技', '生活科技',
+        # 加長詞版本 (沒「科」字), 確保 '社會科' 會 match '社會' (不會)
+        # 但為了保險, 也放長詞 '自然科學', '社會科學' (不會, 簡寫版本就好)
+        # 簡寫 (主體, 無科字)
+        '國文', '國語', '英語', '英文', '數學', '自然', '社會', '理化', '生物',
+        '歷史', '地理', '公民', '健康', '健體', '體育', '音樂', '美術', '家政',
+        '生活', '綜合', '資訊', '科技', '作文', '閱讀', '童軍',
+    ]
+    # longest first 已經排序 (Python 保持 list 順序)
     for s in SUBJECTS:
         if s in text:
             result['subject'] = s
             break
-    
+
+    # SPEC 8/29: 科目一律不加「科」字 — sanitize (e.g., '社會科' → '社會')
+    if result.get('subject'):
+        result['subject'] = result['subject'].replace('科', '')
+
     return result
 
 
