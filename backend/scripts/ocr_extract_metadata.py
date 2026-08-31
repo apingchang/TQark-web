@@ -142,7 +142,7 @@ def ocr_cover(pdf_path: Path, lang: str = 'chi_tra+eng', max_pages: int = 3) -> 
                         out_prefix = f'{tmpdir}/out_{png.stem}_r{rotation}_p{psm}'
                         r = subprocess.run(
                             ['tesseract', str(preprocessed), out_prefix, '-l', lang, '--psm', str(psm)],
-                            capture_output=True, timeout=60
+                            capture_output=True, timeout=20  # SPEC 8/31: short timeout for batch speed
                         )
                         out_txt = Path(out_prefix + '.txt')
                         if r.returncode != 0 or not out_txt.exists():
