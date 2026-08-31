@@ -208,14 +208,15 @@ def build_new_filename(parsed, filetype=None):
     safe_exam = exam.replace('/', '／').replace(':', '：')
     safe_subject = subject.replace('/', '／').replace(':', '：')
     safe_grade = grade.replace('/', '／').replace(':', '：')
-    # SPEC 8/31 (William 拍板 22:36): county 是 _未分類/空/None → filename 跳過 county 段
-    # 避免 filename 出現 "_未分類_北興國中_七年級_..."
-    parts = []
-    for p in [county, safe_school, safe_grade, year, term, safe_exam, safe_subject, version]:
+    # SPEC 8/31 (William 拍板 22:37): county 空時 filename 也要寫 _未分類 (不放棄)
+    # 範例: county=空 → _未分類_北興國中_七年級_108_下學期_第一次段考_數學_翰林_daan.pdf
+    if not county or county.startswith('_未分類'):
+        county = '_未分類'
+    parts = [county]
+    for p in [safe_school, safe_grade, year, term, safe_exam, safe_subject, version]:
         if not p: continue
         if p == '未註明': continue
         if p == '未分類': continue
-        if p.startswith('_未分類'): continue  # SPEC 8/31 fix
         parts.append(p)
     if ft == 'daan':
         # SPEC 8/31 fix: version 已有 _daan → 不重複加
