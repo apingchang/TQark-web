@@ -26,25 +26,60 @@ from app.scraper.local_index import _walk_archive
 
 ARCHIVE_DIR = Path(os.environ.get("TQARK_ARCHIVE_DIR", "/mnt/my_book/考題收集"))
 
+# SPEC 8/31: Lock file 防止 db_rescan 跟 OCR pipeline 衝突
+LOCK_PATH = Path('/tmp/tqark_db_rescan.lock')
+LOCK_TIMEOUT_MIN = 30  # 30 分鐘內 lock 被認為 active, OCR pipeline 跑
+
+
+def acquire_lock():
+    """獲取 lock. 若 lock active (其他 process 跑), return False."""
+    if LOCK_PATH.exists():
+        age_min = (time.time() - LOCK_PATH.stat().st_mtime) / 60
+        if age_min < LOCK_TIMEOUT_MIN:
+            print(f"[db_rescan] Lock active ({age_min:.1f}min), aborting to avoid OCR pipeline collision", flush=True)
+            return False
+        else:
+            print(f"[db_rescan] Stale lock ({age_min:.1f}min), removing", flush=True)
+            LOCK_PATH.unlink()
+    LOCK_PATH.write_text(f'pid={os.getpid()}\ntime={time.time()}\n')
+    print(f"[db_rescan] Lock acquired (pid={os.getpid()})", flush=True)
+    return True
+
+
+def release_lock():
+    """釋放 lock."""
+    try:
+        LOCK_PATH.unlink()
+        print(f"[db_rescan] Lock released", flush=True)
+    except FileNotFoundError:
+        pass
+
 
 def main():
     db_path = get_db_path()
     print(f"[db_rescan] Archive: {ARCHIVE_DIR}", flush=True)
     print(f"[db_rescan] DB: {db_path}", flush=True)
 
-    t0 = time.time()
-    init_db(db_path)
-    print(f"[db_rescan] init_db done ({time.time() - t0:.2f}s)", flush=True)
+    # SPEC 8/31: Try acquire lock
+    if not acquire_lock():
+        sys.exit(0)
 
-    t1 = time.time()
-    items = _walk_archive()  # uses its own ARCHIVE_ROOT constant
-    print(f"[db_rescan] walk archive: {len(items)} items ({time.time() - t1:.1f}s)", flush=True)
+    try:
+        t0 = time.time()
+        init_db(db_path)
+        print(f"[db_rescan] init_db done ({time.time() - t0:.2f}s)", flush=True)
 
-    t2 = time.time()
-    rebuild_from_items(items, db_path=db_path)
-    print(f"[db_rescan] rebuild done ({time.time() - t2:.1f}s)", flush=True)
+        t1 = time.time()
+        items = _walk_archive()  # uses its own ARCHIVE_ROOT constant
+        print(f"[db_rescan] walk archive: {len(items)} items ({time.time() - t1:.1f}s)", flush=True)
 
-    print(f"[db_rescan] ✅ Total: {time.time() - t0:.1f}s, {len(items)} items", flush=True)
+        t2 = time.time()
+        rebuild_from_items(items, db_path=db_path)
+        print(f"[db_rescan] rebuild done ({time.time() - t2:.1f}s)", flush=True)
+
+        print(f"[db_rescan] ✅ Total: {time.time() - t0:.1f}s, {len(items)} items", flush=True)
+    finally:
+        release_lock()
 
 
 if __name__ == "__main__":

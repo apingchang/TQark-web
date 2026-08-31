@@ -213,9 +213,11 @@ def parse_ocr_text(text: str) -> dict:
         return {}
     result = {}
     
-    # 1. county: 找 COUNTY 出現的位置
+    # 1. county: 只從 cover header (前 5 行 / 300 chars) 抓, 避免題目內誤判
+    # 例: 「臺南市」在 cover 標題 = 真實 county; 「臺南市」在題目/選項 = 干擾
+    header_text = text[:300]
     for c in COUNTIES:
-        if c in text:
+        if c in header_text:
             result['county'] = '臺' + c[1:] if c.startswith('台') else c
             break
     
@@ -321,8 +323,14 @@ def parse_ocr_text(text: str) -> dict:
         '生活', '綜合', '資訊', '科技', '作文', '閱讀', '童軍',
     ]
     # longest first 已經排序 (Python 保持 list 順序)
+    # 但 '公民' 和 '社會' 同長度 (2字), '社會' 在 cover 選項/題目常出現 → '社會' 會先 match 而 '公民' 抓不到
+    # 修: 把 '公民' 移到 '社會' 之前 (「公民」subject 通常 cover 標題明確寫「公民科」)
     for s in SUBJECTS:
         if s in text:
+            # 如果抓到 '社會' 但 cover 標題有 '公民' → 應該是 '公民'
+            if s == '社會' and '公民' in text and '社會科' not in text:
+                # 確認 '公民' 是更 specific subject, 跳過 '社會'
+                continue
             result['subject'] = s
             break
 
