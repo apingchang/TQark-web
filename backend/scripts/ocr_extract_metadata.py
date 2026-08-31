@@ -90,6 +90,25 @@ def ocr_cover(pdf_path: Path, lang: str = 'chi_tra+eng', max_pages: int = 3) -> 
         if text and any(kw in text for kw in metadata_keywords):
             return (text, None)
 
+    # 1b. SPEC 8/31 fix: pdftotext 對直書 layout fail → 試 fitz.get_text() (直書 friendly)
+    # 直書 cover 拆字: 每個中文字被分成獨立一行 (e.g. '學\n年\n度')
+    # 對直書 text 去換行後再 match metadata keyword
+    try:
+        import fitz
+        with fitz.open(str(pdf_path)) as doc:
+            page_count = min(max_pages, len(doc))
+            fitz_texts = []
+            for i in range(page_count):
+                t = doc[i].get_text() or ''
+                fitz_texts.append(t)
+            fitz_text = '\n'.join(fitz_texts).strip()
+            metadata_keywords = ['學年度', '學期', '段考', '考試', '解答', '試題', '年級', '學校']
+            fitz_text_compact = fitz_text.replace('\n', '').replace(' ', '')
+            if fitz_text and any(kw in fitz_text_compact for kw in metadata_keywords):
+                return (fitz_text, None)
+    except Exception:
+        pass
+
     # 2. pdftotext 抓不到 → 走 OCR
     # SPEC 8/29 (Step B+): 圖片 PDF 可能需要 rotate 90 度 (順時針) 才能 OCR
     metadata_keywords = ['學年度', '學期', '段考', '考試', '解答', '試題', '年級', '學校', '高級中學', '國中', '國立']
@@ -213,6 +232,10 @@ def parse_ocr_text(text: str) -> dict:
         return {}
     result = {}
     
+    # SPEC 8/31 fix: 直書 cover 拆字 (e.g. '學\n年\n度\n第\n二\n學\n期\n')
+    # 對直書 text 去換行後再 match metadata keyword, 同時保留原 text 供 record_audit 用
+    text_compact = text.replace('\n', '').replace(' ', '') if text else text
+    
     # 1. county: 只從 cover header (前 5 行 / 300 chars) 抓, 避免題目內誤判
     # 例: 「臺南市」在 cover 標題 = 真實 county; 「臺南市」在題目/選項 = 干擾
     header_text = text[:300]
@@ -220,10 +243,19 @@ def parse_ocr_text(text: str) -> dict:
         if c in header_text:
             result['county'] = '臺' + c[1:] if c.startswith('台') else c
             break
+    # 直書 cover 拆字 case: 用 text_compact 再試 county
+    if 'county' not in result:
+        for c in COUNTIES:
+            if c in text_compact[:300]:
+                result['county'] = '臺' + c[1:] if c.startswith('台') else c
+                break
     
     # 2. school: 找 XX縣市XX學校 pattern
     # e.g., "桃園市立中興國民中學" / "臺東縣立新生國小"
-    school_m = re.search(r'([\u4e00-\u9fff]{2,3}[市縣])立?[\u4e00-\u9fff]{2,15}(?:國[民中小]|高中|高工|商職|家商|工商|高商|高職)', text)
+    school_m = re.search(r'([\u4e00-\u9fff]{2,3}[市縣])立?[\u4e00-\u9fff]{2,15}(?:國[民中小]|高中|高工|商職|家商|工商|高商|高職)', text_compact)
+    if not school_m:
+        # 直書 cover 拆字: 試原 text
+        school_m = re.search(r'([\u4e00-\u9fff]{2,3}[市縣])立?[\u4e00-\u9fff]{2,15}(?:國[民中小]|高中|高工|商職|家商|工商|高商|高職)', text)
     if school_m:
         school_name = school_m.group(0)
     else:
@@ -244,8 +276,10 @@ def parse_ocr_text(text: str) -> dict:
         school_name = re.sub(r'_+', '_', school_name).strip('_')
         result['school_name'] = school_name if school_name else ''
     
-    # 3. year: 找 3-digit year + 學年/學年度
+    # 3. year: 找 3-digit year + 學年/學年度 (SPEC 8/31: 直書 text_compact 也試)
     year_m = re.search(r'(\d{2,3})\s*學年(?:度)?', text)
+    if not year_m:
+        year_m = re.search(r'(\d{2,3})\s*學年(?:度)?', text_compact)
     if year_m:
         y = year_m.group(1)
         # Normalize: 2-digit → 3-digit (assume 民國年)
@@ -253,12 +287,18 @@ def parse_ocr_text(text: str) -> dict:
             y = '1' + y if int(y) < 50 else '0' + y
         result['school_year'] = y
     
-    # 4. term
+    # 4. term (SPEC 8/31: 直書 text_compact 也試)
     for pat, fn in TERM_PATTERNS:
         m = pat.search(text)
         if m:
             result['school_term'] = fn(m)
             break
+    if 'school_term' not in result:
+        for pat, fn in TERM_PATTERNS:
+            m = pat.search(text_compact)
+            if m:
+                result['school_term'] = fn(m)
+                break
     # Fallback 1: 「(上)不分科系」/「(下)不分科系」 → 上/下學期
     # 也涵蓋「(上)學期」、「(下)學期」 (括號包學期)
     if 'school_term' not in result:
@@ -266,12 +306,18 @@ def parse_ocr_text(text: str) -> dict:
         if m:
             result['school_term'] = m.group(1) + '學期'
     
-    # 5. exam
+    # 5. exam (SPEC 8/31: 直書 text_compact 也試)
     for pat, fn in EXAM_PATTERNS:
         m = pat.search(text)
         if m:
             result['exam_type'] = fn(m)
             break
+    if 'exam_type' not in result:
+        for pat, fn in EXAM_PATTERNS:
+            m = pat.search(text_compact)
+            if m:
+                result['exam_type'] = fn(m)
+                break
 
     # 5.5 filetype (答案卷 vs 試題卷)
     if any(kw in text for kw in ['答案卷', '標準答案', '解答', '解答卷', '參考答案', '答案紙', '答案  卷', '答案']):
@@ -279,14 +325,14 @@ def parse_ocr_text(text: str) -> dict:
     else:
         result['filetype'] = 'paper'
     
-    # 6. grade (年級先抽) — 含 '高X/高X各班/高X年級' 變體
+    # 6. grade (年級先抽) — 含 '高X/高X各班/高X年級' 變體 (SPEC 8/31: 直書 text_compact 也試)
     for variant, official in GRADE_VARIANTS.items():
-        if variant in text:
+        if variant in text or variant in text_compact:
             result['grade'] = official
             break
     if not result.get('grade'):
         for g in GRADES:
-            if g in text:
+            if g in text or g in text_compact:
                 result['grade'] = g
                 break
 
@@ -504,22 +550,30 @@ if __name__ == '__main__':
 # ============================================================
 
 def ocr_cover_robust(pdf_path: Path, lang: str = 'chi_tra+eng') -> tuple:
-    """OCR PDF cover, 支援直式 (rotation fallback). Return (text, error)."""
+    """OCR PDF cover, 支援直式 (rotation fallback). Return (text, error).
+
+    SPEC 8/31 fix: rotation 方向修正 - 直式 paper 需 CW 90° (PIL -90)
+    試 normal → CW 90° (-90) → CCW 90° (90) → 180°, 取 metadata 最多的
+    """
     text, err = ocr_cover(pdf_path, lang)
     if text and err is None:
-        # 檢查是否 parse 出 metadata, 沒 parse → 試 rotation
         parsed = parse_ocr_text(text)
-        if not parsed or (not parsed.get('school_name') and not parsed.get('county')):
-            # 嘗試 rotation 90 度
-            text_rot, err_rot = ocr_cover_rotated(pdf_path, lang, angle=90)
+        # 如果 normal 抓到完整 metadata (school + county) → 直接 return
+        if parsed.get('school_name') and parsed.get('county'):
+            return (text, None)
+        # 否則試 rotation fallback
+        candidates = [(text, parsed, 'normal')]
+        # 試 CW 90° (-90° in PIL), CCW 90° (90°), 180°
+        for angle in (-90, 90, 180):
+            text_rot, err_rot = ocr_cover_rotated(pdf_path, lang, angle=angle)
             if text_rot and err_rot is None:
                 parsed_rot = parse_ocr_text(text_rot)
-                # 比較哪個 parse 結果較好
-                score_normal = len(parsed)
-                score_rot = len(parsed_rot)
-                if score_rot > score_normal:
-                    return (text_rot, None)
-        return (text, None)
+                candidates.append((text_rot, parsed_rot, f'rot{angle}'))
+        # 取 metadata 最完整的 (school + county + term + exam + grade + subject)
+        def score(p):
+            return sum(1 for k in ['school_name', 'county', 'school_year', 'school_term', 'exam_type', 'grade', 'subject'] if p.get(k))
+        best = max(candidates, key=lambda c: score(c[1]))
+        return (best[0], None)
     return (text, err)
 
 
