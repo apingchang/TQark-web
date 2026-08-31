@@ -208,10 +208,15 @@ def build_new_filename(parsed, filetype=None):
     safe_exam = exam.replace('/', '／').replace(':', '：')
     safe_subject = subject.replace('/', '／').replace(':', '：')
     safe_grade = grade.replace('/', '／').replace(':', '：')
+    # SPEC 8/31 (William 拍板 22:36): county 是 _未分類/空/None → filename 跳過 county 段
+    # 避免 filename 出現 "_未分類_北興國中_七年級_..."
     parts = []
     for p in [county, safe_school, safe_grade, year, term, safe_exam, safe_subject, version]:
-        if p and p != '未註明' and (p != '未分類'):
-            parts.append(p)
+        if not p: continue
+        if p == '未註明': continue
+        if p == '未分類': continue
+        if p.startswith('_未分類'): continue  # SPEC 8/31 fix
+        parts.append(p)
     if ft == 'daan':
         # SPEC 8/31 fix: version 已有 _daan → 不重複加
         if not version.endswith('_daan'):
@@ -239,7 +244,9 @@ def build_new_relpath(parsed, filetype=None):
     # SPEC 8/29: 國中一年級 → 七年級, 高中一年級 → 十年級
     grade = normalize_grade_by_level(grade_raw, level) if grade_raw and grade_raw != '未註明' else grade_raw
     
-    if not county:
+    # SPEC 8/31 (William 拍板 22:36): county 是 _未分類/空/None → folder 視為 _未分類 邏輯
+    # 避免 _未分類/國中/七年級/... (level folder 不應該出現)
+    if not county or county.startswith('_未分類'):
         parts = ['_未分類']
         if grade and grade != '未註明':
             parts.append(grade)
