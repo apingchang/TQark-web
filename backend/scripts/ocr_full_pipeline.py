@@ -176,23 +176,29 @@ def normalize_grade_by_level(grade, level):
     return grade
 
 def build_new_filename(parsed, filetype=None):
-    """依 SPEC 8/28 + 8/29 建 filename.
+    """依 SPEC 8/28 + 8/29 + 8/31 建 filename.
 
     結構: <county>_<school>_<grade>_<year>_<term>_<exam>_<subject>_<version>[_daan].pdf
     - paper: 直接 .pdf (沒 _paper suffix)
-    - daan: 加 _daan 結尾
+    - daan: 加 _daan 結尾 (但 version 已有 _daan → 不重複加)
 
     空/未註明 segment 跳過.
+    Grade normalize (SPEC 8/29): 國中一年級 → 七年級 (跟 build_new_relpath 一致)
     """
     county = parsed.get('county', '') or ''
     school = parsed.get('school_name', '') or ''
-    grade = parsed.get('grade', '') or ''
+    grade_raw = parsed.get('grade', '') or ''
     year = parsed.get('school_year', '') or ''
     term = parsed.get('school_term', '') or ''
     exam = parsed.get('exam_type', '') or ''
     subject = parsed.get('subject', '') or ''
     version = parsed.get('version', '') or ''
     ft = filetype or parsed.get('filetype', 'paper')
+    
+    # SPEC 8/29: 國中一年級 → 七年級 (跟 build_new_relpath 一致, 讓 filename 跟 folder 對齊)
+    level = level_from_grade(grade_raw, exam_type=exam) or '國中'
+    grade = normalize_grade_by_level(grade_raw, level) if grade_raw else grade_raw
+    
     school = re.sub('_(?:local_[a-z0-9_]+|unknown_[^_]+)_', '_', school)
     school = school.lstrip('_').rstrip('_')
     if county:
@@ -207,25 +213,32 @@ def build_new_filename(parsed, filetype=None):
         if p and p != '未註明' and (p != '未分類'):
             parts.append(p)
     if ft == 'daan':
-        parts.append('daan')
+        # SPEC 8/31 fix: version 已有 _daan → 不重複加
+        if not version.endswith('_daan'):
+            parts.append('daan')
     if not parts:
         return '_未分類.pdf'
     return '_'.join(parts) + '.pdf'
 
 def build_new_relpath(parsed, filetype=None):
-    """建新 rel_path. 依 SPEC 8/28+8/29.
+    """建新 rel_path. 依 SPEC 8/28+8/29+8/31 (William 拍板 8/31 21:52).
 
+    Folder 結構 (永遠 level folder):
+    - <county>/<level>/<grade>/<subject>/
     - county 缺 → _未分類/<grade>/<subject>/
-    - county 有 + school 有 → <county>/<school>/<grade>/<subject>/ (school 知名時, 簡化沒 level)
-    - county 有 + school 缺 (level 已知) → <county>/<level>/<grade>/ (沒 subject, 簡化)
-    - county 有 + school 缺 + level 未明 → <county>/未分類<level>/<grade>/<subject>/
+    - school 缺 → <county>/<level>/<grade>/<subject>/
+
+    Level: 國小 (1-6), 國中 (7-9), 高中 (10-12)
+    Grade normalize: 國中一年級→七年級, 高中一年級→十年級 (SPEC 8/29)
     """
     county = parsed.get('county', '')
-    grade = parsed.get('grade', '未註明')
+    grade_raw = parsed.get('grade', '未註明')
     subject = parsed.get('subject', '未分類')
-    school = parsed.get('school_name', '')
-    level = level_from_grade(grade, exam_type=parsed.get('exam_type', '')) or '國中'
-    ft = filetype or parsed.get('filetype', 'paper')
+    exam = parsed.get('exam_type', '')
+    level = level_from_grade(grade_raw, exam_type=exam) or '國中'
+    # SPEC 8/29: 國中一年級 → 七年級, 高中一年級 → 十年級
+    grade = normalize_grade_by_level(grade_raw, level) if grade_raw and grade_raw != '未註明' else grade_raw
+    
     if not county:
         parts = ['_未分類']
         if grade and grade != '未註明':
@@ -233,11 +246,8 @@ def build_new_relpath(parsed, filetype=None):
         if subject and subject != '未分類':
             parts.append(subject)
         return '/'.join(parts)
-    if school:
-        parts = [county, school, grade, subject]
-        parts = [p for p in parts if p and p != '未註明' and (p != '未分類')]
-        return '/'.join(parts)
-    parts = [county, level, grade]
+    # county 有 → <county>/<level>/<grade>/<subject>/
+    parts = [county, level, grade, subject]
     parts = [p for p in parts if p and p != '未註明' and (p != '未分類')]
     return '/'.join(parts)
 
