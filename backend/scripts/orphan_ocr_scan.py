@@ -121,29 +121,31 @@ def main():
         except Exception:
             ocr_parsed = {}
 
-        # Quality check: must have at least county OR school_name
+        # Extract OCR metadata
         ocr_county = normalize_county(ocr_parsed.get('county', ''))
         ocr_school_raw = ocr_parsed.get('school_name', '')
-        # Validate school_name: must contain valid school keywords (國小/國中/高中/etc.)
-        # AND not garbled (must NOT start with known garbled prefixes)
-        is_valid_school = False
-        if ocr_school_raw:
-            school_kws = ['國小', '國中', '高中', '縣立', '市立', '高級中學', '國民中學', '國民小學', '附設', '完全中學']
-            garbled_prefixes = ['叩', '部臺', '未標名', '叩臺', '叩臺北']  # known garbled OCR results
-            if any(kw in ocr_school_raw for kw in school_kws) and not any(ocr_school_raw.startswith(p) for p in garbled_prefixes):
-                is_valid_school = True
-        ocr_school = ocr_school_raw if is_valid_school else ''
 
-        if not ocr_county and not ocr_school:
-            # OCR 沒抓到 metadata → 不要 INSERT records (會污染)
+        # county 從 school_name 拆解 (例 「叩臺北市大同區太平國民」 → 臺北市)
+        if not ocr_county and ocr_school_raw:
+            try:
+                from ocr_extract_metadata import COUNTIES as _COUNTIES
+                for c in _COUNTIES:
+                    if c in ocr_school_raw:
+                        ocr_county = c
+                        break
+            except Exception:
+                pass
+
+        # Quality check: county 必須有 (從 OCR 或從 school_name 拆解)
+        # 沒 county → LOW_QUALITY (records 不可信, 不 INSERT)
+        if not ocr_county:
             stats['low_quality'] += 1
-            plog(f'[{i+1}/{len(orphan_files)}] [LOW_QUALITY] {rel_path[:80]} (no county/school from OCR)')
+            plog(f'[{i+1}/{len(orphan_files)}] [LOW_QUALITY] {rel_path[:80]} (no county from OCR or school_name)')
             continue
 
         # Build metadata
         new_county = ocr_county or '_未分類'
-
-        new_school = ocr_school or '未標名'
+        new_school = ocr_school_raw or '未標名'
         new_school = normalize_school_name(new_school, new_county)
 
         new_year = ocr_parsed.get('school_year', '') or ''
