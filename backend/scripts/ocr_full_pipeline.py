@@ -30,26 +30,48 @@ def normalize_county(county: str) -> str:
     return COUNTY_UPGRADE.get(county, county)
 
 def normalize_school_name(school_name: str, county: str) -> str:
-    """去 county+縣/市立/國立 prefix. SPEC 8/29 增 '國立'.
+    """去 county/縣/市立/國立 prefix. SPEC 8/29 + William 8/31 21:54.
 
-    例:
-    - '臺南市立復興國中' → '復興國中'
-    - '彰化縣立溪湖高中' → '溪湖高中'
-    - '國立溪湖高級中學' → '溪湖高級中學'
+    Examples (all → 仁愛國中):
+    - '臺北市立仁愛國中' → '仁愛國中' (county+立)
+    - '臺北市仁愛國中' → '仁愛國中' (county only, no 立)
+    - '彰化縣立溪湖高中' → '溪湖高中' (county+立)
+    - '彰化縣溪湖高中' → '溪湖高中' (county only)
+    - '高雄市立獅甲國中' → '獅甲國中' (county+立)
+    - '國立臺灣大學' → '臺灣大學' (國立 prefix)
+    - '縣立大同國小' → '大同國小' (generic 縣立 if county match)
     """
     if not school_name:
         return school_name
     # 1. 移除 '國立' prefix (常見, 不依 county)
     if school_name.startswith('國立'):
         school_name = school_name[2:]
-    # 2. 移除 county+立 prefix
+    # 2. 移除 county prefix variants
     if not county:
         return school_name
-    county_no_suffix = county.replace('市', '').replace('縣', '')
-    prefixes = [county + '立', county_no_suffix + '縣立', county_no_suffix + '市立', county + '國立']
+    county_full = county  # e.g. '臺北市', '彰化縣'
+    county_no_suffix = county.replace('市', '').replace('縣', '')  # e.g. '臺北', '彰化'
+
+    # Multiple prefix variants to try (longest first)
+    prefixes = [
+        county_full + '立',              # '臺北市立'
+        county_full + '國立',            # '臺北市國立'
+        county_no_suffix + '縣立',       # '彰化縣立'
+        county_no_suffix + '市立',       # '臺北市立'
+        county_full,                     # '臺北市' (no 立)
+        county_no_suffix + '縣',         # '彰化縣'
+        county_no_suffix + '市',         # '臺北市'
+        # 通用 縣立 / 市立 (if county is 縣, strip 縣立; if 縣市, strip 市立)
+        '縣立' if county_full.endswith('縣') else '市立',
+    ]
+    # Sort by length (longest first to avoid partial match)
+    prefixes = sorted(set(prefixes), key=lambda x: -len(x))
+
     for p in prefixes:
         if school_name.startswith(p):
-            return school_name[len(p):]
+            stripped = school_name[len(p):]
+            if stripped:  # 確保有剩餘
+                return stripped
     return school_name
 
 def digit_to_chinese_year(n: int) -> str:
