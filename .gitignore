@@ -70,8 +70,13 @@ data/pdfs/
 
 # SQLite databases
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
+*.bak*
+backend/state/*.db*
+backend/state/*.bak*
 
 # Docker
 .docker/
